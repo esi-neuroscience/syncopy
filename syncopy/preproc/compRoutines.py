@@ -7,10 +7,11 @@
 # Builtin/3rd party package imports
 import numpy as np
 import scipy.signal as sci
+import logging, platform
 from inspect import signature
 
 # syncopy imports
-from syncopy.shared.computational_routine import ComputationalRoutine, propagate_metadata
+from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
 from syncopy.shared.const_def import spectralConversions, spectralDTypes
 from syncopy.shared.kwarg_decorators import process_io
 
@@ -155,7 +156,7 @@ class SincFiltering(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -278,7 +279,7 @@ class ButFiltering(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -340,7 +341,7 @@ class Rectify(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -391,6 +392,9 @@ def hilbert_cF(dat, output='abs', timeAxis=0, noCompute=False, chunkShape=None):
     if noCompute:
         return outShape, fmt
 
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Computing Hilbert transformation on data chunk with shape {dat.shape} along axis 0.")
+
     trafo = sci.hilbert(dat, axis=0)
 
     return spectralConversions[output](trafo)
@@ -418,7 +422,7 @@ class Hilbert(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -473,6 +477,9 @@ def downsample_cF(dat,
         outShape[0] = int(np.ceil(dat.shape[0] / skipped))
         return tuple(outShape), dat.dtype
 
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Downsampling data chunk with shape {dat.shape} from samplerate {samplerate} to {new_samplerate}.")
+
     resampled = downsample(dat, samplerate, new_samplerate)
 
     return resampled
@@ -501,14 +508,15 @@ class Downsample(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # we need to re-calculate the downsampling factor
-        factor = int(data.samplerate // self.cfg['new_samplerate'])
+        # that it actually is an 1 / integer gets checked in the frontend
+        factor = self.cfg['new_samplerate'] / data.samplerate
 
         if data.selection is not None:
             chanSec = data.selection.channel
-            trl = data.selection.trialdefinition // factor
+            trl = _resampling_trl_definition(data.selection.trialdefinition, factor)
         else:
             chanSec = slice(None)
-            trl = data.trialdefinition // factor
+            trl = _resampling_trl_definition(data.trialdefinition, factor)
 
         out.trialdefinition = trl
         # now set new samplerate
@@ -582,6 +590,9 @@ def resample_cF(dat,
         new_nSamples = int(np.ceil(nSamples * fs_ratio))
         return (new_nSamples, dat.shape[1]), dat.dtype
 
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Resampling data chunk with shape {dat.shape} from samplerate {samplerate} to {new_samplerate} with lpfreq={lpfreq}, order={order}.")
+
     resampled = resample(dat,
                          samplerate,
                          new_samplerate,
@@ -615,14 +626,14 @@ class Resample(ComputationalRoutine):
 
         # we need to re-calculate the resampling factor
         factor = self.cfg['new_samplerate'] / data.samplerate
-        trafo_trl = lambda trldef: np.ceil(trldef * factor)
+        trafo_trl = _resampling_trl_definition
 
         if data.selection is not None:
             chanSec = data.selection.channel
-            trl = trafo_trl(data.selection.trialdefinition)
+            trl = trafo_trl(data.selection.trialdefinition, factor)
         else:
             chanSec = slice(None)
-            trl = trafo_trl(data.trialdefinition)
+            trl = trafo_trl(data.trialdefinition, factor)
 
         out.trialdefinition = trl
 
@@ -636,7 +647,7 @@ def detrending_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShape
 
     """
     Simple cF to wire SciPy's `detrend` to our CRs,
-    supported are constant and linear detrending
+    supported are constant and linear detrending.
 
     Parameters
     ----------
@@ -687,6 +698,9 @@ def detrending_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShape
     if noCompute:
         return outShape, np.float32
 
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Detrending data chunk with shape {dat.shape} with polyremoval={polyremoval}.")
+
     # detrend
     if polyremoval == 0:
         dat = sci.detrend(dat, type='constant', axis=0, overwrite_data=True)
@@ -720,7 +734,7 @@ class Detrending(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
 
 
 @process_io
@@ -781,6 +795,9 @@ def standardize_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShap
     elif polyremoval == 1:
         dat = sci.detrend(dat, type='linear', axis=0, overwrite_data=True)
 
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Standardizing data chunk with shape {dat.shape} (prior polyremoval was {polyremoval}).")
+
     # standardize
     dat = (dat - np.mean(dat, axis=0)) / np.std(dat, axis=0)
 
@@ -811,4 +828,32 @@ class Standardize(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        propagate_metadata(data, out)
+        propagate_properties(data, out)
+
+
+def _resampling_trl_definition(orig_trl, factor):
+
+    """
+    Construct new trialdefinition from original
+    trialdefinition and the resampling factor
+    """
+
+    # start from input trial lengths and scale
+    # and ceil them to arrive at new trial lengths
+    # important is 1st diff then ceil..
+    sinfo = orig_trl[:, :2]
+    trl_len = np.ceil(np.diff(sinfo * factor, axis=1)).squeeze()
+
+    # use ceil again to define new trial start
+    # and offset samples
+    trl_scaled = np.ceil(orig_trl * factor)
+    trl_starts = trl_scaled[:, 0]
+    offsets = trl_scaled[:, 2]
+
+    # now add new trl_len to get new trial ends
+    trl_ends = trl_starts + trl_len
+
+    # finally stack everything back together
+    trldef = np.column_stack([trl_starts, trl_ends, offsets])
+
+    return trldef

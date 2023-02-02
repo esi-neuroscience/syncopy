@@ -7,6 +7,8 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+import logging
+import platform
 from scipy.signal import fftconvolve
 
 
@@ -24,7 +26,7 @@ def superlet(
     Performs Superlet Transform (SLT) according to Moca et al. [1]_
     Both multiplicative SLT and fractional adaptive SLT are available.
     The former is recommended for a narrow frequency band of interest,
-    whereas the  is better suited for the analysis of a broad range
+    whereas the latter is better suited for the analysis of a broad range
     of frequencies.
 
     A superlet (SL) is a set of Morlet wavelets with increasing number
@@ -61,7 +63,7 @@ def superlet(
         than 3 increase `order_min` as to never have less than 3 cycles
         in a wavelet!
     adaptive : bool
-        Wether to perform multiplicative SLT or fractional adaptive SLT.
+        Whether to perform fractional adaptive SLT or multiplicative SLT.
         If set to True, the order of the wavelet set will increase
         linearly with the frequencies of interest from `order_min`
         to `order_max`. If set to False the same SL will be used for
@@ -80,9 +82,12 @@ def superlet(
 
 
     """
+    logger = logging.getLogger("syncopy_" + platform.node())
 
     # adaptive SLT
     if adaptive:
+
+        logger.debug(f"Running fractional adaptive superlet transform with order_min={order_min}, order_max={order_max} and c_1={c_1} on data with shape {data_arr.shape}.")
 
         gmean_spec = FASLT(data_arr,
                            samplerate,
@@ -93,6 +98,8 @@ def superlet(
 
     # multiplicative SLT
     else:
+
+        logger.debug(f"Running multiplicative superlet transform with order_min={order_min}, order_max={order_max} and c_1={c_1} on data with shape {data_arr.shape}.")
 
         gmean_spec = multiplicativeSLT(data_arr,
                                        samplerate,

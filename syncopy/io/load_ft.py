@@ -288,7 +288,7 @@ def _read_hdf_structure(h5Group,
                                      dtype=np.float32,
                                      shape=[nTotalSamples, nChannels])
 
-    pbar = tqdm(trl_refs, desc=f"{struct_name} - loading {nTrials} trials")
+    pbar = tqdm(trl_refs, desc=f"{struct_name} - loading {nTrials} trials", disable=None)
     SampleCounter = 0   # trial stacking
 
     # one swipe per trial
@@ -470,7 +470,7 @@ def _get_Matlab_version(filename):
 
     # matches for example 'MATLAB 5.01'
     # with the version as only capture group
-    pattern = re.compile("^MATLAB\s(\d*\.\d*)")
+    pattern = re.compile(r"^MATLAB\s(\d*\.\d*)")
     match = pattern.match(header)
 
     if not match:

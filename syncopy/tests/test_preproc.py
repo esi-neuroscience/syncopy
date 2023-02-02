@@ -11,9 +11,7 @@ import numpy as np
 import matplotlib.pyplot as ppl
 
 # Local imports
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
+import dask.distributed as dd
 
 from syncopy import preprocessing as ppfunc
 from syncopy import AnalogData, freqanalysis
@@ -24,8 +22,6 @@ from syncopy.tests import synth_data as sd
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults, best_match
 
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 # Decorator to decide whether or not to run memory-intensive tests
 availMem = psutil.virtual_memory().total
 minRAM = 5
@@ -105,7 +101,7 @@ class TestButterworth:
                 foilim = self.freq_kw[ftype]
 
             # remaining power after filtering
-            pow_fil = spec_f.show(channel=0, foilim=foilim).sum()
+            pow_fil = spec_f.show(channel=0, frequency=foilim).sum()
             _, idx = best_match(spec_f.freq, foilim, span=True)
             # ratio of pass-band to total freqency band
             ratio = len(idx) / nFreq
@@ -191,11 +187,11 @@ class TestButterworth:
         # check here just for finiteness
         assert np.all(np.isfinite(result.data))
 
-    @skip_without_acme
     def test_but_parallel(self, testcluster=None):
 
         ppl.ioff()
         client = dd.Client(testcluster)
+        print(client)
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
 
@@ -317,7 +313,7 @@ class TestFIRWS:
                 foilim = self.freq_kw[ftype]
 
             # remaining power after filtering
-            pow_fil = spec_f.show(channel=0, foilim=foilim).sum()
+            pow_fil = spec_f.show(channel=0, frequency=foilim).sum()
             _, idx = best_match(spec_f.freq, foilim, span=True)
             # ratio of pass-band to total freqency band
             ratio = len(idx) / nFreq
@@ -398,7 +394,6 @@ class TestFIRWS:
         # check here just for finiteness
         assert np.all(np.isfinite(result.data))
 
-    @skip_without_acme
     def test_firws_parallel(self, testcluster=None):
 
         ppl.ioff()
@@ -488,7 +483,7 @@ class TestDetrending:
         assert np.allclose(np.mean(res.show(trials=1, channel=0)), 0, atol=1e-5)
 
         # check that the linear trend is gone
-        assert (orig_c0.max() - orig_c0.min()) > 1.8 * (res_c0.max() - res_c0.min())
+        assert (orig_c0.max() - orig_c0.min()) > 1.5 * (res_c0.max() - res_c0.min())
 
     def test_exceptions(self):
         with pytest.raises(SPYValueError, match='neither filtering, detrending or zscore'):
@@ -500,7 +495,6 @@ class TestDetrending:
         with pytest.raises(SPYValueError, match='expected value to be greater'):
             ppfunc(self.AData, filter_class=None, polyremoval=2)
 
-    @skip_without_acme
     def test_detr_parallel(self, testcluster=None):
 
         client = dd.Client(testcluster)
@@ -568,7 +562,6 @@ class TestStandardize:
         with pytest.raises(SPYValueError, match='expected either `True` or `False`'):
             ppfunc(self.AData, filter_class=None, zscore=2)
 
-    @skip_without_acme
     def test_zscore_parallel(self, testcluster=None):
 
         client = dd.Client(testcluster)

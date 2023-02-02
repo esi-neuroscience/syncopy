@@ -737,7 +737,7 @@ class ESI_TDTdata:
                     len(Files), len(idxStartStop), self.chan_in_chunks, hdf_out_path
                 )
             )
-            for (start, stop) in tqdm(iterable=idxStartStop, desc="chunk", unit="chunk"):
+            for (start, stop) in tqdm(iterable=idxStartStop, desc="chunk", unit="chunk", disable=None):
                 data = [self.read_data(Files[jj]) for jj in range(start, stop)]
                 data = np.vstack(data).T
                 if start == 0:

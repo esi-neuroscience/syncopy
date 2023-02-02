@@ -27,7 +27,9 @@ def process_padding(pad, lenTrials, samplerate):
     padding has to be done **after** tapering!
 
     This function returns a number indicating the total
-    length in sample-count of all trials after padding.
+    length in samples of all trials after padding. When
+    inputted into fft related methods, the actual padding
+    is then performed there.
 
     Parameters
     ----------
@@ -130,7 +132,7 @@ def process_foi(foi, foilim, samplerate):
         else:
             try:
                 array_parser(foi, varname="foi", hasinf=False, hasnan=False,
-                             lims=[0, samplerate/2], dims=(None,))
+                             lims=[0, samplerate / 2], dims=(None,))
             except Exception as exc:
                 raise exc
             foi = np.array(foi, dtype="float")
@@ -143,11 +145,12 @@ def process_foi(foi, foilim, samplerate):
                 raise SPYValueError(legal="'all' or `None` or `[fmin, fmax]`",
                                     varname="foilim", actual=foilim)
         else:
-            try:
-                array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
-                             lims=[0, samplerate/2], dims=(2,))
-            except Exception as exc:
-                raise exc
+            array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
+                         lims=[0, samplerate / 2], dims=(2,))
+
+            # QUICKFIX for #392
+            foilim = [float(f) for f in foilim]
+
             # foilim is of shape (2,)
             if foilim[0] > foilim[1]:
                 msg = "Sorting foilim low to high.."
@@ -172,7 +175,7 @@ def process_taper(taper,
 
     For multi-tapering with slepian tapers the default is to max out
     `nTaper` to achieve the desired frequency smoothing bandwidth.
-    For details about the Slepion settings see
+    For details about the Slepian settings see
 
     "The Effective Bandwidth of a Multitaper Spectral Estimator,
     A. T. Walden, E. J. McCoy and D. B. Percival"
@@ -283,12 +286,19 @@ def process_taper(taper,
 
         # direct mtm estimate (averaging) only valid for spectral power
         if not keeptapers and output != "pow":
-            lgl = "'pow', the only valid option for taper averaging"
-            raise SPYValueError(legal=lgl, varname="output", actual=output)
+            lgl = (f"'pow'|False or '{output}'|True, set either keeptapers=True "
+                   "or `output='pow'`!")
+            raise SPYValueError(legal=lgl, varname="output|keeptapers", actual=f"'{output}'|{keeptapers}")
 
         # --- minimal smoothing bandwidth ---
         # --- such that Kmax/nTaper is at least 1
         minBw = 2 * samplerate / nSamples
+        # -----------------------------------
+
+        # --- maximal smoothing bandwidth ---
+        # --- such that Kmax < nSamples and NW < nSamples / 2
+        maxBw = np.min([samplerate / 2 - 1 / nSamples,
+                        samplerate * (nSamples + 1) / (2 * nSamples)])
         # -----------------------------------
 
         try:
@@ -302,10 +312,18 @@ def process_taper(taper,
             SPYInfo(msg)
             tapsmofrq = minBw
 
+        if tapsmofrq > maxBw:
+            msg = f'Setting tapsmofrq to the maximal attainable bandwidth of {maxBw:.2f}Hz'
+            SPYInfo(msg)
+            tapsmofrq = maxBw
+
         # --------------------------------------------------------------
         # set parameters for scipy.signal.windows.dpss
         NW, Kmax = _get_dpss_pars(tapsmofrq, nSamples, samplerate)
         # --------------------------------------------------------------
+
+        # tapsmofrq too large
+        # if Kmax > nSamples or NW > nSamples / 2:
 
         # the recommended way:
         # set nTaper automatically to achieve exact effective smoothing bandwidth
@@ -361,7 +379,7 @@ def check_effective_parameters(CR, defaults, lcls, besides=None):
 
     for name in relevant:
         if name not in expected and (lcls[name] != defaults[name]):
-            msg = f"option `{name}` has no effect in method `{CR.__name__}`!"
+            msg = f"option `{name}` has no effect for `{CR.__name__}`!"
             SPYWarning(msg, caller=__name__.split('.')[-1])
 
 

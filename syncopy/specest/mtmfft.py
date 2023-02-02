@@ -6,6 +6,8 @@
 # Builtin/3rd party package imports
 import numpy as np
 from scipy import signal
+import logging
+import platform
 
 # local imports
 from ._norm_spec import _norm_spec, _norm_taper
@@ -95,6 +97,9 @@ def mtmfft(data_arr,
     # Fourier transforms (nTapers x nFreq x nChannels)
     ftr = np.zeros((windows.shape[0], nFreq, nChannels), dtype='complex64')
 
+    logger = logging.getLogger("syncopy_" + platform.node())
+    logger.debug(f"Running mtmfft on {len(windows)} windows, data chunk has {nSamples} samples and {nChannels} channels.")
+
     for taperIdx, win in enumerate(windows):
         win = np.tile(win, (nChannels, 1)).T
         win *= data_arr
@@ -104,7 +109,6 @@ def mtmfft(data_arr,
         ftr[taperIdx] = np.fft.rfft(win, n=nSamples, axis=0)
         # FT uses potentially padded length `nSamples`
         ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
-
     return ftr, freqs
 
 
@@ -112,6 +116,7 @@ def _get_dpss_pars(tapsmofrq, nSamples, samplerate):
 
     """ Helper function to retrieve dpss parameters from tapsmofrq """
 
+    # taper width parameter in sample units
     NW = tapsmofrq * nSamples / samplerate
     # from the minBw setting NW always is at least 1
     Kmax = int(2 * NW - 1)  # optimal number of tapers

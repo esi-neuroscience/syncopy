@@ -36,14 +36,14 @@ def granger(CSD, Hfunc, Sigma):
 
     See also
     --------
-    wilson_sf : :func:`~syncopy.connectivity.wilson_sf.wilson_sf
+    wilson_sf : :func:`~syncopy.connectivity.wilson_sf.wilson_sf`
              Spectral matrix factorization that yields the
              transfer functions and noise covariances
              from a cross spectral density.
 
     Notes
     -----
-    .. [1] Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding.
+    .. [1] Dhamala Mukeshwar, Govindan Rangarajan, and Mingzhou Ding.
        "Estimating Granger causality from Fourier and wavelet transforms
         of time series data." Physical review letters 100.1 (2008): 018701.
 
@@ -51,7 +51,7 @@ def granger(CSD, Hfunc, Sigma):
 
     nChannels = CSD.shape[1]
     auto_spectra = CSD.transpose(1, 2, 0).diagonal()
-    auto_spectra = np.abs(auto_spectra) # auto-spectra are real
+    auto_spectra = np.abs(auto_spectra)  # auto-spectra are real
 
     # we need the stacked auto-spectra of the form (nChannel=3):
     #           S_11 S_22 S_33

@@ -12,10 +12,12 @@ import time
 import pytest
 import numpy as np
 from glob import glob
+import matplotlib.pyplot as ppl
 
 # Local imports
+import syncopy as spy
 from syncopy.datatype import AnalogData
-from syncopy.io import save, load, load_ft_raw, load_tdt
+from syncopy.io import save, load, load_ft_raw, load_tdt, load_nwb
 from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.errors import (
     SPYValueError,
@@ -27,9 +29,11 @@ import syncopy.datatype as swd
 from syncopy.tests.misc import generate_artificial_data
 
 
+
 # Decorator to detect if test data dir is available
 on_esi = os.path.isdir('/cs/slurm/syncopy')
 skip_no_esi = pytest.mark.skipif(not on_esi, reason="ESI fs not available")
+skip_no_nwb = pytest.mark.skipif(not spy.__nwb__, reason="pynwb not installed")
 
 
 class TestSpyIO():
@@ -62,12 +66,12 @@ class TestSpyIO():
     seed = np.random.RandomState(13)
     data["SpikeData"] = np.vstack([seed.choice(ns, size=nd),
                                    seed.choice(nc, size=nd),
-                                   seed.choice(int(nc / 2), size=nd)]).T
+                                   seed.choice(int(nc / 2), size=nd)]).T.astype(int)
     trl["SpikeData"] = trl["AnalogData"]
 
     # Generate bogus trigger timings
     data["EventData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.zeros((int(ns / 5), ))]).T
+                                   np.zeros((int(ns / 5), ))]).T.astype(int)
     data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
 
@@ -565,6 +569,52 @@ class TestTDTImporter:
             load_tdt(self.tdt_dir, start_code=self.start_code, end_code=999999)
 
 
+@skip_no_esi
+@skip_no_nwb
+class TestNWBImporter:
+
+    nwb_filename = '/cs/slurm/syncopy/NWBdata/test.nwb'
+
+    def test_load_nwb(self):
+
+        spy_filename = self.nwb_filename.split('/')[-1][:-4] + '.spy'
+        out = load_nwb(self.nwb_filename, memuse=2000)
+        edata, adata1, adata2 = list(out.values())
+
+        assert isinstance(adata2, spy.AnalogData)
+        assert isinstance(edata, spy.EventData)
+        assert np.any(~np.isnan(adata2.data))
+        assert np.any(adata2.data != 0)
+
+        snippet = adata2.selectdata(latency=[30, 32])
+
+        snippet.singlepanelplot(latency=[30, 30.3], channel=3)
+        ppl.gcf().suptitle('raw data')
+
+        # Bandpass filter
+        lfp = spy.preprocessing(snippet, filter_class='but', freq=[10, 100],
+                                filter_type='bp', order=8)
+
+        # Downsample
+        lfp = spy.resampledata(lfp, resamplefs=2000, method='downsample')
+        lfp.info = adata2.info
+        lfp.singlepanelplot(channel=3)
+        ppl.gcf().suptitle('bp-filtered 10-100Hz and resampled')
+
+        spec = spy.freqanalysis(lfp, foilim=[5, 150])
+        spec.singlepanelplot(channel=[1, 3])
+        ppl.gcf().suptitle('bp-filtered 10-100Hz and resampled')
+
+        # test save and load
+        with tempfile.TemporaryDirectory() as tdir:
+            lfp.save(os.path.join(tdir, spy_filename))
+            lfp2 = spy.load(os.path.join(tdir, spy_filename))
+
+            assert np.allclose(lfp.data, lfp2.data)
+
+
 if __name__ == '__main__':
+    T0 = TestSpyIO()
     T1 = TestFTImporter()
     T2 = TestTDTImporter()
+    T3 = TestNWBImporter()

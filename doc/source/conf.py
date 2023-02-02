@@ -15,14 +15,13 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath(".." + os.sep + ".." + os.sep))
-import sphinx_bootstrap_theme
 import syncopy
 
 # -- Project information -----------------------------------------------------
 
 project = 'Syncopy'
 copyright = '2020, Joscha Schmiedt and Stefan Fuertinger'
-author = 'Joscha Schmiedt, Stefan Fuertinger and Gregor Mönke'
+author = 'Joscha Schmiedt, Stefan Fuertinger, Tim Schäfer and Gregor Mönke'
 
 # The short X.Y version
 version = syncopy.__version__
@@ -52,6 +51,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.inheritance_diagram',
     'sphinx_automodapi.automodapi',
+    'sphinx.ext.graphviz',
 ]
 
 autodoc_default_options = {
@@ -73,7 +73,7 @@ autosectionlabel_maxdepth = 2
 autosectionlabel_prefix_document = True
 automodsumm_inherited_members = True
 
-
+nitpicky = True
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -110,34 +110,19 @@ pygments_style = None
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#
-html_theme = 'bootstrap'
 
-html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
+# see https://sphinx-book-theme.readthedocs.io
+html_theme = 'sphinx_book_theme'
+
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-html_logo = "_static/syncopy_icon.png"
+html_logo = "_static/syncopy_logo.png"
 html_theme_options = {
-    "navbar_title": "Syncopy",
-    "navbar_site_name": "Documentation",
-    # Render the next and previous page links in navbar. (Default: true)
-    'navbar_sidebarrel': False,
-    # Render the current pages TOC in the navbar. (Default: true)
-    'navbar_pagenav': False,
-    # Tab name for the current pages TOC. (Default: "Page")
-    'navbar_pagenav_name': "Current Page",
+    "repository_url": "https://github.com/esi-neuroscience/syncopy",
+    "use_issues_button": True,
 
-    # Global TOC depth for "site" navbar tab. (Default: 1)
-    # Switching to -1 shows all levels.
-    'globaltoc_depth': 2,
-    # Currently, the supported themes are:
-    # - Bootstrap 3: https://bootswatch.com/3
-    'bootswatch_theme': "simplex",
-    'navbar_links': [
-        ("GitHub", "https://www.github.com/esi-neuroscience/syncopy", True),
-    ],
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -207,7 +192,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Syncopy.tex', 'Syncopy Documentation',
-     'Gregor Mönke, Joscha Schmiedt and Stefan Fuertinger', 'manual'),
+     'Gregor Mönke, Tim Schäfer, Joscha Schmiedt and Stefan Fuertinger', 'manual'),
 ]
 
 

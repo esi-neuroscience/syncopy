@@ -19,18 +19,22 @@ if sys.platform == "win32":
     colorama.deinit()
     colorama.init(strip=False)
 
+import dask.distributed as dd
+import dask_jobqueue as dj
+
 # Local imports
 import syncopy as spy
 from .tools import get_defaults
+from .dask_helpers import check_slurm_available
 from syncopy import __storage__, __acme__
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYParallelError, SPYWarning
 if __acme__:
     from acme import ParallelMap
-    import dask.distributed as dd
-    import dask_jobqueue as dj
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
+
+from syncopy.shared.metadata import parse_cF_returns, h5_add_metadata
 
 __all__ = []
 
@@ -139,7 +143,7 @@ class ComputationalRoutine(ABC):
         # numerical type of output dataset
         self.dtype = None
 
-        # list of trial numbers to process (either `data.trials` or `data.selection.trials`)
+        # list of trial numbers to process (either list(range(len(`data.trials`))) or `data.selection.trial_ids`)
         self.trialList = None
 
         # number of trials to process (shortcut for `len(self.trialList)`)
@@ -267,7 +271,7 @@ class ComputationalRoutine(ABC):
         # Determine if data-selection was provided; if so, extract trials and check
         # whether selection requires fancy array indexing
         if data.selection is not None:
-            self.trialList = data.selection.trials
+            self.trialList = data.selection.trial_ids
             self.useFancyIdx = data.selection._useFancy
         else:
             self.trialList = list(range(len(data.trials)))
@@ -398,7 +402,7 @@ class ComputationalRoutine(ABC):
             sourceLayout.append(trial.idx)
             sourceShapes.append(trial.shape)
 
-        # Construct dimensional layout of output
+        # Construct dimensional layout of output and append remaining trials to input layout
         stacking = targetLayout[0][stackingDim].stop
         for tk in range(1, self.numTrials):
             trial = trials[tk]
@@ -444,7 +448,7 @@ class ComputationalRoutine(ABC):
         # In this case `sourceLayout` uses ABSOLUTE indices (indices wrt to size
         # of ENTIRE DATASET) that are SORTED W/O REPS to extract a NumPy array
         # of appropriate size from HDF5.
-        # Then `sourceLayout` uses RELATIVE indices (indices wrt to size of CURRENT
+        # Then `sourceSelectors` uses RELATIVE indices (indices wrt to size of CURRENT
         # TRIAL) that can be UNSORTED W/REPS to actually perform the requested
         # selection on the NumPy array extracted w/`sourceLayout`.
         for grd in sourceLayout:
@@ -596,18 +600,31 @@ class ComputationalRoutine(ABC):
 
         # Do not spill trials on disk if they're supposed to be removed anyway
         if parallel_store and not self.keeptrials:
-            msg = "trial-averaging only supports sequential writing!"
+            msg = "trial-averaging only supports sequential storage, disabling parallel storage mode!"
             SPYWarning(msg)
             parallel_store = False
 
         # Create HDF5 dataset of appropriate dimension
         self.preallocate_output(out, parallel_store=parallel_store)
 
-        # Concurrent processing requires some additional prep-work...
         if parallel:
 
             # Construct list of dicts that will be passed on to workers: in the
             # parallel case, `trl_dat` is a dictionary!
+
+            # Use the trial IDs from the selection, so we have absolute trial indices.
+            trial_ids = data.selection.trial_ids if data.selection is not None else range(self.numTrials)
+
+            # Use trial_ids and chunk_ids to turn into a unique index.
+            if self.numBlocksPerTrial == 1:  # The simple case: 1 call per trial. We add a chunk id (the trailing `_0` to be consistent with
+                                             # the more complex case, but the chunk index is always `0`).
+                unique_key = ["__" + str(trial_id) + "_0" for trial_id in trial_ids]
+            else:  # The more complex case: channel parallelization is active, we need to add the chunk to the
+                   # trial ID for the key to be unique, as a trial will be split into several chunks.
+                trial_ids = np.repeat(trial_ids, self.numBlocksPerTrial)
+                chunk_ids = np.tile(np.arange(self.numBlocksPerTrial), self.numTrials)
+                unique_key = ["__" + str(trial_id) + "_" + str(chunk_id) for trial_id, chunk_id in zip(trial_ids, chunk_ids)]
+
             workerDicts = [{"keeptrials": self.keeptrials,
                             "infile": data.filename,
                             "indset": data.data.name,
@@ -620,7 +637,9 @@ class ComputationalRoutine(ABC):
                             "outdset": self.tmpDsetName,
                             "outgrid": self.targetLayout[chk],
                             "outshape": self.targetShapes[chk],
-                            "dtype": self.dtype} for chk in range(self.numCalls)]
+                            "dtype": self.dtype,
+                            "call_id": unique_key[chk] } for chk in range(self.numCalls)]
+
 
             # If channel-block parallelization has been set up, positional args of
             # `computeFunction` need to be massaged: any list whose elements represent
@@ -640,72 +659,30 @@ class ComputationalRoutine(ABC):
                         if len(arg.squeeze().shape) == 1 and arg.squeeze().size == self.numTrials:
                             ArgV[ak] = np.array(chain.from_iterable([[ag] * self.numBlocksPerTrial for ag in arg]))
 
-            # Positional args for computeFunctions consist of `trl_dat` + others
+            # Positional args for `process_io` wrapped computeFunctions consist of `trl_dat` + others
             # (stored in `ArgV`). Account for this when seeting up `ParallelMap`
             if len(ArgV) == 0:
-                inargs = (workerDicts, )
+                self.inargs = (workerDicts, )
             else:
-                inargs = (workerDicts, *ArgV)
-
-            # Let ACME take care of argument distribution and memory checks: note
-            # that `cfg` is trial-independent, i.e., we can simply throw it in here!
-            self.pmap = ParallelMap(self.computeFunction,
-                                    *inargs,
-                                    n_inputs=self.numCalls,
-                                    write_worker_results=False,
-                                    write_pickle=False,
-                                    partition="auto",
-                                    n_jobs="auto",
-                                    mem_per_job="auto",
-                                    setup_timeout=60,
-                                    setup_interactive=False,
-                                    stop_client="auto",
-                                    verbose=None,
-                                    logfile=None,
-                                    **self.cfg)
-
-            # Edge-case correction: if by chance, any array-like element `x` of `cfg`
-            # satisfies `len(x) = numCalls`, `ParallelMap` attempts to tear open `x` and
-            # distribute its elements across workers. Prevent this!
-            if self.numCalls > 1:
-                for key, value in self.pmap.kwargv.items():
-                    if isinstance(value, (list, tuple)):
-                        if len(value) == self.numCalls:
-                            self.pmap.kwargv[key] = [value]
-                    elif isinstance(value, np.ndarray):
-                        if len(value.squeeze().shape) == 1 and value.squeeze().size == self.numCalls:
-                            self.pmap.kwargv[key] = [value]
-
-            # Check if trials actually fit into memory before we start computation
-            client = self.pmap.daemon.client
-            if isinstance(client.cluster, (dd.LocalCluster, dj.SLURMCluster)):
-                workerMem = [w["memory_limit"] for w in client.cluster.scheduler_info["workers"].values()]
-                if len(workerMem) == 0:
-                    raise SPYParallelError("no online workers found", client=client)
-                workerMemMax = max(workerMem)
-                if self.chunkMem >= mem_thresh * workerMemMax:
-                    self.chunkMem /= 1024**3
-                    workerMemMax /= 1000**3
-                    msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
-                        "worker memory ({1:2.2f} GB) currently not supported"
-                    raise NotImplementedError(msg.format(self.chunkMem, workerMemMax))
-            else:
-                msg = "`ComputationalRoutine` only supports `LocalCluster` and " +\
-                    "`SLURMCluster` dask cluster objects. Proceed with caution. "
-                SPYWarning(msg)
-
-            # Store provided debugging state
+                self.inargs = (workerDicts, *ArgV)
+            # Store provided debugging state for ACME
             self.parallelDebug = parallel_debug
 
-        # For sequential processing, just ensure enough memory is available
+            # store mem_thresh
+            self.mem_thresh = mem_thresh
+
+        # Now for the sequential processing case.
         else:
+
+            # We only check memory
             memSize = psutil.virtual_memory().available
             if self.chunkMem >= mem_thresh * memSize:
                 self.chunkMem /= 1024**3
                 memSize /= 1024**3
-                msg = "Single-trial result sizes ({0:2.2f} GB) larger than available " +\
-                      "memory ({1:2.2f} GB) currently not supported"
-                raise NotImplementedError(msg.format(self.chunkMem, memSize))
+                msg = ("Single-trial processing requires {0:2.2f} GB of memory "
+                       "which is larger than the available "
+                       "memory ({1:2.2f} GB)")
+                raise SPYParallelError(msg.format(2 * self.chunkMem, memSize))
 
         # The `method` keyword can be used to override the `parallel` flag
         if method is None:
@@ -795,7 +772,10 @@ class ComputationalRoutine(ABC):
         Parameters
         ----------
         data : syncopy data object
-           Syncopy data object to be processed
+           Syncopy data object, ignored for parallel case. The input data information
+           is already contained in the workerdicts, which are stored in `self.pmap` (expanded
+           from the `inargs` in `compute()`) and can be accessed from it.
+
         out : syncopy data object
            Empty object for holding results
 
@@ -814,11 +794,97 @@ class ComputationalRoutine(ABC):
         compute_sequential : serial processing counterpart of this method
         """
 
-        # Let ACME do the heavy lifting
-        with self.pmap as pm:
-            pm.compute(debug=self.parallelDebug)
+        # Let ACME take care of argument distribution and memory checks: note
+        # that `cfg` is trial-independent, i.e., we can simply throw it in here!
+        if __acme__ and check_slurm_available():
+
+            self.pmap = ParallelMap(self.computeFunction,
+                                    *self.inargs,
+                                    n_inputs=self.numCalls,
+                                    write_worker_results=False,
+                                    write_pickle=False,
+                                    partition="auto",
+                                    n_workers="auto",
+                                    mem_per_worker="auto",
+                                    setup_timeout=60,
+                                    setup_interactive=False,
+                                    stop_client="auto",
+                                    verbose=None,
+                                    logfile=None,
+                                    **self.cfg)
+
+            # Edge-case correction: if by chance, any array-like element `x` of `cfg`
+            # satisfies `len(x) = numCalls`, `ParallelMap` attempts to tear open `x` and
+            # distribute its elements across workers. Prevent this!
+            if self.numCalls > 1:
+                for key, value in self.pmap.kwargv.items():
+                    if isinstance(value, (list, tuple)):
+                        if len(value) == self.numCalls:
+                            self.pmap.kwargv[key] = [value]
+                    elif isinstance(value, np.ndarray):
+                        if len(value.squeeze().shape) == 1 and value.squeeze().size == self.numCalls:
+                            self.pmap.kwargv[key] = [value]
+
+            # Check if trials actually fit into memory before we start computation
+            client = self.pmap.daemon.client
+
+        # fallback to any client we can connect to
+        else:
+            self.pmap = None
+            try:
+                client = dd.get_client()
+            except ValueError:
+                raise SPYParallelError("Could not connect to a running Dask client")
+
+        # --- some sanity checks before computations ---
+
+        if isinstance(client.cluster, (dd.LocalCluster, dj.SLURMCluster)):
+            workerMem = [w["memory_limit"] for w in client.cluster.scheduler_info["workers"].values()]
+            if len(workerMem) == 0:
+                raise SPYParallelError("no online workers found", client=client)
+            workerMemMax = max(workerMem)
+            if self.chunkMem >= self.mem_thresh * workerMemMax:
+                self.chunkMem /= 1024**3
+                workerMemMax /= 1000**3
+                msg = ("Single-trial processing requires {0:2.2f} GB of memory "
+                       "which is larger than the available "
+                       "worker memory ({1:2.2f} GB)")
+                raise SPYParallelError(msg.format(2 * self.chunkMem, workerMemMax))
+
+        # --- trigger actual computation ---
+
+        if self.pmap is not None:
+            # Let ACME do the heavy lifting
+            with self.pmap as pm:
+                pm.compute(debug=self.parallelDebug)
+
+        # use our own client and map over workerdicts + cfg
+        else:
+            # we have to prepare a well behaved iterable where for each call n
+            # we have a tuple like (wdict[n], argv1_seq[n], argv2) passed to the cF
+            # by the Dask client mapping
+            workerDicts = self.inargs[0]
+            if len(self.inargs) > 1:
+                iterables = []
+                ArgV = self.inargs[1:]
+                for nblock, wdict in enumerate(workerDicts):
+                    argv = tuple(arg[nblock]
+                                 if isinstance(arg, (list, tuple, np.ndarray)) and  # these are the argv_seq
+                                 len(arg) == len(workerDicts)  # each call gets one element of a sequence type argv
+                                 else arg for arg in ArgV)
+                    iterables.append((wdict, *argv))
+            # no *args for the cF
+            else:
+                iterables = workerDicts
+
+            futures = client.map(self.computeFunction, iterables, **self.cfg)
+            # similar to tqdm progress bar
+            dd.progress(futures)
+            # actual results get handled by hdf5 operations inside `process_io`
+            client.gather(futures)
 
         # When writing concurrently, now's the time to finally create the virtual dataset
+        # by referencing the individual hdf5 datasets created by the IO decorator
         if self.virtualDatasetDir is not None:
             with h5py.File(out.filename, mode="w") as h5f:
                 h5f.create_virtual_dataset(self.outDatasetName, self.VirtualDatasetLayout)
@@ -828,8 +894,6 @@ class ComputationalRoutine(ABC):
             with h5py.File(out.filename, mode="r+") as h5f:
                 h5f[self.outDatasetName][()] /= self.numTrials
                 h5f.flush()
-
-        return
 
     def compute_sequential(self, data, out):
         """
@@ -860,14 +924,13 @@ class ComputationalRoutine(ABC):
         compute : management routine invoking parallel/sequential compute kernels
         compute_parallel : concurrent processing counterpart of this method
         """
-
         sourceObj = h5py.File(data.filename, mode="r")[data.data.name]
 
         # Iterate over (selected) trials and write directly to target HDF5 dataset
         with h5py.File(out.filename, "r+") as h5fout:
             target = h5fout[self.outDatasetName]
 
-            for nblock in tqdm(range(self.numTrials), bar_format=self.tqdmFormat):
+            for nblock in tqdm(range(self.numTrials), bar_format=self.tqdmFormat, disable=None):
 
                 # Extract respective indexing tuples from constructed lists
                 ingrid = self.sourceLayout[nblock]
@@ -896,18 +959,22 @@ class ComputationalRoutine(ABC):
                     arr.shape = self.sourceShapes[nblock]
 
                     # Perform computation
-                    res = self.computeFunction(arr, *argv, **self.cfg)
+                    res, details = parse_cF_returns(self.computeFunction(arr, *argv, **self.cfg))
 
                     # In case scalar selections have been performed, explicitly assign
                     # desired output shape to re-create "lost" singleton dimensions
                     # (use an explicit `shape` assignment here to avoid copies)
                     res.shape = self.targetShapes[nblock]
 
+                    trial_idx = data.selection.trial_ids[nblock] if data.selection is not None else nblock
+
+                    h5_add_metadata(h5fout, details, unique_key_suffix=trial_idx)
+
                 # Either write result to `outgrid` location in `target` or add it up
                 if self.keeptrials:
                     target[outgrid] = res
                 else:
-                    target[()] = np.nansum([target, res], axis=0)
+                    target[()] += res
 
                 # Flush every iteration to avoid memory leakage
                 h5fout.flush()
@@ -918,8 +985,6 @@ class ComputationalRoutine(ABC):
 
         # If source was HDF5 file, close it to prevent access errors
         sourceObj.file.close()
-
-        return
 
     def write_log(self, data, out, log_dict=None):
         """
@@ -996,15 +1061,14 @@ class ComputationalRoutine(ABC):
 
 # --- metadata helper functions ---
 
-def propagate_metadata(in_data, out_data):
+def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
 
     """
-    Propagating metadata/selections (channels, trials, time, ...)
+    Propagating data class properties (channels, trials, time, ...)
     from the input object `in_data` to the output
-    object `out_data` is the task of
-    concrete (overloaded) `process_metadata` implementations.
+    object `out_data` and respecting selections.
 
-    Depending on the concrete CR, different propagations are needed.
+    Depending on the CR in question, different propagations are needed.
     For example
 
         AnalogData -> CrossSpectralData (connectivityanalysis)
@@ -1015,12 +1079,13 @@ def propagate_metadata(in_data, out_data):
 
         AnalogData -> AnalogData (preprocessing)
 
-    directly propagates all (including selections)
-    attributes from the input to the output
-    (same channels, time and so on)
+    directly propagates the properties from the input to the output
+    (same channels, trialdefinition/time and so on)
 
     This function is a general approach to unify the
-    propagation / adaptation of all needed attributes.
+    propagation / manipulation of all needed properties
+    done in the `process_metadata` implementations of the
+    respective ComputationalRoutines.
 
     Parameters
     ----------
@@ -1028,27 +1093,84 @@ def propagate_metadata(in_data, out_data):
         Input object to get attributes from
     out_data : Syncopy data object
         Output object to set attributes
+    keeptrials : bool
+    time_axis : bool
+        If `True` `out_data` has a time axis (not just trial stacking)
     """
 
     # instance checkers
-    is_AD = lambda data: isinstance(data, spy.AnalogData)
+    is_Analog = lambda data: isinstance(data, spy.AnalogData)
+    is_Spectral = lambda data: isinstance(data, spy.SpectralData)
+    is_CrossSpectral = lambda data: isinstance(data, spy.CrossSpectralData)
 
-    # simplest case, direct propagation between two AnalogData objects
-    if is_AD(in_data) and is_AD(out_data):
+    # attach a dummy selection for easier propagation
+    selection_cleanup = False
+    if in_data.selection is None:
+        in_data.selectdata(inplace=True)
+        selection_cleanup = True
 
-        # get channels and trial selections
-        if in_data.selection is not None:
-            chanSec = in_data.selection.channel
-            # captures toi selections
-            trl = in_data.selection.trialdefinition
+    # if preserving the data type, propagation is straightforward
+    if in_data.__class__ == out_data.__class__:
+
+        # Get/set dimensional attributes changed by selection
+        for prop in in_data.selection._dimProps:
+            selection = getattr(in_data.selection, prop)
+            if selection is not None:
+                if np.issubdtype(type(selection), np.number):
+                    selection = [selection]
+                setattr(out_data, prop, getattr(in_data, prop)[selection])
+
+        if keeptrials:
+            out_data.trialdefinition = in_data.selection.trialdefinition
         else:
-            chanSec = slice(None)
-            trl = in_data.trialdefinition
+            # trial average requires equal length trials, so just copy the 1st
+            out_data.trialsdefinition = in_data.trialdefinition[0, :][None, :]
 
-        out_data.trialdefinition = trl
+        out_data.samplerate = in_data.samplerate
+        if selection_cleanup:
+            in_data.selection = None
+        return
+
+    # --- propagate only channels and deal with the rest below---
+
+    elif is_Spectral(out_data):
+        chanSec = in_data.selection.channel
         out_data.channel = np.array(in_data.channel[chanSec])
+
+    # from one channel to cross-channel data
+    elif (is_Analog(in_data) or is_Spectral(in_data)) and is_CrossSpectral(out_data):
+        chanSec = in_data.selection.channel
+        out_data.channel_i = np.array(in_data.channel[chanSec])
+        out_data.channel_j = np.array(in_data.channel[chanSec])
+
+    # --- time and trialdefinition ---
+
+    if not time_axis:
+        # Note that here the `time` axis is only(!) used as stacking dimension
+        if keeptrials:
+            trldef = in_data.selection.trialdefinition
+
+            for row in range(trldef.shape[0]):
+                trldef[row, :2] = [row, row + 1]
+            out_data.trialdefinition = trldef
+
+        else:
+            # only single trial on the time stacking dim.
+            out_data.trialdefinition = np.array([[0, 1, 0]])
+
         out_data.samplerate = in_data.samplerate
 
-    # nothing else supported atm
+    # this captures active in-place selections on the time axis
     else:
-        raise NotImplementedError
+        if keeptrials:
+            out_data.trialdefinition = in_data.selection.trialdefinition
+        # just copy 1st trial, have to be all equal anyways
+        else:
+            out_data.trialdefinition = in_data.selection.trialdefinition[0, :][None, :]
+
+        # this might bite us
+        out_data.samplerate = in_data.samplerate
+
+    if selection_cleanup:
+        in_data.selection = None
+        in_data.cfg.pop('selectdata')

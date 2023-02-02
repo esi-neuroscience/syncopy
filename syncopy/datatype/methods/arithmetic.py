@@ -13,8 +13,8 @@ from .selectdata import _get_selection_size
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.computational_routine import ComputationalRoutine
-from syncopy.shared.kwarg_decorators import process_io
-from syncopy.shared.computational_routine import ComputationalRoutine
+from syncopy.shared.kwarg_decorators import process_io, detect_parallel_client
+
 if __acme__:
     import dask.distributed as dd
 
@@ -140,7 +140,7 @@ def _parse_input(obj1, obj2, operator):
     if baseObj.selection is None:
         baseObj.selectdata(inplace=True)
         baseObj.selection._cleanup = True
-    baseTrialList = baseObj.selection.trials
+    baseTrialList = baseObj.selection.trial_ids
 
     # Use the `_preview_trial` functionality of Syncopy objects to get each trial's
     # shape and dtype (existing selections are taken care of automatically)
@@ -218,7 +218,7 @@ def _parse_input(obj1, obj2, operator):
             wrng = "Found existing in-place selection in operand. " +\
                 "Shapes and trial counts of base and operand objects have to match up!"
             SPYWarning(wrng, caller=operator)
-            opndTrialList = operand.selection.trials
+            opndTrialList = operand.selection.trial_ids
         else:
             opndTrialList = list(range(len(operand.trials)))
 
@@ -369,19 +369,6 @@ def _perform_computation(baseObj,
         operation = lambda x, y : x ** y
     else:
         raise SPYValueError("supported arithmetic operator", actual=operator)
-
-    # Inform about the amount of data is about to be moved around
-    operandSize = _get_selection_size(baseObj)
-    sUnit = "MB"
-    if operandSize > 1000:
-        operandSize /= 1024
-        sUnit = "GB"
-    msg = "Allocating {dsize:3.2f} {dunit:s} {objkind:s} object on disk for " +\
-        "result of {op:s} operation"
-    SPYInfo(msg.format(dsize=operandSize,
-                       dunit=sUnit,
-                       objkind=out.__class__.__name__,
-                       op=operator), caller=operator)
 
     # If ACME is available, try to attach (already running) parallel computing client
     parallel = False

@@ -7,812 +7,563 @@
 import pytest
 import numpy as np
 import inspect
+import dask.distributed as dd
+
 
 # Local imports
-import syncopy.datatype as spd
-from syncopy.tests.misc import flush_local_cluster
-from syncopy.datatype import AnalogData, SpectralData
 from syncopy.datatype.base_data import Selector
-from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
+from syncopy.tests.misc import flush_local_cluster
 
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(
-    not __acme__, reason="acme not available")
+import syncopy as spy
+
+# map selection keywords to selector attributes (holding the idx to access selected data)
+map_sel_attr = dict(trials='trial_ids',
+                    channel='channel',
+                    latency='time',
+                    taper='taper',
+                    frequency='freq',
+                    channel_i='channel_i',
+                    channel_j='channel_j',
+                    unit='unit',
+                    eventid='eventid'
+                    )
 
 
-# The procedure here is:
-# (1) test if `Selector` instance was constructed correctly (i.e., indexing tuples
-#     look as expected, ordered list -> slice conversion works etc.)
-# (2) test if data was correctly selected from source object (i.e., compare shapes,
-#     property contents and actual numeric data arrays)
-# Multi-selections are not tested here but in the respective class tests (e.g.,
-# "time" + "channel" + "trial" `AnalogData` selections etc.)
-class TestSelector():
+class TestGeneral:
 
-    # Set up "global" parameters for data objects to be tested (we only test
-    # equidistant trials here)
+    adata = spy.AnalogData(data=np.ones((2, 2)), samplerate=1)
+    csd_data = spy.CrossSpectralData(data=np.ones((2, 2, 2, 2)), samplerate=1)
+
+    def test_Selector_init(self):
+
+        with pytest.raises(SPYTypeError, match="Wrong type of `data`"):
+            Selector(np.arange(10), {'latency': [0, 4]})
+
+    def test_invalid_sel_key(self):
+
+        # AnalogData has no `frequency`
+        with pytest.raises(SPYValueError, match="no `frequency` selection available"):
+            spy.selectdata(self.adata, frequency=[1, 10])
+        # CrossSpectralData has no `channel` (but channel_i, channel_j)
+        with pytest.raises(SPYValueError, match="no `channel` selection available"):
+            spy.selectdata(self.csd_data, channel=0)
+
+
+class TestAnalogSelections:
+
     nChannels = 10
-    nSamples = 30
-    nTrials = 5
-    lenTrial = int(nSamples / nTrials) - 1
-    nFreqs = 15
-    nSpikes = 100
+    nSamples = 5  # per trial
+    nTrials = 3
     samplerate = 2.0
-    data = {}
-    trl = {}
 
-    # Prepare selector results for valid/invalid selections
-    selectDict = {}
-    selectDict["channel"] = {"valid": (["channel03", "channel01"],
-                                       ["channel03", "channel01", "channel01", "channel02"],  # repetition
-                                       ["channel01", "channel01", "channel02", "channel03"],  # preserve repetition
-                                       "channel03",     # string -> scalar
-                                       0,               # scalar
-                                       [4, 2, 5],
-                                       [4, 2, 2, 5, 5],   # repetition
-                                       [0, 0, 1, 2, 3],  # preserve repetition, don't convert to slice
-                                       range(0, 3),
-                                       range(5, 8),
-                                       slice(None),
-                                       None,
-                                       "all",
-                                       slice(0, 5),
-                                       slice(7, None),
-                                       slice(2, 8),
-                                       slice(0, 10, 2),
-                                       slice(-2, None),
-                                       [0, 1, 2, 3],  # contiguous list...
-                                       [2, 3, 5]),  # non-contiguous list...
-                             "result": ([2, 0],
-                                        [2, 0, 0, 1],
-                                        [0, 0, 1, 2],
-                                        [2],
-                                        [0],
-                                        [4, 2, 5],
-                                        [4, 2, 2, 5, 5],
-                                        [0, 0, 1, 2, 3],
-                                        slice(0, 3, 1),
-                                        slice(5, 8, 1),
-                                        slice(None, None, 1),
-                                        slice(None, None, 1),
-                                        slice(None, None, 1),
-                                        slice(0, 5, 1),
-                                        slice(7, None, 1),
-                                        slice(2, 8, 1),
-                                        slice(0, 10, 2),
-                                        slice(-2, None, 1),
-                                        slice(0, 4, 1),  # ...gets converted to slice
-                                        [2, 3, 5]),  # stays as is
-                             "invalid": (["channel200", "channel400"],
-                                         ["invalid"],
-                                         tuple("wrongtype"),
-                                         "notall",
-                                         range(0, 100),
-                                         slice(80, None),
-                                         slice(-20, None),
-                                         slice(-15, -2),
-                                         slice(5, 1),
-                                         [40, 60, 80]),
-                             "errors": (SPYValueError,
-                                        SPYValueError,
-                                        SPYTypeError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError)}
+    trldef = np.vstack([np.arange(0, nSamples * nTrials, nSamples),
+                        np.arange(0, nSamples * nTrials, nSamples) + nSamples,
+                        np.ones(nTrials) * -1]).T
 
-    selectDict["taper"] = {"valid": ([4, 2, 3],
-                                     [4, 2, 2, 3],  # repetition
-                                     [0, 1, 1, 2, 3],  # preserve repetition, don't convert to slice
-                                     range(0, 3),
-                                     range(2, 5),
-                                     slice(None),
-                                     None,
-                                     "all",
-                                     0,               # scalar
-                                     slice(0, 5),
-                                     slice(3, None),
-                                     slice(2, 4),
-                                     slice(0, 5, 2),
-                                     slice(-2, None),
-                                     [0, 1, 2, 3],  # contiguous list...
-                                     [1, 3, 4]),  # non-contiguous list...
-                           "result": ([4, 2, 3],
-                                      [4, 2, 2, 3],
-                                      [0, 1, 1, 2, 3],
-                                      slice(0, 3, 1),
-                                      slice(2, 5, 1),
-                                      slice(None, None, 1),
-                                      slice(None, None, 1),
-                                      slice(None, None, 1),
-                                      [0],
-                                      slice(0, 5, 1),
-                                      slice(3, None, 1),
-                                      slice(2, 4, 1),
-                                      slice(0, 5, 2),
-                                      slice(-2, None, 1),
-                                      slice(0, 4, 1),  # ...gets converted to slice
-                                      [1, 3, 4]),  # stays as is
-                           "invalid": (["taper_typo", "channel400"],
-                                       tuple("wrongtype"),
-                                       "notall",
-                                       range(0, 100),
-                                       slice(80, None),
-                                       slice(-20, None),
-                                       slice(-15, -2),
-                                       slice(5, 1),
-                                       [40, 60, 80]),
-                           "errors": (SPYValueError,
-                                      SPYTypeError,
-                                      SPYValueError,
-                                      SPYValueError,
-                                      SPYValueError,
-                                      SPYValueError,
-                                      SPYValueError,
-                                      SPYValueError,
-                                      SPYValueError)}
+    # this is an array running from 1 - nChannels * nSamples * nTrials
+    # with shape: nSamples*nTrials x nChannels
+    # and with data[i, j] = i+1 + j * nSamples*nTrials
+    data = np.arange(1, nTrials * nChannels * nSamples + 1).reshape(nChannels, nSamples * nTrials).T
 
-    # only define valid inputs, the expected (trial-dependent) results are computed below
-    selectDict["unit"] = {"valid": (["unit3", "unit1"],
-                                    ["unit3", "unit1", "unit1", "unit2"],  # repetition
-                                    ["unit1", "unit1", "unit2", "unit3"],  # preserve repetition
-                                    [4, 2, 3],
-                                    [4, 2, 2, 3],  # repetition
-                                    [0, 0, 2, 3],  # preserve repetition, don't convert to slice
-                                    range(0, 3),
-                                    range(2, 5),
-                                    slice(None),
-                                    None,
-                                    "all",
-                                    "unit3",       # string -> scalar
-                                    4,             # scalar
-                                    slice(0, 5),
-                                    slice(3, None),
-                                    slice(2, 4),
-                                    slice(0, 5, 2),
-                                    slice(-2, None),
-                                    [0, 1, 2, 3],  # contiguous list...
-                                    [1, 3, 4]),  # non-contiguous list...
-                          "invalid": (["unit7", "unit77"],
-                                      tuple("wrongtype"),
-                                      "notall",
-                                      range(0, 100),
-                                      slice(80, None),
-                                      slice(-20, None),
-                                      slice(-15, -2),
-                                      slice(5, 1),
-                                      [40, 60, 80]),
-                          "errors": (SPYValueError,
-                                     SPYTypeError,
-                                     SPYValueError,
-                                     SPYValueError,
-                                     SPYValueError,
-                                     SPYValueError,
-                                     SPYValueError,
-                                     SPYValueError,
-                                     SPYValueError)}
+    adata = spy.AnalogData(data=data, samplerate=samplerate,
+                           trialdefinition=trldef)
 
-    # only define valid inputs, the expected (trial-dependent) results are computed below
-    selectDict["eventid"] = {"valid": ([1, 0],
-                                       [1, 1, 0],  # repetition
-                                       [0, 0, 1, 2],  # preserve repetition, don't convert to slice
-                                       range(0, 2),
-                                       range(1, 2),
-                                       slice(None),
-                                       None,
-                                       "all",
-                                       1,             # scalar
-                                       slice(0, 2),
-                                       slice(1, None),
-                                       slice(0, 1),
-                                       slice(-1, None),
-                                       [0, 1]),  # contiguous list...
-                             "invalid": (["eventid", "eventid"],
-                                         tuple("wrongtype"),
-                                         "notall",
-                                         range(0, 100),
-                                         slice(80, None),
-                                         slice(-20, None),
-                                         slice(-15, -2),
-                                         slice(5, 1),
-                                         [40, 60, 80]),
-                             "errors": (SPYValueError,
-                                        SPYTypeError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError,
-                                        SPYValueError)}
+    def test_ad_selection(self):
 
-    # in the general test routine, only check correct handling of invalid `toi`/`toilim`
-    # and `foi`/`foilim` selections - valid selectors are strongly object-dependent
-    # and thus tested in separate methods below
-    selectDict["toi"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                     tuple("wrongtype"),
-                                     "notall",
-                                     range(0, 10),
-                                     slice(0, 5),
-                                     [0, np.inf],
-                                     [np.nan, 1]),
-                         "errors": (SPYValueError,
-                                    SPYTypeError,
-                                    SPYValueError,
-                                    SPYTypeError,
-                                    SPYTypeError,
-                                    SPYValueError,
-                                    SPYValueError)}
-    selectDict["toilim"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                        tuple("wrongtype"),
-                                        "notall",
-                                        range(0, 10),
-                                        slice(0, 5),
-                                        [np.nan, 1],
-                                        [0.5, 1.5 , 2.0],  # more than 2 components
-                                        [2.0, 1.5]),  # lower bound > upper bound
-                            "errors": (SPYValueError,
-                                       SPYTypeError,
-                                       SPYValueError,
-                                       SPYTypeError,
-                                       SPYTypeError,
-                                       SPYValueError,
-                                       SPYValueError,
-                                       SPYValueError)}
-    selectDict["foi"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                     tuple("wrongtype"),
-                                     "notall",
-                                     range(0, 10),
-                                     slice(0, 5),
-                                     [0, np.inf],
-                                     [np.nan, 1],
-                                     [-1, 2],  # out of bounds
-                                     [2, 900]),  # out of bounds
-                         "errors": (SPYValueError,
-                                    SPYTypeError,
-                                    SPYValueError,
-                                    SPYTypeError,
-                                    SPYTypeError,
-                                    SPYValueError,
-                                    SPYValueError,
-                                    SPYValueError,
-                                    SPYValueError)}
-    selectDict["foilim"] = {"invalid": (["notnumeric", "stillnotnumeric"],
-                                        tuple("wrongtype"),
-                                        "notall",
-                                        range(0, 10),
-                                        slice(0, 5),
-                                        [np.nan, 1],
-                                        [-1, 2],  # lower limit out of bounds
-                                        [2, 900],  # upper limit out of bounds
-                                        [2, 7, 6],  # more than 2 components
-                                        [9, 2]),  # lower bound > upper bound
-                            "errors": (SPYValueError,
-                                       SPYTypeError,
-                                       SPYValueError,
-                                       SPYTypeError,
-                                       SPYTypeError,
-                                       SPYValueError,
-                                       SPYValueError,
-                                       SPYValueError,
-                                       SPYValueError,
-                                       SPYValueError)}
+        """
+        Create a typical selection and check that the returned data is correct
+        """
 
-    # Generate 2D array simulating an AnalogData array
-    data["AnalogData"] = np.arange(1, nChannels * nSamples + 1).reshape(nSamples, nChannels)
-    trl["AnalogData"] = np.vstack([np.arange(0, nSamples, nTrials),
-                                   np.arange(lenTrial, nSamples + nTrials, nTrials),
-                                   np.ones((lenTrial + 1, )),
-                                   np.arange(1, lenTrial + 2) * np.pi]).T
+        selection = {'trials': 1, 'channel': [6, 2], 'latency': [0, 1]}
+        res = spy.selectdata(self.adata, selection)
 
-    # Generate a 4D array simulating a SpectralData array
-    data["SpectralData"] = np.arange(1, nChannels * nSamples * nTrials * nFreqs + 1).reshape(nSamples, nTrials, nFreqs, nChannels)
-    trl["SpectralData"] = trl["AnalogData"]
+        # pick the data by hand, latency [0, 1] covers 2nd - 4th sample index
+        # as time axis is array([-0.5,  0. ,  0.5,  1. ,  1.5])
 
-    # Use a fixed random number generator seed to simulate a 2D SpikeData array
-    seed = np.random.RandomState(13)
-    data["SpikeData"] = np.vstack([seed.choice(nSamples, size=nSpikes),
-                                   seed.choice(np.arange(0, nChannels), size=nSpikes),
-                                   seed.choice(int(nChannels/2), size=nSpikes)]).T
-    trl["SpikeData"] = trl["AnalogData"]
+        # pick trial
+        solution = self.adata.data[self.nSamples:self.nSamples * 2]
+        # pick channels and latency
+        solution = np.column_stack([solution[1:4, 6], solution[1:4, 2]])
 
-    # Use a triple-trigger pattern to simulate EventData w/non-uniform trials
-    data["EventData"] = np.vstack([np.arange(0, nSamples, 1),
-                                   np.zeros((int(nSamples), ))]).T
-    data["EventData"][1::3, 1] = 1
-    data["EventData"][2::3, 1] = 2
-    trl["EventData"] = trl["AnalogData"]
+        assert np.all(solution == res.data)
 
-    # Append customized columns to EventData dataset
-    data["EventDataDimord"] = np.hstack([data["EventData"], data["EventData"]])
-    trl["EventDataDimord"] = trl["AnalogData"]
-    customEvtDimord = ["sample", "eventid", "custom1", "custom2"]
+    def test_ad_valid(self):
 
-    # Define data classes to be used in tests below
-    classes = ["AnalogData", "SpectralData", "SpikeData", "EventData"]
+        """
+        Instantiate Selector class and check only its attributes (the idx)
+        """
 
-    # test `Selector` constructor w/all data classes
-    def test_general(self):
+        # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
+        valid_selections = [
+            (
+                {'channel': ["channel03", "channel01"],
+                 'latency': [0, 1],
+                 'trials': np.arange(2)},
+                # these are the idx used to access the actual data
+                {'channel': [2, 0],
+                 'latency': 2 * [slice(1, 4, 1)],
+                 'trials': [0, 1]}
+            ),
+            (
+                # 2nd selection with some repetitions
+                {'channel': [7, 3, 3],
+                 'trials': [0, 1, 1]},
+                # 'solutions'
+                {'channel': [7, 3, 3],
+                 'trials': [0, 1, 1]}
+            )
+        ]
 
-        # construct expected results for `DiscreteData` objects defined above
-        mapDict = {"SpikeData" : "unit", "EventData" : "eventid"}
-        for dset in ["SpikeData", "EventData", "EventDataDimord"]:
-            dclass = "".join(dset.partition("Data")[:2])
-            prop = mapDict[dclass]
-            dimord = self.customEvtDimord if dset == "EventDataDimord" else None
-            discrete = getattr(spd, dclass)(data=self.data[dset],
-                                            trialdefinition=self.trl[dclass],
-                                            samplerate=self.samplerate,
-                                            dimord=dimord)
-            propIdx = discrete.dimord.index(prop)
+        for selection in valid_selections:
+            # instantiate Selector and check attributes
+            sel_kwargs, solution = selection
+            selector_object = Selector(self.adata, sel_kwargs)
+            for sel_kw in sel_kwargs.keys():
+                attr_name = map_sel_attr[sel_kw]
+                assert getattr(selector_object, attr_name) == solution[sel_kw]
 
-            # convert selection from `selectDict` to a usable integer-list
-            allResults = []
-            for selection in self.selectDict[prop]["valid"]:
-                if isinstance(selection, slice):
-                    if selection.start is selection.stop is None:
-                        selects = [None]
-                    else:
-                        selects = list(range(getattr(discrete, prop).size))[selection]
-                elif isinstance(selection, range):
-                    selects = list(selection)
-                elif isinstance(selection, str):
-                    if selection == "all":
-                        selects = [None]
-                    else:
-                        selection = [selection]
-                elif np.issubdtype(type(selection), np.number):
-                    selection = [selection]
+    def test_ad_invalid(self):
 
-                if isinstance(selection, (list, np.ndarray)):
-                    if isinstance(selection[0], str):
-                        avail = getattr(discrete, prop)
-                    else:
-                        avail = np.arange(getattr(discrete, prop).size)
-                    selects = []
-                    for sel in selection:
-                        selects += list(np.where(avail == sel)[0])
+        # each selection test is a 3-tuple: (selection kwargs, Error, error message sub-string)
+        invalid_selections = [
+            ({'channel': ["channel33", "channel01"]},
+             SPYValueError, "existing names or indices"),
+            ({'channel': "my-non-existing-channel"},
+             SPYValueError, "existing names or indices"),
+            ({'channel': 99},
+             SPYValueError, "existing names or indices"),
+            ({'latency': 1}, SPYTypeError, "expected array_like"),
+            ({'latency': [0, 10]}, SPYValueError, "at least one trial covering the latency window"),
+            ({'latency': 'sth-wrong'}, SPYValueError, "'maxperiod'"),
+            ({'trials': [-3]}, SPYValueError, "all array elements to be bound"),
+            ({'trials': ['1', '6']}, SPYValueError, "expected dtype = numeric"),
+            ({'trials': slice(2)}, SPYTypeError, "expected serializable data type")
+        ]
 
-                # alternate (expensive) way to get by-trial selection indices
-                result = []
-                for trial in discrete.trials:
-                    if selects[0] is None:
-                        res = slice(0, trial.shape[0], 1)
-                    else:
-                        res = []
-                        for sel in selects:
-                            res += list(np.where(trial[:, propIdx] == sel)[0])
-                        if len(res) > 1:
-                            steps = np.diff(res)
-                            if steps.min() == steps.max() == 1:
-                                res = slice(res[0], res[-1] + 1, 1)
-                    result.append(res)
-                allResults.append(result)
+        for selection in invalid_selections:
+            sel_kw, error, err_str = selection
+            with pytest.raises(error, match=err_str):
+                spy.selectdata(self.adata, sel_kw)
 
-            self.selectDict[prop]["result"] = tuple(allResults)
+    def test_ad_parallel(self, testcluster=None):
 
-        # wrong type of data and/or selector
-        with pytest.raises(SPYTypeError):
-            Selector(np.empty((3,)), {})
-        with pytest.raises(SPYValueError):
-            Selector(spd.AnalogData(), {})
-        ang = AnalogData(data=self.data["AnalogData"],
-                         trialdefinition=self.trl["AnalogData"],
-                         samplerate=self.samplerate)
-        with pytest.raises(SPYTypeError):
-            Selector(ang, ())
-        with pytest.raises(SPYValueError):
-            Selector(ang, {"wrongkey": [1]})
-
-        # set/clear in-place data selection (both setting and clearing are idempotent,
-        # i.e., repeated execution must work, hence the double whammy)
-        ang.selectdata(trials=[3, 1])
-        ang.selectdata(trials=[3, 1])
-        ang.selectdata(clear=True)
-        ang.selectdata(clear=True)
-        with pytest.raises(SPYValueError) as spyval:
-            ang.selectdata(trials=[3, 1], clear=True)
-            assert "no data selectors if `clear = True`" in str(spyval.value)
-
-        # show full/squeezed arrays
-        # for a single trial an array is returned directly
-        assert len(ang.show(channel=0, trials=0).shape) == 1
-        # multiple trials get returned in a list
-        assert [len(trl.shape) == 2 for trl in ang.show(channel=0, squeeze=False)]
-
-        # test toi/toilim returns arrays for single trial and
-        # lists for multiple trial selections
-        assert isinstance(ang.show(trials=0, toi=[0, 1]), np.ndarray)
-        assert isinstance(ang.show(trials=0, toilim=[0, 1]), np.ndarray)
-        assert isinstance(ang.show(trials=[0, 1], toi=[0, 1]), list)
-        assert isinstance(ang.show(trials=[0, 1], toilim=[0, 1]), list)
-
-        # test invalid indexing for .show operations
-        with pytest.raises(SPYValueError) as err:
-            ang.show(trials=[1, 0])
-            assert "expected unique and sorted" in str(err)
-        with pytest.raises(SPYValueError) as err:
-            ang.show(trials=[0, 1], toi=[1, 1])
-            assert "expected unique and sorted" in str(err)
-        with pytest.raises(SPYValueError) as err:
-            ang.show(trials=[0, 1], toi=[9999, 99999])
-            assert "expected valid `toi` selection" in str(err)
-
-        # go through all data-classes defined above
-        for dset in self.data.keys():
-            dclass = "".join(dset.partition("Data")[:2])
-            dimord = self.customEvtDimord if dset == "EventDataDimord" else None
-            dummy = getattr(spd, dclass)(data=self.data[dset],
-                                         trialdefinition=self.trl[dclass],
-                                         samplerate=self.samplerate,
-                                         dimord=dimord)
-
-            # test trial selection
-            selection = Selector(dummy, {"trials": [3, 1]})
-            assert selection.trials == [3, 1]
-            selected = selectdata(dummy, trials=[3, 1])
-            assert np.array_equal(selected.trials[0], dummy.trials[3])
-            assert np.array_equal(selected.trials[1], dummy.trials[1])
-            assert selected.trialdefinition.shape == (2, 4)
-            assert np.array_equal(selected.trialdefinition[:, -1], dummy.trialdefinition[[3, 1], -1])
-
-            # scalar selection
-            selection = Selector(dummy, {"trials": 2})
-            assert selection.trials == [2]
-            selected = selectdata(dummy, trials=2)
-            assert np.array_equal(selected.trials[0], dummy.trials[2])
-            assert selected.trialdefinition.shape == (1, 4)
-            assert np.array_equal(selected.trialdefinition[:, -1], dummy.trialdefinition[[2], -1])
-
-            # array selection
-            selection = Selector(dummy, {"trials": np.array([3, 1])})
-            assert selection.trials == [3, 1]
-            selected = selectdata(dummy, trials=[3, 1])
-            assert np.array_equal(selected.trials[0], dummy.trials[3])
-            assert np.array_equal(selected.trials[1], dummy.trials[1])
-            assert selected.trialdefinition.shape == (2, 4)
-            assert np.array_equal(selected.trialdefinition[:, -1], dummy.trialdefinition[[3, 1], -1])
-
-            # select all
-            for trlSec in [None, "all"]:
-                selection = Selector(dummy, {"trials": trlSec})
-                assert selection.trials == list(range(len(dummy.trials)))
-                selected = selectdata(dummy, trials=trlSec)
-                for tk, trl in enumerate(selected.trials):
-                    assert np.array_equal(trl, dummy.trials[tk])
-                assert np.array_equal(selected.trialdefinition, dummy.trialdefinition)
-
-            # invalid trials
-            with pytest.raises(SPYValueError):
-                Selector(dummy, {"trials": [-1, 9]})
-
-            # test "simple" property setters handled by `_selection_setter`
-            for prop in ["channel", "taper", "unit", "eventid"]:
-                if hasattr(dummy, prop):
-                    expected = self.selectDict[prop]["result"]
-                    for sk, sel in enumerate(self.selectDict[prop]["valid"]):
-                        solution = expected[sk]
-                        if dclass == "SpikeData" and prop == "channel":
-                            if isinstance(solution, slice):
-                                start, stop, step = solution.start, solution.stop, solution.step
-                                if start is None:
-                                    start = 0
-                                elif start < 0:
-                                    start = len(dummy.channel) + start
-                                if stop is None:
-                                    stop = len(dummy.channel)
-                                elif stop < 0:
-                                    stop = len(dummy.channel) + stop
-                                if step not in [None, 1]:
-                                    solution = list(range(start, stop))[solution]
-                                else:
-                                    solution = slice(start, stop, step)
-
-                        # ensure typos in selectino keywords are caught
-                        with pytest.raises(SPYValueError) as spv:
-                            Selector(dummy, {prop + "x": sel})
-                            assert "expected dict with one or all of the following keys:" in str(spv.value)
-
-                        # once we're sure `Selector` works, actually select data
-                        selection = Selector(dummy, {prop : sel})
-                        assert getattr(selection, prop) == solution
-                        selected = selectdata(dummy, {prop : sel})
-
-                        # process `unit` and `enventid`
-                        if prop in selection._byTrialProps:
-                            propIdx = selected.dimord.index(prop)
-                            propArr = np.unique(selected.data[:, propIdx]).astype(np.intp)
-                            assert set(getattr(selected, prop)) == set(getattr(dummy, prop)[propArr])
-                            tk = 0
-                            for trialno in range(len(dummy.trials)):
-                                if solution[trialno]: # do not try to compare empty selections
-                                    assert np.array_equal(selected.trials[tk],
-                                                          dummy.trials[trialno][solution[trialno], :])
-                                    tk += 1
-
-                        # `channel` is a special case for `SpikeData` objects
-                        elif dclass == "SpikeData" and prop == "channel":
-                            chanIdx = selected.dimord.index("channel")
-                            chanArr = np.arange(dummy.channel.size)
-                            assert set(selected.data[:, chanIdx]).issubset(chanArr[solution])
-                            assert set(selected.channel) == set(dummy.channel[solution])
-
-                        # everything else (that is not a `DiscreteData` child)
-                        else:
-                            idx = [slice(None)] * len(dummy.dimord)
-                            idx[dummy.dimord.index(prop)] = solution
-                            assert np.array_equal(np.array(dummy.data)[tuple(idx)],
-                                                  selected.data)
-                            assert np.array_equal(getattr(selected, prop),
-                                                  getattr(dummy, prop)[solution])
-
-                    # ensure invalid selection trigger expected errors
-                    for ik, isel in enumerate(self.selectDict[prop]["invalid"]):
-                        with pytest.raises(self.selectDict[prop]["errors"][ik]):
-                            Selector(dummy, {prop : isel})
-                else:
-
-                    # ensure objects that don't have a `prop` attribute complain
-                    with pytest.raises(SPYValueError):
-                        Selector(dummy, {prop : [0]})
-
-            # ensure invalid `toi` + `toilim` specifications trigger expected errors
-            if hasattr(dummy, "time") or hasattr(dummy, "trialtime"):
-                for selection in ["toi", "toilim"]:
-                    for ik, isel in enumerate(self.selectDict[selection]["invalid"]):
-                        with pytest.raises(self.selectDict[selection]["errors"][ik]):
-                            Selector(dummy, {selection: isel})
-                # provide both `toi` and `toilim`
-                with pytest.raises(SPYValueError):
-                    Selector(dummy, {"toi": [0], "toilim": [0, 1]})
-            else:
-                # ensure objects that don't have `time` props complain properly
-                with pytest.raises(SPYValueError):
-                    Selector(dummy, {"toi": [0]})
-                with pytest.raises(SPYValueError):
-                    Selector(dummy, {"toilim": [0]})
-
-            # ensure invalid `foi` + `foilim` specifications trigger expected errors
-            if hasattr(dummy, "freq"):
-                for selection in ["foi", "foilim"]:
-                    for ik, isel in enumerate(self.selectDict[selection]["invalid"]):
-                        with pytest.raises(self.selectDict[selection]["errors"][ik]):
-                            Selector(dummy, {selection: isel})
-                # provide both `foi` and `foilim`
-                with pytest.raises(SPYValueError):
-                    Selector(dummy, {"foi": [0], "foilim": [0, 1]})
-            else:
-                # ensure objects without `freq` property complain properly
-                with pytest.raises(SPYValueError):
-                    Selector(dummy, {"foi": [0]})
-                with pytest.raises(SPYValueError):
-                    Selector(dummy, {"foilim": [0]})
-
-    def test_continuous_toitoilim(self):
-
-        # this only works w/the equidistant trials constructed above!!!
-        selDict = {"toi": (None,  # trivial "selection" of entire contents
-                           "all", # trivial "selection" of entire contents
-                           [0.5],  # single entry lists
-                           [0.6],  # inexact match
-                           [1.0, 2.5],  # two disjoint time-points
-                           [1.2, 2.7],  # inexact from above
-                           [1.9, 2.4],  # inexact from below
-                           [0.4, 2.1],  # inexact from below, inexact from above
-                           [1.6, 1.9],  # inexact from above, inexact from below
-                           [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.],  # alternating madness
-                           [2.0, 0.5, 2.5],  # unsorted list
-                           [1.0, 0.5, 0.5, 1.5],  # repetition
-                           [0.5, 0.5, 1.0, 1.5], # preserve repetition, don't convert to slice
-                           [0.5, 1.0, 1.5]),  # sorted list (should be converted to slice-selection)
-                   "toilim": (None,  # trivial "selection" of entire contents
-                              "all",  # trivial "selection" of entire contents
-                              [0.5, 1.5],  # regular range
-                              [1.5, 2.0],  # minimal range (just two-time points)
-                              [1.0, np.inf],  # unbounded from above
-                              [-np.inf, 1.0])}  # unbounded from below
-
-        # all trials have same time-scale: take 1st one as reference
-        trlTime = (np.arange(0, self.trl["AnalogData"][0, 1] - self.trl["AnalogData"][0, 0])
-                        + self.trl["AnalogData"][0, 2]) / self.samplerate
-
-        ang = AnalogData(data=self.data["AnalogData"],
-                         trialdefinition=self.trl["AnalogData"],
-                         samplerate=self.samplerate)
-        angIdx = [slice(None)] * len(ang.dimord)
-        timeIdx = ang.dimord.index("time")
-
-        # the below check only works for equidistant trials!
-        for tselect in ["toi", "toilim"]:
-            for timeSel in selDict[tselect]:
-                sel = Selector(ang, {tselect: timeSel}).time
-                if timeSel is None or timeSel == "all":
-                    idx = slice(None)
-                else:
-                    if tselect == "toi":
-                        idx = []
-                        for tp in timeSel:
-                            idx.append(np.abs(trlTime - tp).argmin())
-                    else:
-                        idx = np.intersect1d(np.where(trlTime >= timeSel[0])[0],
-                                             np.where(trlTime <= timeSel[1])[0])
-
-                # check that correct data was selected (all trials identical, just take 1st one)
-                assert np.array_equal(ang.trials[0][idx, :],
-                                      ang.trials[0][sel[0], :])
-                if not isinstance(idx, slice) and len(idx) > 1:
-                    timeSteps = np.diff(idx)
-                    if timeSteps.min() == timeSteps.max() == 1:
-                        idx = slice(idx[0], idx[-1] + 1, 1)
-                result = [idx] * len(ang.trials)
-
-                # check correct format of selector (list -> slice etc.)
-                assert np.array_equal(result, sel)
-
-                # perform actual data-selection and ensure identity of results
-                selected = selectdata(ang, {tselect: timeSel})
-                for trialno in range(len(ang.trials)):
-                    angIdx[timeIdx] = result[trialno]
-                    assert np.array_equal(selected.trials[trialno],
-                                          ang.trials[trialno][tuple(angIdx)])
-
-    # test `toi`/`toilim` selection w/`SpikeData` and `EventData`
-    def test_discrete_toitoilim(self):
-
-        # this only works w/the equidistant trials constructed above!!!
-        selDict = {"toi": (None,  # trivial "selection" of entire contents
-                           "all",  # trivial "selection" of entire contents
-                           [0.5],  # single entry lists
-                           [0.6],  # inexact match
-                           [1.0, 2.5],  # two disjoint time-points
-                           [1.2, 2.7],  # inexact from above
-                           [1.9, 2.4],  # inexact from below
-                           [0.4, 2.1],  # inexact from below, inexact from above
-                           [1.6, 1.9],  # inexact from above, inexact from below
-                           [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.],  # alternating madness
-                           [2.0, 0.5, 2.5],  # unsorted list
-                           [1.0, 0.5, 0.5, 1.5],  # repetition
-                           [0.5, 0.5, 1.0, 1.5], # preserve repetition, don't convert to slice
-                           [0.5, 1.0, 1.5]),  # sorted list
-                   "toilim": (None,  # trivial "selection" of entire contents
-                              "all",  # trivial "selection" of entire contents
-                              [0.5, 1.5],  # regular range
-                              [1.5, 2.0],  # minimal range (just two-time points)
-                              [1.0, np.inf],  # unbounded from above
-                              [-np.inf, 1.0])}  # unbounded from below
-
-        # the below method of extracting spikes satisfying `toi`/`toilim` only works w/equidistant trials!
-        for dset in ["SpikeData", "EventData", "EventDataDimord"]:
-            dclass = "".join(dset.partition("Data")[:2])
-            dimord = self.customEvtDimord if dset == "EventDataDimord" else None
-            discrete = getattr(spd, dclass)(data=self.data[dset],
-                                            trialdefinition=self.trl[dclass],
-                                            samplerate=self.samplerate,
-                                            dimord=dimord)
-            for tselect in ["toi", "toilim"]:
-                for timeSel in selDict[tselect]:
-                    sel = Selector(discrete, {tselect: timeSel}).time
-                    result = []
-
-                    # compute sel by hand
-                    for trlno in range(len(discrete.trials)):
-                        trlTime = discrete.time[trlno]
-                        if timeSel is None or timeSel == "all":
-                            idx = np.arange(trlTime.size).tolist()
-                        else:
-                            if tselect == "toi":
-                                idx = []
-                                for tp in timeSel:
-                                    idx.append(np.abs(trlTime - tp).argmin())
-                                # remove duplicates
-                                arrayIdx = np.array(idx)
-                                _, xdi = np.unique(arrayIdx.astype(np.intp), return_index=True)
-                                arrayIdx = arrayIdx[np.sort(xdi)]
-
-                                # check for repeats
-                                idx = []
-                                for closest in arrayIdx:
-                                    idx += np.where(trlTime == trlTime[closest])[0].tolist()
-                            else:
-                                idx = np.intersect1d(np.where(trlTime >= timeSel[0])[0],
-                                                    np.where(trlTime <= timeSel[1])[0]).tolist()
-
-                        # check that correct data was selected
-                        assert np.array_equal(discrete.trials[trlno][idx, :],
-                                            discrete.trials[trlno][sel[trlno], :])
-                        if not isinstance(idx, slice) and len(idx) > 1:
-                            timeSteps = np.diff(idx)
-                            if timeSteps.min() == timeSteps.max() == 1:
-                                idx = slice(idx[0], idx[-1] + 1, 1)
-                        result.append(idx)
-
-                    # check correct format of selector (list -> slice etc.)
-                    assert np.array_equal(result, sel)
-
-                    # perform actual data-selection and ensure identity of results
-                    selected = selectdata(discrete, {tselect: timeSel})
-                    assert selected.dimord == discrete.dimord
-                    for trialno in range(len(discrete.trials)):
-                        assert np.array_equal(selected.trials[trialno],
-                                            discrete.trials[trialno][result[trialno],:])
-
-    def test_spectral_foifoilim(self):
-
-        # this selection only works w/the dummy frequency data constructed above!!!
-        selDict = {"foi": (None,  # trivial "selection" of entire contents,
-                           "all",  # trivial "selection" of entire contents
-                           [1],  # single entry lists
-                           [2.6],  # inexact match
-                           [2, 9],  # two disjoint frequencies
-                           [7.2, 8.3],  # inexact from above
-                           [6.8, 11.9],  # inexact from below
-                           [0.4, 13.1],  # inexact from below, inexact from above
-                           [1.2, 2.9],  # inexact from above, inexact from below
-                           [1.1, 1.9, 2.1, 3.9, 9.2, 11.8, 12.9, 5.1, 13.8],  # alternating madness
-                           [2, 1, 11],  # unsorted list
-                           [5, 2, 2, 3],  # repetition
-                           [1, 1, 2, 3], # preserve repetition, don't convert to slice
-                           [2, 3, 4]),  # sorted list (should be converted to slice-selection)
-                   "foilim": (None,  # trivial "selection" of entire contents,
-                              "all",  # trivial "selection" of entire contents
-                              [2, 11],  # regular range
-                              [1, 2],  # minimal range (just two-time points)
-                              [1.0, np.inf],  # unbounded from above
-                              [-np.inf, 12])}  # unbounded from below
-
-        spc = SpectralData(data=self.data['SpectralData'],
-                           trialdefinition=self.trl['SpectralData'],
-                           samplerate=self.samplerate)
-        allFreqs = spc.freq
-        spcIdx = [slice(None)] * len(spc.dimord)
-        freqIdx = spc.dimord.index("freq")
-
-        for fselect in ["foi", "foilim"]:
-            for freqSel in selDict[fselect]:
-                sel = Selector(spc, {fselect: freqSel}).freq
-                if freqSel is None or freqSel == "all":
-                    idx = slice(None)
-                else:
-                    if fselect == "foi":
-                        idx = []
-                        for fq in freqSel:
-                            idx.append(np.abs(allFreqs - fq).argmin())
-                    else:
-                        idx = np.intersect1d(np.where(allFreqs >= freqSel[0])[0],
-                                             np.where(allFreqs <= freqSel[1])[0])
-
-                # check that correct data was selected (all trials identical, just take 1st one)
-                assert np.array_equal(spc.freq[idx], spc.freq[sel])
-                if not isinstance(idx, slice) and len(idx) > 1:
-                    freqSteps = np.diff(idx)
-                    if freqSteps.min() == freqSteps.max() == 1:
-                        idx = slice(idx[0], idx[-1] + 1, 1)
-
-                # check correct format of selector (list -> slice etc.)
-                assert np.array_equal(idx, sel)
-
-                # perform actual data-selection and ensure identity of results
-                selected = selectdata(spc, {fselect: freqSel})
-                spcIdx[freqIdx] = idx
-                assert np.array_equal(selected.freq, spc.freq[sel])
-                for trialno in range(len(spc.trials)):
-                    assert np.array_equal(selected.trials[trialno],
-                                          spc.trials[trialno][tuple(spcIdx)])
-
-    @skip_without_acme
-    def test_parallel(self, testcluster):
         # collect all tests of current class and repeat them in parallel
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and attr != "test_parallel")]
+                     if (inspect.ismethod(getattr(self, attr)) and "parallel" not in attr)]
         for test in all_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)
         client.close()
+
+
+class TestSpectralSelections:
+
+    nChannels = 3
+    nSamples = 3  # per trial
+    nTrials = 3
+    nTaper = 2
+    nFreqs = 3
+    samplerate = 2.0
+
+    trldef = np.vstack([np.arange(0, nSamples * nTrials, nSamples),
+                        np.arange(0, nSamples * nTrials, nSamples) + nSamples,
+                        np.ones(nTrials) * 2]).T
+
+    # this is an array running from 1 - nChannels * nSamples * nTrials * nFreq * nTaper
+    data = np.arange(1, nChannels * nSamples * nTrials * nFreqs * nTaper + 1).reshape(nSamples * nTrials, nTaper, nFreqs, nChannels)
+    sdata = spy.SpectralData(data=data, samplerate=samplerate,
+                             trialdefinition=trldef)
+    # freq labels
+    sdata.freq = [20, 40, 60]
+
+    def test_spectral_selection(self):
+
+        """
+        Create a typical selection and check that the returned data is correct
+        """
+
+        selection = {'trials': 1,
+                     'channel': [1, 0],
+                     'latency': [1, 1.5],
+                     'frequency': [25, 50]}
+        res = spy.selectdata(self.sdata, selection)
+
+        # pick the data by hand, dimord is: ['time', 'taper', 'freq', 'channel']
+        # latency [1, 1.5] covers 1st - 2nd sample index
+        # as time axis is array([1., 1.5, 2.])
+        # frequency covers only 2nd index (40 Hz)
+
+        # pick trial
+        solution = self.sdata.data[self.nSamples:self.nSamples * 2]
+        # pick channels, frequency and latency and re-stack
+        solution = np.stack([solution[:2, :, [1], 1], solution[:2, :, [1], 0]], axis=-1)
+
+        assert np.all(solution == res.data)
+
+    def test_spectral_valid(self):
+
+        """
+        Instantiate Selector class and check only its attributes (the idx)
+        test mainly additional dimensions (taper and freq) here
+        """
+
+        # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
+        valid_selections = [
+            (
+                {'frequency': np.array([30, 60]),
+                 'taper': [1, 0]},
+                # the 'solutions'
+                {'frequency': slice(1, 3, 1),
+                 'taper': [1, 0]},
+            ),
+            # 2nd selection
+            (
+                {'frequency': 'all',
+                 'taper': 'taper2',
+                 'latency': [1.2, 1.7],
+                 'trials': np.arange(1, 3)},
+                # the 'solutions'
+                {'frequency': slice(None),
+                 'taper': [1],
+                 'latency': [[1], [1]],
+                 'trials': [1, 2]},
+            )
+        ]
+
+        for selection in valid_selections:
+            # instantiate Selector and check attributes
+            sel_kwargs, solution = selection
+            selector_object = Selector(self.sdata, sel_kwargs)
+            for sel_kw in sel_kwargs.keys():
+                attr_name = map_sel_attr[sel_kw]
+                assert getattr(selector_object, attr_name) == solution[sel_kw]
+
+    def test_spectral_invalid(self):
+
+        # each selection test is a 3-tuple: (selection kwargs, Error, error message sub-string)
+        invalid_selections = [
+            ({'frequency': '40Hz'}, SPYValueError, "'all' or `None` or float or list/array"),
+            ({'frequency': 4}, SPYValueError, "all array elements to be bounded"),
+            ({'frequency': slice(None)}, SPYTypeError, "expected serializable data type"),
+            ({'frequency': range(20, 60)}, SPYTypeError, "expected array_like"),
+            ({'frequency': np.arange(20, 60)}, SPYValueError, "expected array of shape"),
+            ({'taper': 'taper13'}, SPYValueError, "existing names or indices"),
+            ({'taper': [18, 99]}, SPYValueError, "existing names or indices"),
+        ]
+
+        for selection in invalid_selections:
+            sel_kw, error, err_str = selection
+            with pytest.raises(error, match=err_str):
+                spy.selectdata(self.sdata, sel_kw)
+
+
+class TestCrossSpectralSelections:
+
+    nChannels = 3
+    nSamples = 3  # per trial
+    nTrials = 3
+    nFreqs = 3
+    samplerate = 2.0
+
+    trldef = np.vstack([np.arange(0, nSamples * nTrials, nSamples),
+                        np.arange(0, nSamples * nTrials, nSamples) + nSamples,
+                        np.ones(nTrials) * 2]).T
+
+    # this is an array running from 1 - nChannels * nSamples * nTrials * nFreq * nTaper
+    data = np.arange(1, nChannels**2 * nSamples * nTrials * nFreqs + 1).reshape(nSamples * nTrials, nFreqs, nChannels, nChannels)
+    csd_data = spy.CrossSpectralData(data=data, samplerate=samplerate)
+    csd_data.trialdefinition = trldef
+
+    # freq labels
+    csd_data.freq = [20, 40, 60]
+
+    def test_csd_selection(self):
+
+        """
+        Create a typical selection and check that the returned data is correct
+        """
+
+        selection = {'trials': [1, 0],
+                     'channel_i': [0, 1],
+                     'latency': [1.5, 2],
+                     'frequency': [25, 60]}
+
+        res = spy.selectdata(self.csd_data, selection)
+
+        # pick the data by hand, dimord is: ['time', 'freq', 'channel_i', 'channel_j']
+        # latency [1, 1.5] covers 2nd - 3rd sample index
+        # as time axis is array([1., 1.5, 2.])
+        # frequency covers 2nd and 3rd index (40 and 60Hz)
+
+        # pick trials
+        solution = np.concatenate([self.csd_data.data[self.nSamples: self.nSamples * 2],
+                                   self.csd_data.data[: self.nSamples]], axis=0)
+
+        # pick channels, frequency and latency
+        solution = np.concatenate([solution[1:3, 1:3, :2, :], solution[4:6, 1:3, :2, :]])
+        assert np.all(solution == res.data)
+
+    def test_csd_valid(self):
+
+        """
+        Instantiate Selector class and check only its attributes (the idx)
+        test mainly additional dimensions (channel_i, channel_j) here
+        """
+
+        # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
+        valid_selections = [
+            (
+                {'channel_i': [0, 1], 'channel_j': [1, 2], 'latency': [1, 2]},
+                # the 'solutions'
+                {'channel_i': slice(0, 2, 1), 'channel_j': slice(1, 3, 1),
+                 'latency': 3 * [slice(0, 3, 1)]},
+            ),
+            # 2nd selection
+            (
+                {'channel_i': ['channel2', 'channel3'], 'channel_j': 1},
+                # the 'solutions'
+                {'channel_i': slice(1, 3, 1), 'channel_j': 1},
+            )
+        ]
+
+        for selection in valid_selections:
+            # instantiate Selector and check attributes
+            sel_kwargs, solution = selection
+            selector_object = Selector(self.csd_data, sel_kwargs)
+            for sel_kw in sel_kwargs.keys():
+                attr_name = map_sel_attr[sel_kw]
+                assert getattr(selector_object, attr_name) == solution[sel_kw]
+
+    def test_csd_invalid(self):
+
+        # each selection test is a 3-tuple: (selection kwargs, Error, error message sub-string)
+        invalid_selections = [
+            (
+                {'channel_i': [0, 2]}, NotImplementedError,
+                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported"
+            ),
+            (
+                {'channel_i': [1, 0]}, NotImplementedError,
+                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported"
+            ),
+            (
+                {'channel_j': ['channel3', 'channel1']}, NotImplementedError,
+                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported"
+            )
+
+        ]
+
+        for selection in invalid_selections:
+            sel_kw, error, err_str = selection
+            with pytest.raises(error, match=err_str):
+                spy.selectdata(self.csd_data, sel_kw)
+
+
+class TestSpikeSelections:
+
+    nChannels = 10
+    nTrials = 5
+    samplerate = 1.0
+    nSpikes = 20
+    T_max = 2 * nSpikes   # in samples, not seconds!
+    nSamples = T_max / nTrials
+    rng = np.random.default_rng(42)
+
+    data = np.vstack([np.sort(rng.choice(range(T_max), size=nSpikes)),
+                      rng.choice(np.arange(0, nChannels), size=nSpikes),
+                      rng.choice(nChannels // 2, size=nSpikes)]).T
+
+    trldef = np.vstack([np.arange(0, T_max, nSamples),
+                        np.arange(0, T_max, nSamples) + nSamples,
+                        np.ones(nTrials) * -2]).T
+
+    spike_data = spy.SpikeData(data=data,
+                               samplerate=samplerate,
+                               trialdefinition=trldef)
+
+    def test_spike_selection(self):
+
+        """
+        Create a typical selection and check that the returned data is correct
+        """
+
+        selection = {'trials': [2, 4],
+                     'channel': [6, 2],
+                     'unit': [0, 3],
+                     'latency': [-1, 4]}
+        res = self.spike_data.selectdata(selection)
+
+        # hand pick selection from the arrays
+        dat_arr = self.spike_data.data
+
+        # these are trial intervals in sample indices!
+        trial2 = self.spike_data.trialdefinition[2, :2]
+        trial4 = self.spike_data.trialdefinition[4, :2]
+
+        # create boolean mask for trials [2, 4]
+        bm = (dat_arr[:, 0] >= trial2[0]) & (dat_arr[:, 0] <= trial2[1])
+        bm = bm | (dat_arr[:, 0] >= trial4[0]) & (dat_arr[:, 0] <= trial4[1])
+
+        # add channels [6, 2]
+        bm = bm & ((dat_arr[:, 1] == 6) | (dat_arr[:, 1] == 2))
+
+        # units [0, 3]
+        bm = bm & ((dat_arr[:, 2] == 0) | (dat_arr[:, 2] == 3))
+
+        # latency [-1, 4]
+        # to index all trials at once
+        time_vec = np.concatenate([t for t in self.spike_data.time])
+        bm = bm & ((time_vec >= -1) & (time_vec <= 4))
+
+        # finally compare to selection result
+        assert np.all(dat_arr[bm] == res.data[()])
+
+    def test_spike_valid(self):
+
+        """
+        Instantiate Selector class and check only its attributes, the idx
+        used by `_preview_trial` in the end
+        """
+
+        # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
+        valid_selections = [
+            (
+                # units get apparently indexed on a per trial basis
+                {'trials': np.arange(1, 4), 'channel': ['channel03', 'channel01'], 'unit': [2, 0]},
+                {'trials': [1, 2, 3], 'channel': [2, 0], 'unit': [[], [], [1, 5]]},
+            ),
+            # 2nd selection
+            (
+                # time/latency idx can be mixed lists and slices O.0
+                # and channel 'all' selections can still be effectively subsets..
+                {'trials': [0, 4], 'latency': [0, 3], 'channel': 'all'},
+                {'trials': [0, 4], 'latency': [slice(0, 4, 1), [1]], 'channel': [1, 2, 3, 5, 9]},
+            )
+        ]
+
+        for selection in valid_selections:
+            # instantiate Selector and check attributes
+            sel_kwargs, solution = selection
+            selector_object = Selector(self.spike_data, sel_kwargs)
+            for sel_kw in sel_kwargs.keys():
+                attr_name = map_sel_attr[sel_kw]
+                assert getattr(selector_object, attr_name) == solution[sel_kw]
+
+    def test_spike_invalid(self):
+
+        # each selection test is a 3-tuple: (selection kwargs, Error, error message sub-string)
+        invalid_selections = [
+            ({'channel': ["channel33", "channel01"]}, SPYValueError, "existing names or indices"),
+            ({'channel': "my-non-existing-channel"}, SPYValueError, "existing names or indices"),
+            ({'channel': slice(None)}, SPYTypeError, "expected serializable data type"),
+            ({'unit': 99}, SPYValueError, "existing names or indices"),
+            ({'unit': slice(None)}, SPYTypeError, "expected serializable data type"),
+            ({'latency': [-1, 10]}, SPYValueError, "at least one trial covering the latency window"),
+        ]
+
+        for selection in invalid_selections:
+            sel_kw, error, err_str = selection
+            with pytest.raises(error, match=err_str):
+                spy.selectdata(self.spike_data, sel_kw)
+
+
+class TestEventSelections:
+
+    """
+    This data type probably needs some adjustments..
+    """
+
+    nSamples = 4
+    nTrials = 5
+    samplerate = 1.0
+    eIDs = [0, 111, 31]  # event ids
+    rng = np.random.default_rng(42)
+
+    trldef = np.vstack([np.arange(0, nSamples * nTrials, nSamples),
+                        np.arange(0, nSamples * nTrials, nSamples) + nSamples,
+                        np.ones(nTrials) * -1]).T
+
+    # Use a triple-trigger pattern to simulate EventData w/non-uniform trials
+    data = np.vstack([np.arange(0, nSamples * nTrials, 1),
+                      rng.choice(eIDs, size=nSamples * nTrials)]).T
+
+    edata = spy.EventData(data=data, samplerate=samplerate, trialdefinition=trldef)
+
+    def test_event_selection(self):
+
+        # eIDs[1] = 111, a bit funny that here we need an index actually...
+        selection = {'eventid': 1, 'latency': [0, 1], 'trials': [0, 3]}
+        res = spy.selectdata(self.edata, selection)
+
+        # hand pick selection from the arrays
+        dat_arr = self.edata.data
+
+        # these are trial intervals in sample indices!
+        trial0 = self.edata.trialdefinition[0, :2]
+        trial3 = self.edata.trialdefinition[3, :2]
+
+        # create boolean mask for trials [0, 3]
+        bm = (dat_arr[:, 0] >= trial0[0]) & (dat_arr[:, 0] <= trial0[1])
+        bm = bm | (dat_arr[:, 0] >= trial3[0]) & (dat_arr[:, 0] <= trial3[1])
+
+        # add eventid eIDs[1]
+        bm = bm & (dat_arr[:, 1] == 111)
+
+        # latency [0, 1]
+        # to index all trials at once
+        time_vec = np.concatenate([t for t in self.edata.time])
+        bm = bm & ((time_vec >= 0) & (time_vec <= 1))
+
+        # finally compare to selection result
+        assert np.all(dat_arr[bm] == res.data[()])
+
+    def test_event_valid(self):
+        """
+        Instantiate Selector class and check only its attributes, the idx
+        used by `_preview_trial` in the end
+        """
+
+        # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
+        valid_selections = [
+            (
+                # eventids get apparently indexed on a per trial basis
+                {'trials': np.arange(1, 4), 'eventid': [0, 2]},
+                {'trials': [1, 2, 3], 'eventid': [[2], slice(0, 2, 1), []]}
+            ),
+        ]
+
+        for selection in valid_selections:
+            # instantiate Selector and check attributes
+            sel_kwargs, solution = selection
+            selector_object = Selector(self.edata, sel_kwargs)
+            for sel_kw in sel_kwargs.keys():
+                attr_name = map_sel_attr[sel_kw]
+                assert getattr(selector_object, attr_name) == solution[sel_kw]
+
+    def test_event_invalid(self):
+
+        """
+        eventid seems to be only indexable ([0, 1, 2]) instead of using the actual
+        numerical values ([0, 111, 31]), this should most likely change in the future..
+        """
+        # each selection test is a 3-tuple: (selection kwargs, Error, error message sub-string)
+        invalid_selections = [
+            ({'eventid': [111, 31]}, SPYValueError, "existing names or indices"),
+            ({'eventid': '111'}, SPYValueError, "expected dtype = numeric"),
+        ]
+
+        for selection in invalid_selections:
+            sel_kw, error, err_str = selection
+            with pytest.raises(error, match=err_str):
+                spy.selectdata(self.edata, sel_kw)
+
+
+if __name__ == '__main__':
+    T1 = TestGeneral()
+    T2 = TestAnalogSelections()
+    T3 = TestSpectralSelections()
+    T4 = TestCrossSpectralSelections()
+    T5 = TestSpikeSelections()
+    T6 = TestEventSelections()

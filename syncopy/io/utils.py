@@ -57,7 +57,7 @@ def hash_file(fname, bsize=65536):
     return hash.hexdigest()
 
 
-def cleanup(older_than=24, interactive=True, **kwargs):
+def cleanup(older_than=24, interactive=True):
     """
     Delete old files in temporary Syncopy folder
 
@@ -77,11 +77,8 @@ def cleanup(older_than=24, interactive=True, **kwargs):
     """
 
     # Make sure age-cutoff is valid
-    try:
-        scalar_parser(older_than, varname="older_than", ntype="int_like",
+    scalar_parser(older_than, varname="older_than", ntype="int_like",
                       lims=[0, np.inf])
-    except Exception as exc:
-        raise exc
     older_than = int(older_than)
 
     # For clarification: show location of storage folder that is scanned here
@@ -119,22 +116,24 @@ def cleanup(older_than=24, interactive=True, **kwargs):
     for sk, sess in enumerate(sessions):
         sessid = allIds[sk]
         if sessid != __sessionid__:
-            with open(sess, "r") as fid:
-                sesslog = fid.read()
-            timestr = sesslog[sesslog.find("<") + 1:sesslog.find(">")]
-            timeobj = datetime.strptime(timestr, '%Y-%m-%d %H:%M:%S')
-            age = round((now - timeobj).total_seconds()/3600)   # age in hrs
-            if age >= older_than:
-                sesList.append(sess)
-                files = glob(os.path.join(__storage__, "*_{}_*".format(sessid)))
-                flsList.append(files)
-                ageList.append(round(age/24))                  # age in days
-                usrList.append(sesslog[:sesslog.find("@")])
-                ownList.append(sesslog[:sesslog.find(":")])
-                sizList.append(sum(os.path.getsize(file) if os.path.isfile(file) else
-                                   sum(os.path.getsize(os.path.join(dirpth, fname)) \
+            try:
+               with open(sess, "r") as fid:
+                    sesslog = fid.read()
+                    timestr = sesslog[sesslog.find("<") + 1:sesslog.find(">")]
+                    timeobj = datetime.strptime(timestr, '%Y-%m-%d %H:%M:%S')
+                    age = round((now - timeobj).total_seconds()/3600)   # age in hrs
+                    if age >= older_than:
+                        sesList.append(sess)
+                        files = glob(os.path.join(__storage__, "*_{}_*".format(sessid)))
+                        flsList.append(files)
+                        ageList.append(round(age/24))                  # age in days
+                        usrList.append(sesslog[:sesslog.find("@")])
+                        ownList.append(sesslog[:sesslog.find(":")])
+                        sizList.append(sum(os.path.getsize(file) if os.path.isfile(file) else sum(os.path.getsize(os.path.join(dirpth, fname)) \
                                        for dirpth, _, fnames in os.walk(file)
                                        for fname in fnames) for file in files))
+            except OSError as ex:
+                print(f"Unable to open {fid}: {ex}. (Maybe already deleted.)")
 
     # Farewell if nothing's to do here
     if not sesList and not dangling:
@@ -173,11 +172,24 @@ def cleanup(older_than=24, interactive=True, **kwargs):
         dangInfo = \
             "Found {numdang:d} dangling files not associated to any session " +\
             "using {szdang:4.1f} GB of disk space. \n"
-        dangInfo = dangInfo.format(numdang=len(dangling),
-                                   szdang=sum(os.path.getsize(file)/1024**3 if os.path.isfile(file) else \
-                                       sum(os.path.getsize(os.path.join(dirpth, fname))/1024**3 \
+        numdang = 0
+        szdang = 0.0
+        for file in dangling:
+            try:
+                if os.path.isfile(file):
+                    szdang += os.path.getsize(file)/1024**3
+                    numdang += 1
+                elif os.path.isdir(file):
+                    szdang += sum(os.path.getsize(os.path.join(dirpth, fname)) / 1024**3 \
                                            for dirpth, _, fnames in os.walk(file) \
-                                               for fname in fnames) for file in dangling))
+                                               for fname in fnames)
+                    numdang += 1
+
+            except OSError as ex:
+                print(f"Dangling file {file} no longer exists: {ex}. (Maybe already deleted.)")
+        dangInfo = dangInfo.format(numdang=numdang, szdang=szdang)
+
+
         dangOptions = \
             "[D]ANGLING FILE removal to delete anything not associated to sessions " +\
             "(you will not be prompted for confirmation) \n"
@@ -223,18 +235,18 @@ def cleanup(older_than=24, interactive=True, **kwargs):
 
     # Delete all session-remains at once
     elif choice == "S":
-        for fls in tqdm(flsList, desc="Deleting session data..."):
+        for fls in tqdm(flsList, desc="Deleting session data...", disable=None):
             _rm_session(fls)
 
     # Deleate all dangling files at once
     elif choice == "D":
-        for dat in tqdm(dangling, desc="Deleting dangling data..."):
+        for dat in tqdm(dangling, desc="Deleting dangling data...", disable=None):
             _rm_session([dat])
 
     # Delete everything
     elif choice == "R":
         for contents in tqdm(flsList + [[dat] for dat in dangling],
-                        desc="Deleting temporary data..."):
+                        desc="Deleting temporary data...", disable=None):
             _rm_session(contents)
 
     # Don't do anything for now, continue w/dangling data
@@ -285,8 +297,10 @@ def _rm_session(session_files):
     """
     Local helper for deleting tmp data of a given spy session
     """
-
-    [os.unlink(file) if os.path.isfile(file) else shutil.rmtree(file) \
-     for file in session_files]
+    for file in session_files:
+        try:
+            os.unlink(file) if os.path.isfile(file) else shutil.rmtree(file)
+        except Exception as ex:
+            pass
 
     return

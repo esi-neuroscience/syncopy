@@ -10,6 +10,7 @@ import time
 import random
 import pytest
 import numpy as np
+import dask.distributed as dd
 
 # Local imports
 from syncopy.datatype import AnalogData, SpikeData, EventData
@@ -19,13 +20,6 @@ from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.io import save, load
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import construct_spy_filename, flush_local_cluster
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(
-    not __acme__, reason="acme not available")
 
 
 class TestSpikeData():
@@ -38,6 +32,7 @@ class TestSpikeData():
     data = np.vstack([seed.choice(ns, size=nd),
                       seed.choice(nc, size=nd),
                       seed.choice(int(nc / 2), size=nd)]).T
+    data = data[data[:,0].argsort()]
     data2 = data.copy()
     data2[:, -1] = data[:, 0]
     data2[:, 0] = data[:, -1]
@@ -48,6 +43,36 @@ class TestSpikeData():
     num_smp = np.unique(data[:, 0]).size
     num_chn = data[:, 1].max() + 1
     num_unt = data[:, 2].max() + 1
+
+    def test_init(self):
+
+        # data and no labels triggers default labels
+        dummy = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+        # labels are 0-based
+        assert dummy.channel == 'channel05'
+        assert dummy.unit == 'unit05'
+
+        # data and fitting labels is fine
+        assert isinstance(SpikeData(data=np.ones((2, 3), dtype=int), channel=['only_channel']),
+                          SpikeData)
+
+        # --- invalid inits ---
+
+        # non-integer types
+        with pytest.raises(SPYTypeError, match='expected integer like'):
+            _ = SpikeData(data=np.ones((2, 3)), unit=['unit1', 'unit2'])
+
+        with pytest.raises(SPYTypeError, match='expected integer like'):
+            data = np.array([np.nan, 2, np.nan])[:, np.newaxis]
+            _ = SpikeData(data=data, unit=['unit1', 'unit2'])
+
+        # data and too many labels
+        with pytest.raises(SPYValueError, match='expected exactly 1 unit'):
+            _ = SpikeData(data=np.ones((2, 3), dtype=int), unit=['unit1', 'unit2'])
+
+        # no data but labels
+        with pytest.raises(SPYValueError, match='cannot assign `channel` without data'):
+            _ = SpikeData(channel=['a', 'b', 'c'])
 
     def test_empty(self):
         dummy = SpikeData()
@@ -60,9 +85,11 @@ class TestSpikeData():
             SpikeData({})
 
     def test_issue_257_fixed_no_error_for_empty_data(self):
-        """This tests that the data object is created without throwing an error, see #257."""
-        data = SpikeData(np.column_stack(([],[],[])), dimord = ['sample', 'channel', 'unit'], samplerate = 30000)
-        assert data.dimord == ["sample", "channel", "unit"]
+        """This tests that empty datasets are not allowed"""
+        with pytest.raises(SPYValueError, match='non empty'):
+            data = SpikeData(np.column_stack(([],[],[])).astype(int),
+                             dimord=['sample', 'channel', 'unit'],
+                             samplerate=30000)
 
     def test_nparray(self):
         dummy = SpikeData(self.data)
@@ -153,102 +180,6 @@ class TestSpikeData():
             del dummy, dummy2
             time.sleep(0.1)
 
-    # test data-selection via class method
-    def test_dataselection(self, fulltests):
-
-        # Create testing objects (regular and swapped dimords)
-        dummy = SpikeData(data=self.data,
-                          trialdefinition=self.trl,
-                          samplerate=2.0)
-        ymmud = SpikeData(data=self.data[:, ::-1],
-                          trialdefinition=self.trl,
-                          samplerate=2.0,
-                          dimord=dummy.dimord[::-1])
-
-        # selections are chosen so that result is not empty
-        trialSelections = [
-            "all",  # enforce below selections in all trials of `dummy`
-            [3, 1]  # minimally unordered
-        ]
-        chanSelections = [
-            ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
-            [4, 2, 2, 5, 5],   # repetition + unorderd
-            range(5, 8),  # narrow range
-            slice(-5, None)  # negative-start slice
-        ]
-        toiSelections = [
-            "all",  # non-type-conform string
-            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-        ]
-        toilimSelections = [
-            [0.5, 3.5],  # regular range
-            [1.0, np.inf]  # unbounded from above
-        ]
-        unitSelections = [
-            ["unit1", "unit1", "unit2", "unit3"],  # preserve repetition
-            [0, 0, 2, 3],  # preserve repetition, don't convert to slice
-            range(1, 4),  # narrow range
-            slice(-2, None)  # negative-start slice
-        ]
-        timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
-
-        # Randomly pick one selection unless tests are run with `--full`
-        if fulltests:
-            trialSels = trialSelections
-            chanSels = chanSelections
-            unitSels = unitSelections
-            timeSels = timeSelections
-        else:
-            trialSels = [random.choice(trialSelections)]
-            chanSels = [random.choice(chanSelections)]
-            unitSels = [random.choice(unitSelections)]
-            timeSels = [random.choice(timeSelections)]
-
-        for obj in [dummy, ymmud]:
-            chanIdx = obj.dimord.index("channel")
-            unitIdx = obj.dimord.index("unit")
-            chanArr = np.arange(obj.channel.size)
-            for trialSel in trialSels:
-                for chanSel in chanSels:
-                    for unitSel in unitSels:
-                        for timeSel in timeSels:
-                            kwdict = {}
-                            kwdict["trials"] = trialSel
-                            kwdict["channel"] = chanSel
-                            kwdict["unit"] = unitSel
-                            kwdict[timeSel[0]] = timeSel[1]
-                            cfg = StructDict(kwdict)
-                            # data selection via class-method + `Selector` instance for indexing
-                            selected = obj.selectdata(**kwdict)
-                            selector = Selector(obj, kwdict)
-                            tk = 0
-                            for trialno in selector.trials:
-                                if selector.time[tk]:
-                                    assert np.array_equal(obj.trials[trialno][selector.time[tk], :],
-                                                          selected.trials[tk])
-                                    tk += 1
-                            assert set(selected.data[:, chanIdx]).issubset(chanArr[selector.channel])
-                            assert set(selected.channel) == set(obj.channel[selector.channel])
-                            assert np.array_equal(selected.unit,
-                                                  obj.unit[np.unique(selected.data[:, unitIdx])])
-                            cfg.data = obj
-                            # data selection via package function and `cfg`: ensure equality
-                            out = selectdata(cfg)
-                            assert np.array_equal(out.channel, selected.channel)
-                            assert np.array_equal(out.unit, selected.unit)
-                            assert np.array_equal(out.data, selected.data)
-
-    @skip_without_acme
-    def test_parallel(self, testcluster, fulltests):
-        # repeat selected test w/parallel processing engine
-        client = dd.Client(testcluster)
-        par_tests = ["test_dataselection"]
-        for test in par_tests:
-            getattr(self, test)(fulltests)
-            flush_local_cluster(testcluster)
-        client.close()
-
 
 class TestEventData():
 
@@ -256,7 +187,7 @@ class TestEventData():
     nc = 10
     ns = 30
     data = np.vstack([np.arange(0, ns, 5),
-                      np.zeros((int(ns / 5), ))]).T
+                      np.zeros((int(ns / 5), ))]).T.astype(int)
     data[1::2, 1] = 1
     data2 = data.copy()
     data2[:, -1] = data[:, 0]
@@ -467,7 +398,7 @@ class TestEventData():
 
         # Extend data and provoke an exception due to out of bounds error
         smp = np.vstack([np.arange(self.ns, int(2.5 * self.ns), 5),
-                         np.zeros((int((1.5 * self.ns) / 5),))]).T
+                         np.zeros((int((1.5 * self.ns) / 5),))]).T.astype(int)
         smp[1::2, 1] = 1
         smp = np.hstack([smp, smp])
         data4 = np.vstack([data3, smp])
@@ -522,83 +453,8 @@ class TestEventData():
         with pytest.raises(SPYValueError):
             ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
 
-    # test data-selection via class method
-    def test_ed_dataselection(self, fulltests):
 
-        # Create testing objects (regular and swapped dimords)
-        dummy = EventData(data=np.hstack([self.data, self.data]),
-                          dimord=self.customDimord,
-                          trialdefinition=self.trl,
-                          samplerate=2.0)
-        ymmud = EventData(data=np.hstack([self.data[:, ::-1], self.data[:, ::-1]]),
-                          trialdefinition=self.trl,
-                          samplerate=2.0,
-                          dimord=dummy.dimord[::-1])
+if __name__ == '__main__':
 
-        # selections are chosen so that result is not empty
-        trialSelections = [
-            "all",  # enforce below selections in all trials of `dummy`
-            [3, 1]  # minimally unordered
-        ]
-        eventidSelections = [
-            [0, 0, 1],  # preserve repetition, don't convert to slice
-            range(0, 2),  # narrow range
-            slice(-2, None)  # negative-start slice
-        ]
-        toiSelections = [
-            "all",  # non-type-conform string
-            [-0.2, 0.6, 0.9, 1.1, 1.3, 1.6, 1.8, 2.2, 2.45, 3.]  # unordered, inexact, repetions
-        ]
-        toilimSelections = [
-            [0.5, 3.5],  # regular range
-            [0.0, np.inf]  # unbounded from above
-        ]
-        timeSelections = list(zip(["toi"] * len(toiSelections), toiSelections)) \
-            + list(zip(["toilim"] * len(toilimSelections), toilimSelections))
-
-        # Randomly pick one selection unless tests are run with `--full`
-        if fulltests:
-            trialSels = trialSelections
-            eventidSels = eventidSelections
-            timeSels = timeSelections
-        else:
-            trialSels = [random.choice(trialSelections)]
-            eventidSels = [random.choice(eventidSelections)]
-            timeSels = [random.choice(timeSelections)]
-
-        for obj in [dummy, ymmud]:
-            eventidIdx = obj.dimord.index("eventid")
-            for trialSel in trialSels:
-                for eventidSel in eventidSels:
-                    for timeSel in timeSels:
-                        kwdict = {}
-                        kwdict["trials"] = trialSel
-                        kwdict["eventid"] = eventidSel
-                        kwdict[timeSel[0]] = timeSel[1]
-                        cfg = StructDict(kwdict)
-                        # data selection via class-method + `Selector` instance for indexing
-                        selected = obj.selectdata(**kwdict)
-                        selector = Selector(obj, kwdict)
-                        tk = 0
-                        for trialno in selector.trials:
-                            if selector.time[tk]:
-                                assert np.array_equal(obj.trials[trialno][selector.time[tk], :],
-                                                      selected.trials[tk])
-                                tk += 1
-                        assert np.array_equal(selected.eventid,
-                                              obj.eventid[np.unique(selected.data[:, eventidIdx]).astype(np.intp)])
-                        cfg.data = obj
-                        # data selection via package function and `cfg`: ensure equality
-                        out = selectdata(cfg)
-                        assert np.array_equal(out.eventid, selected.eventid)
-                        assert np.array_equal(out.data, selected.data)
-
-    @skip_without_acme
-    def test_ed_parallel(self, testcluster, fulltests):
-        # repeat selected test w/parallel processing engine
-        client = dd.Client(testcluster)
-        par_tests = ["test_ed_dataselection"]
-        for test in par_tests:
-            getattr(self, test)(fulltests)
-            flush_local_cluster(testcluster)
-        client.close()
+    T1 = TestSpikeData()
+    T2 = TestEventData()

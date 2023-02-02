@@ -1,7 +1,7 @@
 Resample data with Syncopy
 ==========================
 
-Changing the sampling rate of a dataset is a common task in digital signal processing. Syncopy offers simple *downsampling* (decimation) with or without explicit low pass filtering, and the numerically more expensive *resampling* to arbitrary new sampling rates.
+Changing the sampling rate of a dataset is a common task in digital signal processing. With :func:`~syncopy.resampledata` Syncopy offers simple *downsampling* (decimation) with or without explicit low pass filtering, and the numerically more expensive *resampling* to arbitrary new sampling rates.
 
 .. Note::
    Our friends at FieldTrip also have a nice tutorial about resampling `here <https://www.fieldtriptoolbox.org/faq/resampling_lowpassfilter>`_
@@ -9,8 +9,8 @@ Changing the sampling rate of a dataset is a common task in digital signal proce
 .. contents:: Topics covered
    :local:
 
-Synthetic Data
---------------
+Create Example Data
+-------------------
 
 To start with a clean slate, let's construct a synthetic signal with two harmonics,
 one at 200Hz and one at 1300Hz:
@@ -58,7 +58,7 @@ Let's have a look at the new power spectrum::
 
 .. image:: res_ds_spec.png
 
-What happened? First we have to note that the frequency axis now goes from 0Hz to only 500Hz, which is the *new Nyquist frequency* :math:`1000Hz / 2`. We still see our expected peak at 200Hz, but there is also another one at 300Hz even though our signal never contained such oscillations! This phenomenon is called `aliasing <https://en.wikipedia.org/wiki/Aliasing>`_, basically meaning that frequencies which are present in the signal yet are higher than the Nyquist limit (:math:`1300 Hz > 500Hz`) "wrap around" and re-appear as spurious low-frequency components. This is a common problem of *digitization* of analog signals, think audio processing. The formula for the alias frequencies is:
+What happened? First we have to note that the frequency axis now goes from 0Hz to only 500Hz, which is the *new Nyquist frequency* :math:`1000Hz / 2`. We still see our expected peak at 200Hz, but there is also another one at 300Hz even though our signal never contained such oscillations! This phenomenon is called `aliasing <https://en.wikipedia.org/wiki/Aliasing>`_, meaning that frequencies which are present in the signal yet are higher than the Nyquist limit (:math:`1300 Hz > 500Hz`) "wrap around" and re-appear as spurious low-frequency components. This is a common problem of *digitization* of analog signals, think audio processing. The formula for the alias frequencies is:
 
 .. math::
 

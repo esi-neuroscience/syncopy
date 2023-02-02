@@ -1,5 +1,5 @@
-.. image:: https://raw.githubusercontent.com/esi-neuroscience/syncopy/master/doc/source/_static/syncopy_logo.png
-   :alt: Syncopy-Logo
+.. image:: https://raw.githubusercontent.com/esi-neuroscience/syncopy/master/doc/source/_static/syncopy_logo_small.png
+	   :alt: Syncopy-Logo
 
 Systems Neuroscience Computing in Python
 ========================================
@@ -13,18 +13,11 @@ Systems Neuroscience Computing in Python
    :target: https://badge.fury.io/py/esi-syncopy
 .. |License| image:: https://img.shields.io/github/license/esi-neuroscience/syncopy
 
-master branch status: |Master Tests| |Master Coverage|
+|Master Tests| |Master Coverage|
 
 .. |Master Tests| image:: https://github.com/esi-neuroscience/syncopy/actions/workflows/cov_test_workflow.yml/badge.svg?branch=master
    :target: https://github.com/esi-neuroscience/syncopy/actions/workflows/cov_test_workflow.yml
 .. |Master Coverage| image:: https://codecov.io/gh/esi-neuroscience/syncopy/branch/master/graph/badge.svg?token=JEI3QQGNBQ
-   :target: https://codecov.io/gh/esi-neuroscience/syncopy
-
-dev branch status: |Dev Tests| |Dev Coverage|
-
-.. |Dev Tests| image:: https://github.com/esi-neuroscience/syncopy/actions/workflows/cov_test_workflow.yml/badge.svg?branch=dev
-   :target: https://github.com/esi-neuroscience/syncopy/actions/workflows/cov_test_workflow.yml
-.. |Dev Coverage| image:: https://codecov.io/gh/esi-neuroscience/syncopy/branch/dev/graph/badge.svg?token=JEI3QQGNBQ
    :target: https://codecov.io/gh/esi-neuroscience/syncopy
 
 Syncopy aims to be a user-friendly toolkit for *large-scale*
@@ -66,21 +59,9 @@ Now we create a new environment named ```syncopy``` and install syncopy into thi
 
 .. code-block:: bash
 
-   conda create -y --name syncopy python=3.8
+   conda create -y --name syncopy
    conda activate syncopy
    conda install -y -c conda-forge esi-syncopy
-
-
-Checking your SyNCoPy version
------------------------------
-
-To check which version of SynCoPy you have installed in the current environment, run:
-
-.. code-block:: bash
-
-   conda activate syncopy
-   python -c "import syncopy; print(syncopy.__version__)"
-
 
 Getting Started
 ===============

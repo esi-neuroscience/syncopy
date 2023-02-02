@@ -23,7 +23,7 @@ def _power_spectrum(freq_range=[3, 40],
     # the Gaussians: Mean (Center Frequency), height (Power), and standard deviation (Bandwidth).
     periodic_params = [[10, 0.2, 1.25], [30, 0.15, 2]]
 
-    noise_level = 0.005
+    noise_level = 0.001
     freqs, powers = gen_power_spectrum(freq_range, aperiodic_params,
                                        periodic_params, nlv=noise_level, freq_res=freq_res)
     return freqs, powers
@@ -56,7 +56,7 @@ class TestSpfooof():
 
     def test_output_fooof_single_channel(self, freqs=freqs, powers=powers):
         """
-        Tests spfooof with output 'fooof' and a single input signal/channel.
+        Tests spfooof with output 'fooof' and a single input spectrum/channel.
         This will return the full, fooofed spectrum.
         """
         spectra, details = fooofspy(powers, freqs, out_type='fooof', fooof_opt={'peak_width_limits': (1.0, 12.0)})
@@ -162,7 +162,7 @@ class TestSpfooof():
         plt.ylabel('Power (Db)')
         plt.legend()
         plt.title("Comparison of raw data and fooof results, linear scale.")
-        plt.show()
+        # plt.show()
 
     def test_the_fooof_opt_settings_are_used(self, freqs=freqs, powers=powers):
         """

@@ -6,21 +6,15 @@
 import pytest
 import numpy as np
 import inspect
-import os
 import matplotlib.pyplot as plt
+import dask.distributed as dd
 
 # Local imports
 from syncopy import freqanalysis
 from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError
-from syncopy.tests.synth_data import AR2_network, phase_diffusion
+from syncopy.tests.test_metadata import _get_fooof_signal
 import syncopy as spy
-from syncopy import __acme__
-if __acme__:
-    import dask.distributed as dd
-
-# Decorator to decide whether or not to run dask-related tests
-skip_without_acme = pytest.mark.skipif(not __acme__, reason="acme not available")
 
 
 def _plot_powerspec_linear(freqs, powers, title="Power spectrum"):
@@ -81,25 +75,6 @@ def spp(dt, title=None):
     return fig, ax
 
 
-def _get_fooof_signal(nTrials=100):
-    """
-    Produce suitable test signal for fooof, with peaks at 30 and 50 Hz.
-
-    Note: One must perform trial averaging during the FFT to get realistic
-    data out of it (and reduce noise). Then work with the averaged data.
-
-    Returns AnalogData instance.
-    """
-    nSamples = 1000
-    nChannels = 1
-    samplerate = 1000
-    ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials)
-    pd1 = phase_diffusion(freq=30., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
-    pd2 = phase_diffusion(freq=50., eps=.1, fs=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
-    signal = ar1_part + .8 * pd1 + 0.6 * pd2
-    return signal
-
-
 class TestFooofSpy():
     """
     Test the frontend (user API) for running FOOOF. FOOOF is a post-processing of an FFT, and
@@ -107,7 +82,8 @@ class TestFooofSpy():
     one of the available FOOOF output types.
     """
 
-    tfData = _get_fooof_signal()
+    seed = 42
+    tfData = _get_fooof_signal(seed=seed)
 
     @staticmethod
     def get_fooof_cfg():
@@ -131,20 +107,20 @@ class TestFooofSpy():
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg['foilim'] = [0., 100.]    # Include the zero in tfData.
         with pytest.raises(SPYValueError) as err:
-            _ = freqanalysis(cfg, self.tfData)  # tfData contains zero.
+            _ = freqanalysis(cfg, _get_fooof_signal(seed=self.seed))  # tfData contains zero.
         assert "a frequency range that does not include zero" in str(err.value)
 
-    def test_output_fooof_works_with_freq_zero_in_data_after_setting_foilim(self):
+    def test_output_fooof_works_with_freq_zero_in_data_after_setting_frequency(self):
         """
         This tests the intended operation with output type 'fooof': with an input that does not
-        include zero, ensured by using the 'foilim' argument/setting when calling freqanalysis.
+        include zero, ensured by using the 'frequency' argument/setting when calling freqanalysis.
 
         This returns the full, fooofed spectrum.
         """
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.pop('fooof_opt', None)
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
-        spec_dt = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
+        spec_dt = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
 
         # check frequency axis
         assert spec_dt.freq.size == 100
@@ -170,17 +146,14 @@ class TestFooofSpy():
         # spp(spec_dt, "FOOOF full model")
         # plt.savefig("spp.png")
 
-    def test_output_fooof_aperiodic(self, show_data=False):
+    def test_output_fooof_aperiodic(self):
         """Test fooof with output type 'fooof_aperiodic'. A spectrum containing only the aperiodic part is returned."""
-
-        if show_data:
-            _show_spec_log(self.tfData)
 
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.output = "fooof_aperiodic"
         cfg.pop('fooof_opt', None)
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
-        spec_dt = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
+        spec_dt = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
 
         # log
         assert "fooof" in spec_dt._log  # from the method
@@ -197,14 +170,12 @@ class TestFooofSpy():
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.output = "fooof_peaks"
         cfg.pop('fooof_opt', None)
-        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid foooof warning.
-        spec_dt = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
+        fooof_opt = {'peak_width_limits': (1.0, 12.0)}  # Increase lower limit to avoid fooof warning.
+        spec_dt = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
         assert spec_dt.data.ndim == 4
         assert "fooof" in spec_dt._log
         assert "fooof_method = fooof_peaks" in spec_dt._log
         assert "fooof_aperiodic" not in spec_dt._log
-        # _plot_powerspec_linear(freqs=spec_dt.freq, powers=np.ravel(spec_dt.data), title="fooof peaks, for ar1 data (linear scale)")
-        # spp(spec_dt, "FOOOF peaks")
 
     def test_different_fooof_outputs_are_consistent(self):
         """Test fooof with all output types plotted into a single plot and ensure consistent output."""
@@ -213,20 +184,18 @@ class TestFooofSpy():
         cfg['foilim'] = [10, 70]
         cfg.pop('fooof_opt', None)
         fooof_opt = {'peak_width_limits': (6.0, 12.0),
-                     'min_peak_height': 0.2}  # Increase lower limit to avoid foooof warning.
+                     'min_peak_height': 0.2}  # Increase lower limit to avoid fooof warning.
 
-        out_fft = freqanalysis(cfg, self.tfData)
+        out_fft = freqanalysis(cfg, _get_fooof_signal(seed=self.seed))
         cfg['output'] = "fooof"
-        out_fooof = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
+        out_fooof = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
         cfg['output'] = "fooof_aperiodic"
-        out_fooof_aperiodic = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
+        out_fooof_aperiodic = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
         cfg['output'] = "fooof_peaks"
-        out_fooof_peaks = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
+        out_fooof_peaks = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
 
         assert (out_fooof.freq == out_fooof_aperiodic.freq).all()
         assert (out_fooof.freq == out_fooof_peaks.freq).all()
-
-        freqs = out_fooof.freq
 
         assert out_fooof.data.shape == out_fooof_aperiodic.data.shape
         assert out_fooof.data.shape == out_fooof_peaks.data.shape
@@ -236,23 +205,17 @@ class TestFooofSpy():
         assert 27 < out_fooof_peaks.freq[f1_ind] < 33
 
         plot_data = {"Raw input data": np.ravel(out_fft.data), "Fooofed spectrum": np.ravel(out_fooof.data), "Fooof aperiodic fit": np.ravel(out_fooof_aperiodic.data), "Fooof peaks fit": np.ravel(out_fooof_peaks.data)}
-        _plot_powerspec_linear(freqs, powers=plot_data, title="Outputs from different fooof methods for ar1 data (linear scale)")
+        #_plot_powerspec_linear(out_fooof.freq, powers=plot_data, title="Outputs from different fooof methods for ar1 data (linear scale)")
 
     def test_frontend_settings_are_merged_with_defaults_used_in_backend(self):
         cfg = TestFooofSpy.get_fooof_cfg()
         cfg.output = "fooof_peaks"
         cfg.pop('fooof_opt', None)
         fooof_opt = {'max_n_peaks': 8, 'peak_width_limits': (1.0, 12.0)}
-        spec_dt = freqanalysis(cfg, self.tfData, fooof_opt=fooof_opt)
+        spec_dt = freqanalysis(cfg, _get_fooof_signal(seed=self.seed), fooof_opt=fooof_opt)
 
         assert spec_dt.data.ndim == 4
 
-        # TODO later: test whether the settings returned as 2nd return value include
-        #  our custom value for fooof_opt['max_n_peaks']. Not possible yet on
-        #  this level as we have no way to get the 'details' return value.
-        #  This is verified in backend tests though.
-
-    @skip_without_acme
     def test_parallel(self, testcluster=None):
 
         plt.ioff()

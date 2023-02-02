@@ -14,6 +14,11 @@ authors:
   orcid: https://orcid.org/0000-0002-3521-715X
 - affiliation: Ernst Strüngmann Institute for Neuroscience in Cooperation with Max
     Planck Society
+  family-names: Schäfer
+  given-names: Tim
+  orcid: https://orcid.org/0000-0002-3683-8070
+- affiliation: Ernst Strüngmann Institute for Neuroscience in Cooperation with Max
+    Planck Society
   family-names: Fuertinger
   given-names: Stefan
   orcid: https://orcid.org/0000-0002-8118-036X
@@ -37,5 +42,5 @@ keywords:
 - spectral-methods
 - brain
 repository-code: https://github.com/esi-neuroscience/syncopy
-version: 2022.6.dev203
-date-released: '2022-07-21'
+version: 2022.12
+date-released: '2022-12-15'
