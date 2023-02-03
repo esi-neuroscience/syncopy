@@ -43,9 +43,11 @@ class TestSkleanFastICAAPI():
     n_samples = 1000
     n_channels = 16
     data = rng.normal(size=(n_samples, n_channels))
-    ica = decomposition.FastICA()
-    res = ica.fit_transform(data)
-    assert isinstance(res, np.ndarray)
+
+    def test_api(self):
+        ica = decomposition.FastICA()
+        res = ica.fit_transform(self.data)
+        assert isinstance(res, np.ndarray)
 
 if __name__ == '__main__':
     T1 = TestFastICA()
