@@ -10,11 +10,13 @@ import numpy as np
 # Local imports
 import dask.distributed as dd
 from syncopy.tests import synth_data as sd
+from syncopy.tests.helpers import test_seed
 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import get_defaults, best_match
 
 import syncopy as spy
+import sklearn.decomposition as decomposition
 
 
 class TestFastICA():
@@ -33,9 +35,21 @@ class TestFastICA():
         cfg.method = 'fastica'
         wrong_data = spy.CrossSpectralData(data=np.ones((2, 2, 2, 2)), samplerate=1)
         with pytest.raises(SPYTypeError, match='Syncopy AnalogData object'):
-            res = spy.runica(wrong_data, cfg)
+            _ = spy.runica(wrong_data, cfg)
 
+
+class TestSkleanFastICAAPI():
+    rng = np.random.default_rng(test_seed)
+    n_samples = 1000
+    n_channels = 16
+    data = rng.normal(size=(n_samples, n_channels))
+    ica = decomposition.FastICA()
+    res = ica.fit_transform(data)
+    assert isinstance(res, np.ndarray)
 
 if __name__ == '__main__':
     T1 = TestFastICA()
+    T2 = TestSkleanFastICAAPI()
+
+
 
