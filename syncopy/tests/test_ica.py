@@ -48,6 +48,7 @@ class TestSkleanFastICAAPI():
         ica = decomposition.FastICA()
         res = ica.fit_transform(self.data)
         assert isinstance(res, np.ndarray)
+        assert res.shape == self.data.shape
 
 if __name__ == '__main__':
     T1 = TestFastICA()
