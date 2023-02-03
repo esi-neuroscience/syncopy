@@ -5,19 +5,19 @@ channels:
 dependencies:
   # this is to comply with acme 2022.11
   - python <3.11, >=3.7
-  - dask[distributed] < 2022.11
-  - dask-jobqueue >= 0.7.1, < 0.9
+  - dask[distributed] <2022.11
+  - dask-jobqueue >=0.7.1, < 0.9
   - h5py >=3.7, < 4
-  - numpy >= 1.10, < 2.0
-  - scipy >= 1.5
-  - matplotlib >= 3.5
-  - tqdm >= 4.31
+  - numpy >=1.10, < 2.0
+  - scipy >=1.5
+  - matplotlib >=3.5
+  - tqdm >=4.31
   - natsort
   - pip
   - psutil
-  - tqdm >= 4.31
-  - fooof >= 1.0
-  - scikit-learn >= 1.0
+  - tqdm >=4.31
+  - fooof >=1.0
+  - scikit-learn >=1.0
   # Optional packages required for running the test-suite and building the HTML docs
   - ipdb
   - memory_profiler
