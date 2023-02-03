@@ -44,11 +44,21 @@ class TestSkleanFastICAAPI():
     n_channels = 16
     data = rng.normal(size=(n_samples, n_channels))
 
-    def test_api(self):
+    def test_api_fittransform(self):
         ica = decomposition.FastICA()
         res = ica.fit_transform(self.data)
         assert isinstance(res, np.ndarray)
         assert res.shape == self.data.shape
+
+    def test_api_inverse_transform(self):
+        ica = decomposition.FastICA()
+        res = ica.fit_transform(self.data)
+        assert isinstance(res, np.ndarray)
+        assert res.shape == self.data.shape
+        orig_re = ica.inverse_transform(res)
+        assert isinstance(orig_re, np.ndarray)
+        assert orig_re.shape == self.data.shape
+
 
 if __name__ == '__main__':
     T1 = TestFastICA()
