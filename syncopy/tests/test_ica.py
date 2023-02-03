@@ -49,6 +49,11 @@ class TestSkleanFastICAAPI():
         res = ica.fit_transform(self.data)
         assert isinstance(res, np.ndarray)
         assert res.shape == self.data.shape
+        #comps = ica.components_ # The linear operator to apply to the data to get the independent sources
+        #assert comps.shape == self.data.shape
+        #mix = ica.mixing_ # The pseudo-inverse of components_. It is the linear operator that maps independent sources to the data.
+        #assert mix.shape == self.data.shape
+        assert ica.n_iter_ <= 200
 
     def test_api_inverse_transform(self):
         ica = decomposition.FastICA()
