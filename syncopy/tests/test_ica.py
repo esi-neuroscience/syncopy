@@ -39,6 +39,9 @@ class TestFastICA():
 
 
 class TestSkleanFastICAAPI():
+    """
+    Temporary test to evaluate the sklearn API.
+    """
     rng = np.random.default_rng(test_seed)
     n_samples = 1000
     n_channels = 16
