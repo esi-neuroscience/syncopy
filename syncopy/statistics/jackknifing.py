@@ -11,14 +11,16 @@ from copy import deepcopy
 import syncopy as spy
 from syncopy.shared.computational_routine import propagate_properties
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
+from syncopy.tests import synth_data as sd
 
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYError
 from syncopy.shared.kwarg_decorators import unwrap_select
 
 from syncopy.statistics.compRoutines import NumpyStatDim
+from syncopy.specest.compRoutines import MultiTaperFFT
 
 # create test data on the fly
-ad = spy.AnalogData(data=[i * np.ones((10, 3)) for i in range(4)], samplerate=1)
+ad = spy.AnalogData(data=[i * np.ones((4, 3)) for i in range(4)], samplerate=1)
 dim = 'time'
 axis = ad.dimord.index(dim)
 # create CR to jackknife
@@ -26,15 +28,33 @@ CR = NumpyStatDim(operation='mean', axis=axis)
 # use same CR for direct estimate
 mean_est = spy.mean(ad, dim=dim, keeptrials=False)
 
-# some power analysis
+# for the mean, the jackknife estimate is just the mean
+# assert np.allclose()
+# create loo by hand and compare variance of the mean (SEM)
+npVar = np.var([np.mean([0, 1, 2]),
+                np.mean([0, 2, 3]),
+                np.mean([1, 2, 3]),
+                np.mean([0, 1, 3])],
+               ddof=1)
+
+# some power analysis with white noise
 nTrials = 50
-ad2 = spy.AnalogData(data=[i * np.random.randn(1000, 4) for i in range(nTrials)], samplerate=3)
+ad2 = sd.white_noise(nTrials)
 # direct estimtate
 spec = spy.freqanalysis(ad2)
+spec2 = spy.freqanalysis(ad2, keeptrials=False, output='abs')
 power_est = spy.mean(spec, dim='trials')
+CR2 = MultiTaperFFT(method_kwargs={'samplerate': ad2.samplerate,
+                                   'taper': 'hann',
+                                   'nSamples': 1000,
+                                   'taper_opt': {}
+                                   },
+                    foi = np.arange(501),           
+                    keeptapers=False,
+                    output='abs')
 
-@unwrap_select
-def trial_replicates(spy_data, CR, **kwargs):
+
+def trial_replicates(spy_data, CR, raw_estimate, **kwargs):
     """
     General meta-function to compute the jackknife replicates
     along trials of a ComputationalRoutine `CR` by creating
@@ -50,17 +70,20 @@ def trial_replicates(spy_data, CR, **kwargs):
 
     Parameters
     ----------
-    spy_data : Syncopy data object, e.g. :class:`~syncopy.AnalogData`
+    spy_data : syncopy data object, e.g. :class:`~syncopy.AnalogData`
 
     CR : A derived :class:`~syncopy.shared.computational_routine.ComputationalRoutine` instance
         The computational routine computing the desired statistic to be jackknifed
 
+    raw_estimate : syncopy data object, e.g. :class:`~syncopy.SpectralData`
+        Must have exactly one trial representing the direct trial statistic
+        to be jackknifed
+
     Returns
     ------
-    jack_out : Syncopy data object, e.g. :class:`~syncopy.TimeLockData`
-        The datatype will be determined by the supplied `CR`,
-        yet instead of single-trial results each trial represents
-        one trial-averaged jackknife replicate
+    jack_out : syncopy data object, e.g. :class:`~syncopy.TimeLockData`
+        The datatype will be ``out_class`` where each trial
+        represents one (trial-averaged) jackknife replicate
     """
 
     if spy_data.selection is not None:
@@ -97,8 +120,9 @@ def trial_replicates(spy_data, CR, **kwargs):
         select['trials'] = loo
         spy_data.selectdata(select, inplace=True)
 
-        # initialize transient output object of same datatype
-        out = spy_data.__class__(dimord=spy_data.dimord, samplerate=spy_data.samplerate)
+        # initialize transient output object for loo CR result
+        out = raw_estimate.__class__(dimord=raw_estimate.dimord,
+                                     samplerate=raw_estimate.samplerate)
 
         # (re-)initialize supplied CR and compute a trial average
         CR.initialize(spy_data, spy_data._stackingDim,
@@ -140,7 +164,7 @@ def trial_replicates(spy_data, CR, **kwargs):
 
     # initialize jackknife output object of
     # same datatype as the loo replicates
-    jack_out = loo1.__class__(dimord=spy_data.dimord)
+    jack_out = loo1.__class__(dimord=raw_estimate.dimord)
 
     # finally create the virtual dataset
     with h5py.File(jack_out._filename, mode='w') as h5file:
@@ -170,26 +194,38 @@ def trial_replicates(spy_data, CR, **kwargs):
     return jack_out
 
 
-def bias_var(replicates, estimate):
+def bias_var(raw_estimate, replicates):
     """
     Implements the general jackknife recipe to
     compute the bias and variance of a statiscial parameter
     over trials from an ensemble of leave-one-out replicates
-    and the original estimate.
+    and the original raw estimate.
+
+    Note that the jackknife bias-corrected estimate then simply is:
+
+        jack_estimate = raw_estimate - bias
 
     Parameters
     ----------
-    replicates : Syncopy data object, e.g. :class:`~syncopy.SpectralData`
-        Each trial represents one jackknife replicate
-    estimate : Syncopy data object, e.g. :class:`~syncopy.SpectralData`
+    raw_estimate : syncopy data object, e.g. :class:`~syncopy.SpectralData`
         Must have exactly one trial representing the direct trial statistic
         to be jackknifed
+    replicates : syncopy data object, e.g. :class:`~syncopy.SpectralData`
+        Each trial represents one jackknife replicate
+
+    Returns
+    -------
+    bias : syncopy data object, e.g. :class:`~syncopy.SpectralData`
+        The bias of the original estimator
+    variance : syncopy data object, e.g. :class:`~syncopy.SpectralData`
+        The sample variance of the jackknife replicates, e.g. the standard
+        error of the mean
     """
 
-    if len(estimate.trials) != 1:
+    if len(raw_estimate.trials) != 1:
         lgl = "original trial statistic with one remaining trial"
-        act = f"{len(estimate.trials)} trials"
-        raise SPYValueError(lgl, 'estimate', act)
+        act = f"{len(raw_estimate.trials)} trials"
+        raise SPYValueError(lgl, 'raw_estimate', act)
 
     if len(replicates.trials) <= 1:
         lgl = "jackknife replicates with at least 2 trials"
@@ -198,34 +234,66 @@ def bias_var(replicates, estimate):
 
     # 1st average the replicates which
     # gives the single trial jackknife estimate
-    jack_est = spy.mean(replicates, dim='trials')
+    jack_avg = spy.mean(replicates, dim='trials')
 
     # compute the bias, shapes should match as both
     # quantities come from the same data and
     # got computed by the same CR
-    if jack_est.data.shape != estimate.data.shape:
+    if jack_avg.data.shape != raw_estimate.data.shape:
         msg = ("Got mismatching shapes for jackknife bias computation:\n"
-               f"jack: {jack_est.data.shape}, original estimate: {estimate.data.shape}"
+               f"jack: {jack_avg.data.shape}, original estimate: {raw_estimate.data.shape}"
                )
         raise SPYError(msg)
 
     nTrials = len(replicates.trials)
-    bias = (nTrials - 1) * (jack_est - estimate)
-    bias_corrected = estimate - bias
+    bias = (nTrials - 1) * (jack_avg - raw_estimate)
 
     # Variance calculation
     # compute sequentially into accumulator array
-    var = np.zeros(estimate.data.shape)
+    var = np.zeros(raw_estimate.data.shape)
     for trl in replicates.trials:
-        var += (trl - jack_est.trials[0])**2
+        var += (trl - jack_avg.trials[0])**2
     # normalize
-    var /= 1 / (nTrials - 1)
+    var /= nTrials - 1
 
     # create the syncopy data object for the variance
-    jack_var = estimate.__class__(samplerate=estimate.samplerate,
-                                  dimord=estimate.dimord)
+    variance = raw_estimate.__class__(samplerate=raw_estimate.samplerate,
+                                      dimord=raw_estimate.dimord)
 
     # bind to syncopy object -> creates the hdf5 dataset
-    jack_var.data = var
+    variance.data = var
+    # just a single trial remains here
+    variance.trialdefinition = bias.trialdefinition
 
-    return bias, bias_corrected, jack_var
+    return bias, variance
+
+
+@unwrap_select
+def do_jk(spy_data, raw_estimate, CR):
+    """
+    Convenience function to demonstrate
+    how to interface the jackknife recipe
+
+    Parameters
+    ----------
+    spy_data : syncopy data object, e.g. :class:`~syncopy.AnalogData`
+        The input which was used to generate the ``raw_esimate`` from the ``CR``
+    raw_estimate : syncopy data object, e.g. :class:`~syncopy.SpectralData`
+        Must have exactly one trial representing the direct trial statistic
+        to be jackknifed
+    CR : A derived :class:`~syncopy.shared.computational_routine.ComputationalRoutine` instance
+        The computational routine which computed the ``raw_estimate`` statistic to be jackknifed
+
+    Returns
+    -------
+    jack_estimate : syncopy data object
+        The bias-corrected jackknife estimate
+    """
+
+
+    replicates = trial_replicates(spy_data, CR, raw_estimate)
+    bias, variance = bias_var(raw_estimate, replicates)
+
+    jack_estimate = raw_estimate - bias
+    jack_avg = spy.mean(replicates, dim='trials')
+    return jack_estimate, jack_avg, bias, variance
