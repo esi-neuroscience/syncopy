@@ -461,7 +461,13 @@ class TestSpikeWaveform():
         assert spiked.data.shape == (2, 3,)
         assert spiked.waveform is None
 
-    def test_waveform_set(self):
+    def test_waveform_invalid_set(self):
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+        assert spiked.data.shape == (2, 3,)
+        with pytest.raises(SPYValueError, match="wrong size waveform"):
+            spiked.waveform = np.ones((3, 3), dtype=int)
+
+    def test_waveform_valid_set(self):
         spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
         assert spiked.data.shape == (2, 3,)
         spiked.waveform = np.ones((2, 3), dtype=int)
