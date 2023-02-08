@@ -454,7 +454,17 @@ class TestEventData():
             ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
 
 
+class TestSpikeWaveform():
+
+    def test_waveform_init(self):
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+        assert spiked.data.shape == (2, 3,)
+        assert spiked.waveform is None
+
+
+
 if __name__ == '__main__':
 
     T1 = TestSpikeData()
     T2 = TestEventData()
+    T3 = TestSpikeWaveform()

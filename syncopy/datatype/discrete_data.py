@@ -506,28 +506,27 @@ class SpikeData(DiscreteData):
             indices = [slice(None)] * len(trials)
 
         return indices
-    
+
     @property
     def waveform(self):
         return self._waveform
-    
+
     @waveform.setter
     def waveform(self, waveform):
         if self.data is None:
             if waveform is not None:
                 raise SPYValueError(f"non-empty SpikeData", "cannot assign `waveform` without data. " +
                                     "Please assign data first")
-            if waveform.shape[0] != self.data.shape[0]:
-                raise SPYValueError(f"wrong size waveform", "waveform shape[0] must equal nSpikes " +
-                                    "Please create one waveform per spike in data")
-            if type(waveform) is np.ndarray:
-                # turn into a smart chunked dataset
-                with h5py.File(self._gen_filename(), "r+") as h5f:
-                    chunks = waveform.shape
-                    chunks[0] = 1 # one spike per chunk
-                    waveform = h5f.create_dataset("waveform", chunks=chunks, data=waveform)
-            self._update_dataset('waveform', waveform)
-            return
+        if waveform.shape[0] != self.data.shape[0]:
+            raise SPYValueError(f"wrong size waveform", "waveform shape[0] must equal nSpikes " +
+                                "Please create one waveform per spike in data")
+        if type(waveform) is np.ndarray:
+            # turn into a smart chunked dataset
+            with h5py.File(self._gen_filename(), "r+") as h5f:
+                chunks = waveform.shape
+                chunks[0] = 1 # one spike per chunk
+                waveform = h5f.create_dataset("waveform", chunks=chunks, data=waveform)
+        self._update_dataset('waveform', waveform)
 
     # "Constructor"
     def __init__(self,
@@ -582,7 +581,7 @@ class SpikeData(DiscreteData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          dimord=dimord)
-        
+
         # A `h5py.Dataset` holding waveform of nSpikes, or `None` if not computed yet.
         self._waveform = None
 
