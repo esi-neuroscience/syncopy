@@ -461,6 +461,11 @@ class TestSpikeWaveform():
         assert spiked.data.shape == (2, 3,)
         assert spiked.waveform is None
 
+    def test_waveform_set(self):
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+        assert spiked.data.shape == (2, 3,)
+        spiked.waveform = np.ones((2, 3), dtype=int)
+
 
 
 if __name__ == '__main__':
