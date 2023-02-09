@@ -522,6 +522,7 @@ class SpikeData(DiscreteData):
                                 "Please create one waveform per spike in data.")
 
         self._update_dataset('waveform', waveform)
+        #elf._waveform
 
     # "Constructor"
     def __init__(self,

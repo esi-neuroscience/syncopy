@@ -812,7 +812,9 @@ class BaseData(ABC):
         """
         for propertyName in self._hdfFileDatasetProperties:
             dsetProp = getattr(self, "_" + propertyName)
+            print(f"_get_backing_hdf5_file_handle: checking prop '{propertyName}'")
             if isinstance(dsetProp, h5py.Dataset):
+                print(f"_get_backing_hdf5_file_handle: prop '{propertyName}' is HDF5 dataset")
                 if dsetProp.id.valid != 0:
                     return dsetProp.file
         return None
@@ -2144,8 +2146,8 @@ class Selector:
 
             # Finally, prepare new `trialdefinition` array
             self.trialdefinition = data
-            
-            # Ensure that `self.waveform` gets selected correctly 
+
+            # Ensure that `self.waveform` gets selected correctly
             if self._dataClass == "SpikeData":
                 if data._waveform is not None:
                     waveform = []
