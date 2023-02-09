@@ -2077,7 +2077,7 @@ class Selector:
         --------
         numpy.ix_ : Mesh-construction for array indexing
         """
-        print("make_consistent called")
+        print("###make_consistent called###")
 
         # Harmonize selections for `DiscreteData`-children: all selectors are row-
         # indices, go through each trial and combine them
@@ -2159,13 +2159,13 @@ class Selector:
             self.trialdefinition = data
 
             # Ensure that `self.waveform` gets selected correctly
-            if self._dataClass == "SpikeData":
-                if data._waveform is not None:
-                    waveform = []
-                    for tk, trialno in enumerate(self.trial_ids):
-                        sel = getattr(self, "_{}".format(actualSelections[0]))[tk]
-                        waveform.append(data._waveform[data._trialslice[trialno],:][sel,:])
-                    self.waveform = np.vstack(waveform)
+            #if self._dataClass == "SpikeData":
+            #    if data._waveform is not None:
+            #        waveform = []
+            #        for tk, trialno in enumerate(self.trial_ids):
+            #            sel = getattr(self, "_{}".format(actualSelections[0]))[tk]
+            #            waveform.append(data._waveform[data._trialslice[trialno],:][sel,:])
+            #        self.waveform = np.vstack(waveform)
 
             return
 
