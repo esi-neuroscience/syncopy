@@ -470,11 +470,13 @@ class TestSpikeWaveform():
         spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         spiked._register_dataset("blah", inData=np.ones((2, 3), dtype=int))
         assert spiked._get_backing_hdf5_file_handle() is not None
+        assert not spiked._is_empty()
 
     def test_analogdata_register_dset(self):
         adata = AnalogData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         adata._register_dataset("blah", inData=np.ones((2, 3), dtype=int))
         assert adata._get_backing_hdf5_file_handle() is not None
+        assert not adata._is_empty()
 
     def test_waveform_invalid_set(self):
         spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
