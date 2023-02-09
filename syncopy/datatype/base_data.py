@@ -817,6 +817,8 @@ class BaseData(ABC):
                 print(f"_get_backing_hdf5_file_handle: prop '{propertyName}' is HDF5 dataset")
                 if dsetProp.id.valid != 0:
                     return dsetProp.file
+            else:
+                print(f"_get_backing_hdf5_file_handle: prop '{propertyName}' is of tpye {type(dsetProp)}")
         return None
 
     def _reopen(self):

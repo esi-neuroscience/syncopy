@@ -517,6 +517,10 @@ class SpikeData(DiscreteData):
             if waveform is not None:
                 raise SPYValueError(f"non-empty SpikeData", "cannot assign `waveform` without data. " +
                                     "Please assign data first")
+        if waveform is None:
+            self._update_dataset('waveform', waveform)
+            return
+
         if waveform.shape[0] != self.data.shape[0]:
             raise SPYValueError(f"wrong size waveform", f"waveform shape[0]={waveform.shape[0]} must equal nSpikes={self.data.shape[0]}. " +
                                 "Please create one waveform per spike in data.")
