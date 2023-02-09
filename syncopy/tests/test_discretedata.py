@@ -467,7 +467,7 @@ class TestWaveform():
         assert not spiked._is_empty()
         assert spiked.data.shape == (2, 3,)
         assert type(spiked.data) == h5py.Dataset
-        #assert spiked._get_backing_hdf5_file_handle() is not None
+        assert spiked._get_backing_hdf5_file_handle() is not None
         spiked.waveform = np.ones((2, 3), dtype=int)
 
 
