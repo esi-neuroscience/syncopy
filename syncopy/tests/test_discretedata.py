@@ -462,6 +462,11 @@ class TestWaveform():
         with pytest.raises(SPYValueError, match="wrong size waveform"):
             spiked.waveform = np.ones((3, 3), dtype=int)
 
+    def test_waveform_invalid_set_emptydata(self):
+        spiked = SpikeData()
+        with pytest.raises(SPYValueError, match="Please assign data first"):
+            spiked.waveform = np.ones((3, 3), dtype=int)
+
     def test_waveform_valid_set(self):
         spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         assert not spiked._is_empty()
@@ -469,6 +474,15 @@ class TestWaveform():
         assert type(spiked.data) == h5py.Dataset
         assert spiked._get_backing_hdf5_file_handle() is not None
         spiked.waveform = np.ones((2, 3), dtype=int)
+
+    def test_waveform_valid_set_with_None(self):
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
+        assert not spiked._is_empty()
+        assert spiked.data.shape == (2, 3,)
+        assert type(spiked.data) == h5py.Dataset
+        assert spiked._get_backing_hdf5_file_handle() is not None
+        spiked.waveform = np.ones((2, 3), dtype=int)
+        spiked.waveform = None
 
 
 
