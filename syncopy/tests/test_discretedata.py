@@ -463,6 +463,7 @@ class TestSpikeWaveform():
         assert spiked.data.shape == (2, 3,)
         assert spiked.data is not None
         assert type(spiked.data) == h5py.Dataset
+        assert not spiked._is_empty()
         assert spiked.waveform is None
 
     def test_spikedata_register_dset(self):
