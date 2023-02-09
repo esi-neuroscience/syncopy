@@ -506,6 +506,14 @@ class SpikeData(DiscreteData):
 
         return indices
 
+    @property
+    def waveform(self):
+        return self._waveform
+
+    @waveform.setter
+    def waveform(self, waveform):
+        self._set_dataset_property(waveform, 'waveform')
+
     # "Constructor"
     def __init__(self,
                  data=None,
@@ -547,6 +555,7 @@ class SpikeData(DiscreteData):
 
         # instance attribute to allow modification
         self._hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel", "unit")
+        self._hdfFileDatasetProperties = DiscreteData._hdfFileDatasetProperties + ("waveform",)
 
         self._unit = None
         self.unit_idx = None
@@ -559,6 +568,8 @@ class SpikeData(DiscreteData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          dimord=dimord)
+
+        self._waveform = None
 
         # for fast lookup and labels
         self._compute_unique_idx()

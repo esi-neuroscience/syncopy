@@ -8,6 +8,7 @@ import os
 import tempfile
 import time
 import random
+import h5py
 import pytest
 import numpy as np
 import dask.distributed as dd
@@ -453,8 +454,20 @@ class TestEventData():
         with pytest.raises(SPYValueError):
             ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
 
+class TestWaveform():
+
+    def test_waveform_valid_set(self):
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
+        assert not spiked._is_empty()
+        assert spiked.data.shape == (2, 3,)
+        assert type(spiked.data) == h5py.Dataset
+        #assert spiked._get_backing_hdf5_file_handle() is not None
+        spiked.waveform = np.ones((2, 3), dtype=int)
+
+
 
 if __name__ == '__main__':
 
     T1 = TestSpikeData()
     T2 = TestEventData()
+    T3 = TestWaveform()
