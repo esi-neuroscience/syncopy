@@ -134,6 +134,7 @@ class TestSpikeData():
             # basic but most important: ensure object integrity is preserved
             checkAttr = ["channel", "data", "dimord", "sampleinfo",
                          "samplerate", "trialinfo", "unit"]
+            assert type(self.data) == np.ndarray
             dummy = SpikeData(self.data, samplerate=10)
             dummy.save(fname)
             filename = construct_spy_filename(fname, dummy)
@@ -458,34 +459,36 @@ class TestEventData():
 class TestSpikeWaveform():
 
     def test_waveform_init(self):
-        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         assert spiked.data.shape == (2, 3,)
         assert spiked.data is not None
         assert type(spiked.data) == h5py.Dataset
         assert spiked.waveform is None
 
-    def test_waveform_register_dset(self):
-        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+    def test_spikedata_register_dset(self):
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         spiked._register_dataset("blah", inData=np.ones((2, 3), dtype=int))
+        assert spiked._get_backing_hdf5_file_handle() is not None
 
-    def test_analog_register_dset(self):
-        adata = AnalogData(data=4  * np.ones((2, 3), dtype=int))
+    def test_analogdata_register_dset(self):
+        adata = AnalogData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         adata._register_dataset("blah", inData=np.ones((2, 3), dtype=int))
+        assert adata._get_backing_hdf5_file_handle() is not None
 
     def test_waveform_invalid_set(self):
-        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         assert spiked.data.shape == (2, 3,)
         with pytest.raises(SPYValueError, match="wrong size waveform"):
-            #spiked.waveform = np.ones((3, 3), dtype=int)
-            spiked.set_waveform(np.ones((3, 3), dtype=int))
+            spiked.waveform = np.ones((3, 3), dtype=int)
+            #spiked.set_waveform(np.ones((3, 3), dtype=int))
 
     def test_waveform_valid_set(self):
-        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         #spiked.save(filename="test")
         assert spiked.data.shape == (2, 3,)
         assert type(spiked.data) == h5py.Dataset
         #assert spiked._get_backing_hdf5_file_handle() is not None
-        #spiked.waveform = np.ones((2, 3), dtype=int)
+        spiked.waveform = np.ones((2, 3), dtype=int)
         spiked.set_waveform(np.ones((2, 3), dtype=int))
         assert spiked.waveform.shape == (2, 3,)
 

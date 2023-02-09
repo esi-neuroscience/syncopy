@@ -511,8 +511,9 @@ class SpikeData(DiscreteData):
     def waveform(self):
         return self._waveform
 
-    def set_waveform(self, waveform):
-    #def waveform(self, waveform):
+
+    @waveform.setter
+    def waveform(self, waveform):
         if self.data is None:
             if waveform is not None:
                 raise SPYValueError(f"non-empty SpikeData", "cannot assign `waveform` without data. " +
