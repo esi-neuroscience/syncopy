@@ -10,6 +10,7 @@ import time
 import random
 import pytest
 import numpy as np
+import h5py
 import dask.distributed as dd
 
 # Local imports
@@ -459,18 +460,33 @@ class TestSpikeWaveform():
     def test_waveform_init(self):
         spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
         assert spiked.data.shape == (2, 3,)
+        assert spiked.data is not None
+        assert type(spiked.data) == h5py.Dataset
         assert spiked.waveform is None
+
+    def test_waveform_register_dset(self):
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+        spiked._register_dataset("blah", inData=np.ones((2, 3), dtype=int))
+
+    def test_analog_register_dset(self):
+        adata = AnalogData(data=4  * np.ones((2, 3), dtype=int))
+        adata._register_dataset("blah", inData=np.ones((2, 3), dtype=int))
 
     def test_waveform_invalid_set(self):
         spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
         assert spiked.data.shape == (2, 3,)
         with pytest.raises(SPYValueError, match="wrong size waveform"):
-            spiked.waveform = np.ones((3, 3), dtype=int)
+            #spiked.waveform = np.ones((3, 3), dtype=int)
+            spiked.set_waveform(np.ones((3, 3), dtype=int))
 
     def test_waveform_valid_set(self):
         spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+        #spiked.save(filename="test")
         assert spiked.data.shape == (2, 3,)
-        spiked.waveform = np.ones((2, 3), dtype=int)
+        assert type(spiked.data) == h5py.Dataset
+        #assert spiked._get_backing_hdf5_file_handle() is not None
+        #spiked.waveform = np.ones((2, 3), dtype=int)
+        spiked.set_waveform(np.ones((2, 3), dtype=int))
         assert spiked.waveform.shape == (2, 3,)
 
 

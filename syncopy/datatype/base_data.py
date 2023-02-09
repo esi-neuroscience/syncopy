@@ -205,6 +205,7 @@ class BaseData(ABC):
             msg = "HDF5 dataset, or NumPy array"
             raise SPYTypeError(inData, varname="data", expected=msg)
 
+        print(f"Calling setter for {type(inData)}")
         supportedSetters[type(inData)](inData, propertyName, ndim=ndim)
 
     def _unregister_dataset(self, propertyName, del_from_file=True):
@@ -528,6 +529,7 @@ class BaseData(ABC):
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
 
     def _is_empty(self):
+        print(f"_is_empty(): checking attributes: {self._hdfFileDatasetProperties}")
         return all(
             [getattr(self, "_" + attr, None) is None for attr in self._hdfFileDatasetProperties]
         )
@@ -661,13 +663,19 @@ class BaseData(ABC):
         # This assumes that all datasets attached as properties are stored in
         #  the same hdf5 file, and thus closing the file for 'data' handles all others.
 
-        for prop in self._hdfFileDatasetProperties:
+        for prop_name in self._hdfFileDatasetProperties:
+            prop = getattr(self, prop_name, None)
             if isinstance(prop, h5py.Dataset):
                 prop.flush()
 
-        prop = getattr(self, self._hdfFileDatasetProperties[0])
-        if prop is not None:
-            prop.file.close()
+        #prop = getattr(self, self._hdfFileDatasetProperties[0])
+        #if prop is not None:
+        #    prop.file.close()
+
+        for prop_name in self._hdfFileDatasetProperties:
+            prop = getattr(self, prop_name, None)
+            if isinstance(prop, h5py.Dataset):
+                prop.file.close()
 
         # Re-attach datasets
         for propertyName in self._hdfFileDatasetProperties:
@@ -675,7 +683,7 @@ class BaseData(ABC):
                 try:
                     prop_value = h5py.File(self.filename, mode=md)[propertyName]
                 except:
-                    SPYInfo(f"Could not retrieve dataset '{propertyName}' from HDF5 file.")
+                    SPYWarning(f"Could not retrieve dataset '{propertyName}' from HDF5 file.")
                     prop_value = None
                 prop_name = propertyName if propertyName == "data" else "_" + propertyName
                 setattr(self, prop_name, prop_value)
@@ -818,7 +826,7 @@ class BaseData(ABC):
                 if dsetProp.id.valid != 0:
                     return dsetProp.file
             else:
-                print(f"_get_backing_hdf5_file_handle: prop '{propertyName}' is of tpye {type(dsetProp)}")
+                print(f"_get_backing_hdf5_file_handle: prop '{propertyName}' is of type {type(dsetProp)}")
         return None
 
     def _reopen(self):
@@ -2069,6 +2077,7 @@ class Selector:
         --------
         numpy.ix_ : Mesh-construction for array indexing
         """
+        print("make_consistent called")
 
         # Harmonize selections for `DiscreteData`-children: all selectors are row-
         # indices, go through each trial and combine them
