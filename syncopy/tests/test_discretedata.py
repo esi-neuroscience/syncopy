@@ -456,6 +456,12 @@ class TestEventData():
 
 class TestWaveform():
 
+    def test_waveform_invalid_set(self):
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
+        assert spiked.data.shape == (2, 3,)
+        with pytest.raises(SPYValueError, match="wrong size waveform"):
+            spiked.waveform = np.ones((3, 3), dtype=int)
+
     def test_waveform_valid_set(self):
         spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         assert not spiked._is_empty()
