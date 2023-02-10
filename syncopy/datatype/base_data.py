@@ -2106,7 +2106,7 @@ class Selector:
                     chanPerTrial.append(rawChanInTrial[combinedSelect])
                 elif areShuffled:
                     combinedSelect = combinedSelect.tolist()
-                    
+
                 # The usual list -> slice conversion (if possible)
                 if len(combinedSelect) > 1:
                     selSteps = np.diff(combinedSelect)
@@ -2134,6 +2134,15 @@ class Selector:
 
             # Finally, prepare new `trialdefinition` array
             self.trialdefinition = data
+
+            # Ensure that `self.waveform` gets selected correctly
+            if self._dataClass == "SpikeData":
+                if data.waveform is not None:
+                    waveform = []
+                    for tk, trialno in enumerate(self.trial_ids):
+                        sel = getattr(self, "_{}".format(actualSelections[0]))[tk]
+                        waveform.append(data.waveform[data._trialslice[trialno],:][sel,:])
+                    self.waveform = np.vstack(waveform)
 
             return
 
