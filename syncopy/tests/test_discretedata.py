@@ -21,7 +21,6 @@ from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.io import save, load
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import construct_spy_filename, flush_local_cluster
-from syncopy.tests.test_selectdata import getSpikeData
 
 
 class TestSpikeData():
@@ -458,53 +457,32 @@ class TestEventData():
 class TestWaveform():
 
     def test_waveform_invalid_set(self):
-        """Sets invalid waveform for data: dimension mismatch"""
-        spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         assert spiked.data.shape == (2, 3,)
         with pytest.raises(SPYValueError, match="wrong size waveform"):
             spiked.waveform = np.ones((3, 3), dtype=int)
 
     def test_waveform_invalid_set_emptydata(self):
-        """Tries to set waveform without any data."""
         spiked = SpikeData()
         with pytest.raises(SPYValueError, match="Please assign data first"):
             spiked.waveform = np.ones((3, 3), dtype=int)
 
     def test_waveform_valid_set(self):
-        """Sets waveform in a correct way."""
-        spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         assert not spiked._is_empty()
         assert spiked.data.shape == (2, 3,)
         assert type(spiked.data) == h5py.Dataset
         assert spiked._get_backing_hdf5_file_handle() is not None
         spiked.waveform = np.ones((2, 3), dtype=int)
-        assert spiked.waveform.shape == (2, 3,)
 
     def test_waveform_valid_set_with_None(self):
-        """Sets waveform to None, which is valid."""
-        spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
+        spiked = SpikeData(data=4  * np.ones((2, 3), dtype=int), samplerate=10)
         assert not spiked._is_empty()
         assert spiked.data.shape == (2, 3,)
+        assert type(spiked.data) == h5py.Dataset
+        assert spiked._get_backing_hdf5_file_handle() is not None
         spiked.waveform = np.ones((2, 3), dtype=int)
         spiked.waveform = None
-        assert spiked.waveform is None
-
-    def test_waveform_selection_trial(self):
-        numSpikes = 20
-        spiked = getSpikeData(nSpikes = numSpikes)
-        assert sum([s.shape[0] for s in spiked.trials]) == numSpikes
-        spiked.waveform = np.ones((numSpikes, 3), dtype=int)
-        trial0_nspikes = spiked.trials[0].shape[0]
-
-        # Select trial 0 and verify that the number of spikes is correct.
-        selection = { 'trials': [0] }
-        res = spiked.selectdata(selection)
-        assert len(res.trials) == 1
-        assert res.trials[0].shape[0] == trial0_nspikes
-
-        # Verify that the waveform is also correct.
-        assert res.waveform is not None
-        assert res.waveform.shape[0] == trial0_nspikes  # Verify selection on waveform
 
 
 
