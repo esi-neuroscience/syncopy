@@ -474,12 +474,22 @@ def detect_parallel_client(func):
         parallel = kwargs.get("parallel")
         kill_spawn = False
         has_slurm = check_slurm_available()
+
         # warning only emitted if slurm available but no ACME or Dask client
         slurm_msg = ""
 
         # if acme is around, let it manage everything
         if spy.__acme__ and parallel is not False:
-                parallel=True
+            try:
+                client = dd.get_client()
+                parallel = True
+            except ValueError:
+                if parallel:
+                    msg = (f"Could not find a running dask cluster!\n"
+                           "Try `esi_cluster_setup` from ACME to set up a cluster on the ESI HPC\n"
+                           )
+                    logger.important(msg)
+                parallel = False
 
         # This effectively searches for a global dask cluster, and sets
         # parallel=True if one was found. If no cluster was found, parallel is set to False,
@@ -487,14 +497,14 @@ def detect_parallel_client(func):
         # this needs explicit `parallel=True`.
         elif parallel is None:
             # w/o acme interface dask directly
-                try:
-                    client = dd.get_client()
-                    check_workers_available(client, timeout=dask_timeout)
-                    msg = f"..attaching to running Dask client:\n\t{client}"
-                    logger.important(msg)
-                    parallel = True
-                except ValueError:
-                    parallel = False
+            try:
+                client = dd.get_client()
+                check_workers_available(client, timeout=dask_timeout)
+                msg = f"..attaching to running Dask client:\n\t{client}"
+                logger.important(msg)
+                parallel = True
+            except ValueError:
+                parallel = False
 
         # If parallel processing was requested but ACME is not installed and/or
         # we are not on a slurm cluster, and no other Dask cluster is running,
@@ -514,8 +524,8 @@ def detect_parallel_client(func):
                                  "Syncopy could not find a Dask client.\n"
                                  "Syncopy does not provide an "
                                  "automatic Dask SLURMCluster on its own!"
-                                 "\nPlease consider configuring your own dask cluster"
-                                 "\n via `dask_jobqueue.SLURMCluster()`"
+                                 "\nPlease consider configuring your own dask cluster "
+                                 "via `dask_jobqueue.SLURMCluster()`"
                                  "\n\nCreating a LocalCluster as fallback.."
                            )
                     SPYWarning(slurm_msg)
