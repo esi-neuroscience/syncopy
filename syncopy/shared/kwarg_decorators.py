@@ -462,6 +462,9 @@ def detect_parallel_client(func):
     unwrap_cfg : Decorator for processing `cfg` "structs"
     """
 
+    # timeout in seconds for dask worker allocation
+    dask_timeout = 600
+
     @functools.wraps(func)
     def parallel_client_detector(*args, **kwargs):
 
@@ -474,40 +477,45 @@ def detect_parallel_client(func):
         # warning only emitted if slurm available but no ACME or Dask client
         slurm_msg = ""
 
+        # if acme is around, let it manage everything
+        if spy.__acme__ and parallel is not False:
+                parallel=True
+
         # This effectively searches for a global dask cluster, and sets
         # parallel=True if one was found. If no cluster was found, parallel is set to False,
         # so no automatic spawing of a LocalCluster or SLURMCluster via ACME,
         # this needs explicit `parallel=True`.
-        if parallel is None:
-            try:
-                client = dd.get_client()
-                check_workers_available(client.cluster)
-                msg = f"..attaching to running Dask client:\n\t{client}"
-                logger.important(msg)
-                parallel = True
-            except ValueError:
-                parallel = False
+        elif parallel is None:
+            # w/o acme interface dask directly
+                try:
+                    client = dd.get_client()
+                    check_workers_available(client, timeout=dask_timeout)
+                    msg = f"..attaching to running Dask client:\n\t{client}"
+                    logger.important(msg)
+                    parallel = True
+                except ValueError:
+                    parallel = False
 
         # If parallel processing was requested but ACME is not installed and/or
         # we are not on a slurm cluster, and no other Dask cluster is running,
         # initialize a local dask cluster
-        elif parallel is True and (not has_slurm or not spy.__acme__):
+        elif parallel is True:
             # if already one cluster is reachable do nothing
             try:
                 client = dd.get_client()
-                check_workers_available(client.cluster)
+                check_workers_available(client, timeout=dask_timeout)
                 msg = f"..attaching to running Dask client:\n{client}"
                 logger.important(msg)
             except ValueError:
-                # we are on a HPC but ACME and Dask client are missing,
+                # we are on a HPC but ACME and/or Dask client are missing,
                 # LocalCluster still gets created
                 if has_slurm and not spy.__acme__:
                     slurm_msg = ("We are apparently on a slurm cluster but\n"
                                  "Syncopy could not find a Dask client.\n"
                                  "Syncopy does not provide an "
                                  "automatic Dask SLURMCluster on its own!"
-                                 "\nPlease consider using ACME (https://github.com/esi-neuroscience/acme)"
-                                 "\nor configure your own cluster via `dask_jobqueue.SLURMCluster()`"
+                                 "\nPlease consider configuring your own dask cluster"
+                                 "\n via `dask_jobqueue.SLURMCluster()`"
                                  "\n\nCreating a LocalCluster as fallback.."
                            )
                     SPYWarning(slurm_msg)
