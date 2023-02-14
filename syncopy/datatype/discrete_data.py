@@ -508,6 +508,14 @@ class SpikeData(DiscreteData):
 
     @property
     def waveform(self):
+        """The waveform of the spikes in the data.
+
+        This is a tiny part of the raw data around the time point at which a spike was detected
+        (by the recording hardware/software: keep in mind that the spike data Syncopy is working
+        with is already pre-processed). From this sequence of samples, one can derive
+        the waveform type of the spike (via classification), which may allow to
+        derive the type of neuron that produced the spike.
+        """
         return self._waveform
 
     @waveform.setter

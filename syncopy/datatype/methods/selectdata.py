@@ -7,6 +7,7 @@
 import numpy as np
 
 # Local imports
+import syncopy as spy
 from syncopy.shared.tools import get_frontend_cfg, get_defaults
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
@@ -336,7 +337,12 @@ def selectdata(data,
         selectDict['latency'] = window
         data.selection = selectDict
 
-    print(f"Data.selection is {data.selection}")
+    # Handle selection of waveform for SpikeData objects
+    if type(data) == spy.SpikeData and data.waveform is not None:
+        if inplace:
+            spy.log("Inplace selection of SpikeData with waveform not supported for the waveform.", level="INFO")
+        else:
+            print(f"Data.selection is {data.selection}")
 
     # If an in-place selection was requested we're done
     if inplace:

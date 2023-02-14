@@ -490,10 +490,10 @@ class TestWaveform():
         assert spiked.waveform is None
 
     def test_waveform_selection_trial(self):
-        numSpikes = 20
+        numSpikes, waveform_dimsize = 20, 50
         spiked = getSpikeData(nSpikes = numSpikes)
         assert sum([s.shape[0] for s in spiked.trials]) == numSpikes
-        spiked.waveform = np.ones((numSpikes, 3), dtype=int)
+        spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
         trial0_nspikes = spiked.trials[0].shape[0]
 
         # Select trial 0 and verify that the number of spikes is correct.
