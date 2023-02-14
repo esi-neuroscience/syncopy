@@ -2,7 +2,7 @@
 #
 # General, CR agnostic, JackKnife implementation for trial statistics
 #
-
+import h5py
 import numpy as np
 from copy import deepcopy
 
