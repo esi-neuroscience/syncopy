@@ -343,8 +343,9 @@ def selectdata(data,
             spy.log("Inplace selection of SpikeData with waveform not supported for the waveform.", level="INFO")
         else:
             print(f"Data.selection is {data.selection}")
+            print(f"Data.selection.trials is {[t for t in data.selection.trials]}")
 
-    # If an in-place selection was requested we're done
+    # If an in-place selection was requested we're done.
     if inplace:
         # attach frontend parameters for replay
         data.cfg.update({'selectdata': new_cfg})
