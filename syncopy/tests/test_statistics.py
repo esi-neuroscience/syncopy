@@ -11,11 +11,14 @@ import matplotlib.pyplot as ppl
 
 # Local imports
 import syncopy as spy
-from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, TimeLockData
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData
+from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import StructDict
 from syncopy.tests import helpers
 from syncopy.tests import synth_data as sd
+from syncopy.statistics import jackknifing as jk
+from syncopy.statistics.compRoutines import NumpyStatDim
+from syncopy.specest.compRoutines import MultiTaperFFT
 
 
 class TestStatistics:
@@ -272,7 +275,7 @@ class TestStatistics:
 
         assert np.all(np.imag(tf_itc.data[()]) == 0)
         assert tf_itc.data[()].max() <= 1
-        assert tf_itc.data[()].min() >= 0        
+        assert tf_itc.data[()].min() >= 0
         assert np.allclose(tf_itc.time[0], tf_spec.time[0])
 
         if do_plot:
@@ -304,6 +307,116 @@ class TestStatistics:
         return itc, spec
 
 
+class TestJackknife:
+
+    def test_jk_mean(self):
+        """
+        Mean estimation via jackknifing yields exactly the same
+        results as the direct estimate (sample mean/variance)
+        and hence can directly serve as an easy test case
+        """
+
+        # create test data
+        nTrials = 10
+        adata = spy.AnalogData(data=[i * np.ones((5, 3)) for i in range(nTrials)],
+                               samplerate=7)
+
+        # to test for property propagation
+        adata.channel = [f'chV_{i}' for i in range(1, 4)]
+        # create CR to jackknife
+        CR = NumpyStatDim(operation='mean', axis=0)
+        # uses same CR internally for direct estimate
+        raw_est = spy.mean(adata, dim='time', keeptrials=False)
+
+        # first compute all the leave-one-out (loo) replicates
+        replicates = jk.trial_replicates(adata, raw_est, CR)
+        # as many replicates as there are trials
+        assert len(replicates.trials) == len(adata.trials)
+
+        # now compute bias and variance
+        bias, variance = jk.bias_var(raw_est, replicates)
+
+        # no bias for mean estimation
+        assert np.allclose(bias.data[()], np.zeros(bias.data.shape))
+
+        # jackknife variance is here the same as sample variance over trials
+        # yet we have to correct for the denominator (N-1 vs. N)
+        direct_var = spy.var(adata, dim='trials').trials[0][0]
+        assert np.allclose(nTrials / (nTrials -1 ) * direct_var, variance.trials[0])
+
+        # check properties
+        assert np.all(bias.channel == adata.channel)
+        assert bias.samplerate == adata.samplerate
+        assert np.all(variance.channel == adata.channel)
+        assert variance.samplerate == adata.samplerate
+
+        # the bias corrected jackknife estimate
+        jack_estimate = raw_est - bias
+
+        # as there is no bias, this the same as the direct estimate
+        assert np.allclose(jack_estimate.data, raw_est.data)
+
+        # test convenience function
+        jack_est2, bias2, variance2 = jk.do_jk(adata, raw_est, CR)
+
+        assert np.allclose(jack_est2.data, jack_estimate.data)
+        assert np.allclose(bias2.data, bias.data)
+        assert np.allclose(variance2.data, variance.data)
+
+    def test_jk_spec(self):
+        """
+        Jackknife a simple power analysis with white noise
+        As this is still essentially a simple average, nothing
+        new can be learned here, this test is more to show
+        a more involved CR and change of data type work well
+        """
+        nTrials = 10
+        nSamples = 500
+        adata = sd.white_noise(nTrials, nSamples=nSamples, seed=helpers.test_seed)
+        # to test for property propagation
+        adata.channel = [f'chV_{i}' for i in range(1, 3)]
+
+        # single trial spectra
+        spec_trls = spy.freqanalysis(adata, output='abs')
+
+        # direct estimtate (must be a trial average)
+        spec = spy.freqanalysis(adata, keeptrials=False, output='abs')
+
+        # set up CR as in the frontend call
+        CR = MultiTaperFFT(method_kwargs={'samplerate': adata.samplerate,
+                                          'taper': 'hann',
+                                          'nSamples': nSamples,
+                                          'taper_opt': {}
+                                          },
+                           foi=np.fft.rfftfreq(nSamples, 1 / 1000),
+                           keeptapers=False,
+                           polyremoval=0,
+                           output='abs')
+
+        # use convenience function
+        jack_est, bias, variance = jk.do_jk(adata, spec, CR)
+
+        assert isinstance(jack_est, spy.SpectralData)
+        assert isinstance(bias, spy.SpectralData)
+        assert isinstance(variance, spy.SpectralData)
+        assert np.all(jack_est.channel == adata.channel)
+        assert np.all(bias.channel == adata.channel)
+        assert np.all(variance.channel == adata.channel)
+
+        # direct variances still coincide,
+        # `show` strips of empty time and taper axes
+        direct_var = spy.var(spec_trls, dim='trials').show()
+        assert np.allclose(direct_var * nTrials / (nTrials - 1),
+                           variance.show())
+
+        # bias is also still essentially 0
+        assert np.all(bias.data[()] <= 1e-6)
+
+        # hence the direct estimate is very close to the jackknife
+        assert np.allclose(spec.data, jack_est.data)
+
+
 if __name__ == '__main__':
 
     T1 = TestStatistics()
+    T2 = TestJackknife()

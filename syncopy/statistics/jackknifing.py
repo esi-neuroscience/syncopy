@@ -4,57 +4,17 @@
 #
 
 import numpy as np
-import h5py
 from copy import deepcopy
 
 # Syncopy imports
 import syncopy as spy
 from syncopy.shared.computational_routine import propagate_properties
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
-from syncopy.tests import synth_data as sd
-
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYError
 from syncopy.shared.kwarg_decorators import unwrap_select
 
-from syncopy.statistics.compRoutines import NumpyStatDim
-from syncopy.specest.compRoutines import MultiTaperFFT
 
-# create test data on the fly
-ad = spy.AnalogData(data=[i * np.ones((4, 3)) for i in range(4)], samplerate=1)
-dim = 'time'
-axis = ad.dimord.index(dim)
-# create CR to jackknife
-CR = NumpyStatDim(operation='mean', axis=axis)
-# use same CR for direct estimate
-mean_est = spy.mean(ad, dim=dim, keeptrials=False)
-
-# for the mean, the jackknife estimate is just the mean
-# assert np.allclose()
-# create loo by hand and compare variance of the mean (SEM)
-npVar = np.var([np.mean([0, 1, 2]),
-                np.mean([0, 2, 3]),
-                np.mean([1, 2, 3]),
-                np.mean([0, 1, 3])],
-               ddof=1)
-
-# some power analysis with white noise
-nTrials = 50
-ad2 = sd.white_noise(nTrials)
-# direct estimtate
-spec = spy.freqanalysis(ad2)
-spec2 = spy.freqanalysis(ad2, keeptrials=False, output='abs')
-power_est = spy.mean(spec, dim='trials')
-CR2 = MultiTaperFFT(method_kwargs={'samplerate': ad2.samplerate,
-                                   'taper': 'hann',
-                                   'nSamples': 1000,
-                                   'taper_opt': {}
-                                   },
-                    foi = np.arange(501),           
-                    keeptapers=False,
-                    output='abs')
-
-
-def trial_replicates(spy_data, CR, raw_estimate, **kwargs):
+def trial_replicates(spy_data, raw_estimate, CR, **kwargs):
     """
     General meta-function to compute the jackknife replicates
     along trials of a ComputationalRoutine `CR` by creating
@@ -72,12 +32,12 @@ def trial_replicates(spy_data, CR, raw_estimate, **kwargs):
     ----------
     spy_data : syncopy data object, e.g. :class:`~syncopy.AnalogData`
 
-    CR : A derived :class:`~syncopy.shared.computational_routine.ComputationalRoutine` instance
-        The computational routine computing the desired statistic to be jackknifed
-
     raw_estimate : syncopy data object, e.g. :class:`~syncopy.SpectralData`
         Must have exactly one trial representing the direct trial statistic
         to be jackknifed
+
+    CR : A derived :class:`~syncopy.shared.computational_routine.ComputationalRoutine` instance
+        The computational routine computing the desired statistic to be jackknifed
 
     Returns
     ------
@@ -251,10 +211,10 @@ def bias_var(raw_estimate, replicates):
     # Variance calculation
     # compute sequentially into accumulator array
     var = np.zeros(raw_estimate.data.shape)
-    for trl in replicates.trials:
-        var += (trl - jack_avg.trials[0])**2
+    for loo in replicates.trials:
+        var += (jack_avg.trials[0] - loo)**2
     # normalize
-    var /= nTrials - 1
+    var *= (nTrials - 1)
 
     # create the syncopy data object for the variance
     variance = raw_estimate.__class__(samplerate=raw_estimate.samplerate,
@@ -262,8 +222,7 @@ def bias_var(raw_estimate, replicates):
 
     # bind to syncopy object -> creates the hdf5 dataset
     variance.data = var
-    # just a single trial remains here
-    variance.trialdefinition = bias.trialdefinition
+    propagate_properties(raw_estimate, variance)
 
     return bias, variance
 
@@ -288,12 +247,14 @@ def do_jk(spy_data, raw_estimate, CR):
     -------
     jack_estimate : syncopy data object
         The bias-corrected jackknife estimate
+    bias : syncopy data object
+        The bias of the ``raw estimate`` determined by jackknifing
+    variance : syncopy data object
+        The variance of the ``raw estimate`` determined by jackknifing
     """
 
-
-    replicates = trial_replicates(spy_data, CR, raw_estimate)
+    replicates = trial_replicates(spy_data, raw_estimate, CR)
     bias, variance = bias_var(raw_estimate, replicates)
 
     jack_estimate = raw_estimate - bias
-    jack_avg = spy.mean(replicates, dim='trials')
-    return jack_estimate, jack_avg, bias, variance
+    return jack_estimate, bias, variance
