@@ -336,6 +336,8 @@ def selectdata(data,
         selectDict['latency'] = window
         data.selection = selectDict
 
+    print(f"Data.selection is {data.selection}")
+
     # If an in-place selection was requested we're done
     if inplace:
         # attach frontend parameters for replay
