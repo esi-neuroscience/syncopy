@@ -495,16 +495,18 @@ class TestWaveform():
         assert sum([s.shape[0] for s in spiked.trials]) == numSpikes
         spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
         trial0_nspikes = spiked.trials[0].shape[0]
+        trial2_nspikes = spiked.trials[2].shape[0]
 
         # Select trial 0 and verify that the number of spikes is correct.
-        selection = { 'trials': [0] }
+        selection = { 'trials': [0, 2] }
         res = spiked.selectdata(selection)
-        assert len(res.trials) == 1
+        assert len(res.trials) == 2
         assert res.trials[0].shape[0] == trial0_nspikes
+        assert res.trials[1].shape[0] == trial2_nspikes
 
         # Verify that the waveform is also correct.
         assert res.waveform is not None
-        assert res.waveform.shape[0] == trial0_nspikes  # Verify selection on waveform
+        assert res.waveform.shape[0] == trial0_nspikes + trial2_nspikes  # Verify selection on waveform
 
 
 
