@@ -421,13 +421,13 @@ class BaseData(ABC):
             act = "backing HDF5 file is closed"
             raise SPYValueError(legal=lgl, actual=act, varname="data")
 
-        # Ensure dataset has right no. of dimensions
-        if inData.ndim != ndim:
-            lgl = "{}-dimensional data".format(ndim)
-            act = "{}-dimensional HDF5 dataset".format(inData.ndim)
-            raise SPYValueError(legal=lgl, varname="data", actual=act)
-
         if propertyName == "data":
+            # Ensure dataset has right no. of dimensions
+            if inData.ndim != ndim:
+                lgl = "{}-dimensional data".format(ndim)
+                act = "{}-dimensional HDF5 dataset".format(inData.ndim)
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+
             self._check_dataset_property_discretedata(inData)
             self.filename = inData.file.filename
         else:
