@@ -50,7 +50,8 @@ class TestTimelockanalysis:
                                            nSamples=self.nSamples,
                                            nChannels=self.nChannels,
                                            freq=40,
-                                           eps=0.01)
+                                           eps=0.01,
+                                           seed=42)
 
         # change trial sizes, original interval is [-1, 1.495] seconds
         trldef = adata.trialdefinition
