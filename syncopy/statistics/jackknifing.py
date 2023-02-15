@@ -13,145 +13,131 @@ from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYError
 from syncopy.shared.kwarg_decorators import unwrap_select
 
+from syncopy.tests import synth_data as sd
 
-def trial_replicates(spy_data, raw_estimate, CR, **kwargs):
+# create test data
+nTrials = 10
+adata = spy.AnalogData(data=[i * np.ones((5, 3)) for i in range(nTrials)],
+                       samplerate=7)
+
+# to test for property propagation
+adata.channel = [f'chV_{i}' for i in range(1, 4)]
+raw_est = spy.mean(adata, dim='time', keeptrials=True)
+
+
+nTrials = 10
+nSamples = 500
+adata = sd.white_noise(nTrials, nSamples=nSamples, seed=42)
+# to test for property propagation
+adata.channel = [f'chV_{i}' for i in range(1, 3)]
+
+# -- still trivial CSDs --
+
+# single trial cross spectra (not densities!)
+cross_spectra = spy.connectivityanalysis(adata,
+                                         method='csd',
+                                         output='complex',
+                                         keeptrials=True)
+
+# direct cross spectral density estimate (must be a trial average)
+csd = spy.mean(cross_spectra, dim='trials')
+
+
+def trial_avg_replicates(trl_ensemble):
     """
-    General meta-function to compute the jackknife replicates
-    along trials of a ComputationalRoutine `CR` by creating
-    the full set of leave-one-out (loo) trial selections.
-
-    The CR must compute a statistic over trials, meaning its
-    result is represented as a single trial. Examples are
-    connectivity measures like coherence or any trial averaged quantity.
+    Compute the jackknife replicates of the trial average
+    for the full set of leave-one-out (loo) trial selections.
 
     The resulting data object has the same number of trials as the input,
-    with each `trial` holding one trial averaged loo result, i.e. the
-    jackknife replicates.
+    with each `trial` holding one loo average, i.e. the
+    trivial jackknife replicates of the average. These can then be
+    further used as input for CRs which operate on trial averages
+    to compute the non-trivial jackknife replicates of the desired statistic,
+    i.e. coherence.
+
 
     Parameters
     ----------
-    spy_data : syncopy data object, e.g. :class:`~syncopy.AnalogData`
-
-    raw_estimate : syncopy data object, e.g. :class:`~syncopy.SpectralData`
-        Must have exactly one trial representing the direct trial statistic
-        to be jackknifed
-
-    CR : A derived :class:`~syncopy.shared.computational_routine.ComputationalRoutine` instance
-        The computational routine computing the desired statistic to be jackknifed
+    trl_ensemble : syncopy data object, e.g. :class:`~syncopy.SpectralData`
+        Single trial data from where the loo replicates will be created
 
     Returns
     ------
-    jack_out : syncopy data object, e.g. :class:`~syncopy.TimeLockData`
-        The datatype will be ``out_class`` where each trial
-        represents one (trial-averaged) jackknife replicate
+    replicates : syncopy data object
+        The datatype will be the same as the input ``trl_ensemble``,
+        where each trial represents one jackknife replicate (trial average)
     """
 
-    if spy_data.selection is not None:
-        # create a back up
-        select_backup = deepcopy(spy_data.selection.select)
-        selection_cleanup = False
-    else:
+    if trl_ensemble.selection is None:
         # create all-to-all selection
         # for easier property propagation
-        spy_data.selectdata(inplace=True)
+        trl_ensemble.selectdata(inplace=True)
         selection_cleanup = True
 
-    # now we have definitely a selection
-    all_trials = spy_data.selection.trial_ids
+    # now we definitely have a selection
+    all_trials = trl_ensemble.selection.trial_ids
+    nTrials = len(all_trials)
 
-    # create the leave-one-out (loo) trial selections
-    loo_trial_selections = []
-    for trl_id in all_trials:
-        # shallow copy is sufficient here
-        loo = all_trials.copy()
-        loo.remove(trl_id)
-        loo_trial_selections.append(loo)
+    # -- set up output object --
 
-    # --- CR computations --
+    # each of the loo averages fills one single trial
+    # slot of the `replicates` dataset, hence it has the same shape
+    # as the input
+    replicates = trl_ensemble.__class__(samplerate=trl_ensemble.samplerate,
+                                        dimord=trl_ensemble.dimord)
+
+    with h5py.File(replicates._filename, mode='w') as h5file:
+        dset = h5file.create_dataset('data', shape=trl_ensemble.data.shape,
+                                     dtype=trl_ensemble.data.dtype)
+        replicates.data = dset
+
+    # we still need to write into it
+    replicates._reopen()
 
     log_dict = {}
 
-    # manipulate existing selection
-    select = spy_data.selection.select
-    # create loo selections and run CR
-    # to compute and collect jackknife replicates
-    loo_outs = []
-    for trl_idx, loo in enumerate(loo_trial_selections):
-        select['trials'] = loo
-        spy_data.selectdata(select, inplace=True)
+    # -- replicate computations --
 
-        # initialize transient output object for loo CR result
-        out = raw_estimate.__class__(dimord=raw_estimate.dimord,
-                                     samplerate=raw_estimate.samplerate)
+    # first calculate the standard trial average
+    # this will also catch non-equal trials in the input
+    trl_avg = spy.mean(trl_ensemble, dim='trials')
 
-        # (re-)initialize supplied CR and compute a trial average
-        CR.initialize(spy_data, spy_data._stackingDim,
-                      keeptrials=False, chan_per_worker=kwargs.get('chan_per_worker'))
-        CR.compute(spy_data, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
-
-        # keep the loo output alive for now
-        loo_outs.append(out)
-
-    # reference to determine shapes and stacking
-    loo1 = loo_outs[0]
-    stack_dim = spy_data._stackingDim
-
-    # prepare virtual dataset to collect results from
-    # individual loo CR outputs w/o copying
-
-    # each of the same shaped(!) loo replicates fills one single trial
-    # slot of the final jackknifing result
-    jack_shape = list(loo1.data.shape)
-    jack_shape[stack_dim] = len(loo_outs) * jack_shape[stack_dim]
-    layout = h5py.VirtualLayout(shape=tuple(jack_shape), dtype=loo1.data.dtype)
-
-    # all loo results have the same shape, determine stacking step from 1st loo result
-    stack_step = int(np.diff(loo1.sampleinfo[0])[0])
-
+    # all loo replicates have the same shape as
+    # the original single trial results, so the stepping
+    # along the stacking dim is fixed
+    stack_step = int(np.diff(trl_ensemble.sampleinfo[0])[0])
+    stack_dim = trl_ensemble._stackingDim
     # stacking index template
-    stack_idx = [np.s_[:] for _ in range(loo1.data.ndim)]
+    stack_idx = [np.s_[:] for _ in range(trl_ensemble.data.ndim)]
 
-    # now collect all loo datasets into the virtual dataset
-    # to construct the jacknife result
-    for loo_idx, out in enumerate(loo_outs):
+    # for each loo replicate we just have to subtract
+    # the specific trial from the average
+    for loo_idx in all_trials:
+        # trial average is 'single trial', so this is memory safe
+        # this is the simple loo average - the 'replicate'
+        loo_avg = nTrials * trl_avg.data[()] - trl_ensemble.trials[loo_idx]
+        # normalize
+        loo_avg /= nTrials - 1
+
         # stack along stacking dim
         stack_idx[stack_dim] = np.s_[loo_idx * stack_step:(loo_idx + 1) * stack_step]
-        layout[tuple(stack_idx)] = h5py.VirtualSource(out.data)
-
-        # to keep actual data alive even
-        # when loo replicates go out of scope
-        out._persistent_hdf5 = True
-
-    # initialize jackknife output object of
-    # same datatype as the loo replicates
-    jack_out = loo1.__class__(dimord=raw_estimate.dimord)
-
-    # finally create the virtual dataset
-    with h5py.File(jack_out._filename, mode='w') as h5file:
-        h5file.create_virtual_dataset('data', layout)
-        # bind to syncopy object
-        jack_out.data = h5file['data']
-
-    # reopen dataset after I/O operation above
-    jack_out._reopen()
+        replicates.data[tuple(stack_idx)] = loo_avg
 
     # attach properties like channel labels etc.
-    propagate_properties(loo1, jack_out)
+    propagate_properties(trl_ensemble, replicates)
 
     # create proper trialdefinition
     # FIXME: not clear how to handle offsets (3rd column), set to 0 for now
-    trl_def = np.column_stack([np.arange(len(loo_outs)) * stack_step,
-                               np.arange(len(loo_outs)) * stack_step + stack_step,
-                               np.zeros(len(loo_outs))])
-    jack_out.trialdefinition = trl_def
+    trl_def = np.column_stack([np.arange(len(all_trials)) * stack_step,
+                               np.arange(len(all_trials)) * stack_step + stack_step,
+                               np.zeros(len(all_trials))])
+    replicates.trialdefinition = trl_def
 
     # revert selection state of the input
     if selection_cleanup:
-        spy_data.selection = None
-    else:
-        spy_data.selectdata(select_backup)
+        trl_ensemble.selection = None
 
-    return jack_out
+    return replicates
 
 
 def bias_var(raw_estimate, replicates):
@@ -206,16 +192,19 @@ def bias_var(raw_estimate, replicates):
         raise SPYError(msg)
 
     nTrials = len(replicates.trials)
-    bias = (nTrials - 1) * (jack_avg - raw_estimate)
+    prefac = nTrials - 1
+    # to avoid different type real/complex warning..
+    prefac = prefac + 0j if 'complex' in str(raw_estimate.data.dtype) else prefac
+    bias = prefac * (jack_avg - raw_estimate)
 
-    # Variance calculation
+    # Variance calculation, it is always real (as opposed to pseudo-variance)
     # compute sequentially into accumulator array
-    var = np.zeros(raw_estimate.data.shape)
+    var = np.zeros(raw_estimate.data.shape, dtype=np.float32)
     for loo in replicates.trials:
-        var += (jack_avg.trials[0] - loo)**2
+        # need abs for complex variance
+        var += (np.abs(jack_avg.trials[0] - loo))**2
     # normalize
     var *= (nTrials - 1)
-
     # create the syncopy data object for the variance
     variance = raw_estimate.__class__(samplerate=raw_estimate.samplerate,
                                       dimord=raw_estimate.dimord)
@@ -228,7 +217,7 @@ def bias_var(raw_estimate, replicates):
 
 
 @unwrap_select
-def do_jk(spy_data, raw_estimate, CR):
+def do_jk(trl_ensemble):
     """
     Convenience function to demonstrate
     how to interface the jackknife recipe
@@ -253,7 +242,8 @@ def do_jk(spy_data, raw_estimate, CR):
         The variance of the ``raw estimate`` determined by jackknifing
     """
 
-    replicates = trial_replicates(spy_data, raw_estimate, CR)
+    replicates = trial_avg_replicates(trl_ensemble)
+    raw_estimate = spy.mean(trl_ensemble, dim='trials')
     bias, variance = bias_var(raw_estimate, replicates)
 
     jack_estimate = raw_estimate - bias

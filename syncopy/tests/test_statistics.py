@@ -18,7 +18,7 @@ from syncopy.tests import helpers
 from syncopy.tests import synth_data as sd
 from syncopy.statistics import jackknifing as jk
 from syncopy.statistics.compRoutines import NumpyStatDim
-from syncopy.specest.compRoutines import MultiTaperFFT
+from syncopy.nwanalysis.AV_compRoutines import NormalizeCrossSpectra
 
 
 class TestStatistics:
@@ -309,7 +309,7 @@ class TestStatistics:
 
 class TestJackknife:
 
-    def test_jk_mean(self):
+    def test_jk_avg(self):
         """
         Mean estimation via jackknifing yields exactly the same
         results as the direct estimate (sample mean/variance)
@@ -323,26 +323,26 @@ class TestJackknife:
 
         # to test for property propagation
         adata.channel = [f'chV_{i}' for i in range(1, 4)]
-        # create CR to jackknife
-        CR = NumpyStatDim(operation='mean', axis=0)
-        # uses same CR internally for direct estimate
-        raw_est = spy.mean(adata, dim='time', keeptrials=False)
+        raw_est = spy.mean(adata, dim='time', keeptrials=True)
 
         # first compute all the leave-one-out (loo) replicates
-        replicates = jk.trial_replicates(adata, raw_est, CR)
+        replicates = jk.trial_avg_replicates(raw_est)
         # as many replicates as there are trials
         assert len(replicates.trials) == len(adata.trials)
 
+        # direct estimate is just the trial average
+        direct_est = spy.mean(raw_est, dim='trials')
+
         # now compute bias and variance
-        bias, variance = jk.bias_var(raw_est, replicates)
+        bias, variance = jk.bias_var(direct_est, replicates)
 
         # no bias for mean estimation
         assert np.allclose(bias.data[()], np.zeros(bias.data.shape))
 
         # jackknife variance is here the same as sample variance over trials
         # yet we have to correct for the denominator (N-1 vs. N)
-        direct_var = spy.var(adata, dim='trials').trials[0][0]
-        assert np.allclose(nTrials / (nTrials -1 ) * direct_var, variance.trials[0])
+        direct_var = spy.var(raw_est, dim='trials').trials[0]
+        assert np.allclose(nTrials / (nTrials - 1) * direct_var, variance.trials[0])
 
         # check properties
         assert np.all(bias.channel == adata.channel)
@@ -351,24 +351,18 @@ class TestJackknife:
         assert variance.samplerate == adata.samplerate
 
         # the bias corrected jackknife estimate
-        jack_estimate = raw_est - bias
+        jack_estimate = direct_est - bias
 
         # as there is no bias, this the same as the direct estimate
-        assert np.allclose(jack_estimate.data, raw_est.data)
+        assert np.allclose(jack_estimate.data, direct_est.data)
 
-        # test convenience function
-        jack_est2, bias2, variance2 = jk.do_jk(adata, raw_est, CR)
-
-        assert np.allclose(jack_est2.data, jack_estimate.data)
-        assert np.allclose(bias2.data, bias.data)
-        assert np.allclose(variance2.data, variance.data)
-
-    def test_jk_spec(self):
+    def test_jk_coh(self, **kwargs):
         """
-        Jackknife a simple power analysis with white noise
-        As this is still essentially a simple average, nothing
-        new can be learned here, this test is more to show
-        a more involved CR and change of data type work well
+        Jackknife a coherence analysis.
+
+        First, look only at the
+        cross-spectral densities, here again the trivial average/variance
+        yields the same results.
         """
         nTrials = 10
         nSamples = 500
@@ -376,45 +370,47 @@ class TestJackknife:
         # to test for property propagation
         adata.channel = [f'chV_{i}' for i in range(1, 3)]
 
-        # single trial spectra
-        spec_trls = spy.freqanalysis(adata, output='abs')
+        # -- still trivial CSDs --
 
-        # direct estimtate (must be a trial average)
-        spec = spy.freqanalysis(adata, keeptrials=False, output='abs')
+        # single trial cross spectra (not densities!)
+        cross_spectra = spy.connectivityanalysis(adata,
+                                                 method='csd',
+                                                 output='complex',
+                                                 keeptrials=True)
 
-        # set up CR as in the frontend call
-        CR = MultiTaperFFT(method_kwargs={'samplerate': adata.samplerate,
-                                          'taper': 'hann',
-                                          'nSamples': nSamples,
-                                          'taper_opt': {}
-                                          },
-                           foi=np.fft.rfftfreq(nSamples, 1 / 1000),
-                           keeptapers=False,
-                           polyremoval=0,
-                           output='abs')
+        # direct cross spectral density estimate (must be a trial average)
+        csd = spy.mean(cross_spectra, dim='trials')
+        replicates_avg = jk.trial_avg_replicates(cross_spectra)
+        # now compute bias and variance
+        bias, variance = jk.bias_var(csd, replicates_avg)
 
-        # use convenience function
-        jack_est, bias, variance = jk.do_jk(adata, spec, CR)
+        # check properties
+        assert np.all(replicates_avg.channel_i == adata.channel)
+        assert np.all(bias.channel_j == adata.channel)
+        assert np.all(variance.channel_j == adata.channel)
 
-        assert isinstance(jack_est, spy.SpectralData)
-        assert isinstance(bias, spy.SpectralData)
-        assert isinstance(variance, spy.SpectralData)
-        assert np.all(jack_est.channel == adata.channel)
-        assert np.all(bias.channel == adata.channel)
-        assert np.all(variance.channel == adata.channel)
+        # now again as this is still just a simple average
+        # there is no bias
+        assert np.allclose(bias.data[()], np.zeros(bias.data.shape))
 
         # direct variances still coincide,
-        # `show` strips of empty time and taper axes
-        direct_var = spy.var(spec_trls, dim='trials').show()
-        assert np.allclose(direct_var * nTrials / (nTrials - 1),
+        # `show` strips of empty time axis
+        direct_var = spy.var(cross_spectra, dim='trials').show()
+        assert np.allclose(direct_var * (nTrials / (nTrials - 1) + 0j),
                            variance.show())
 
-        # bias is also still essentially 0
-        assert np.all(bias.data[()] <= 1e-6)
+        # -- jackknife coherence --
 
-        # hence the direct estimate is very close to the jackknife
-        assert np.allclose(spec.data, jack_est.data)
+        CR = NormalizeCrossSpectra(output='abs')
+        replicates_coh = CrossSpectralData(dimord=csd.dimord)
+        log_dict = {}
+        # now fire up CR on all loo averages to get
+        # the cohrence jackknife replicates
+        CR.initialize(replicates_avg, replicates_coh._stackingDim, chan_per_worker=None)
+        CR.compute(replicates_avg, replicates_coh, parallel=kwargs.get("parallel"),
+                   log_dict=log_dict)
 
+        return replicates_coh
 
 if __name__ == '__main__':
 
