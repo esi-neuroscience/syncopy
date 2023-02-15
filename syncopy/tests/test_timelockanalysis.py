@@ -26,7 +26,8 @@ class TestTimelockanalysis:
     # "real" data gets created for semantic test
     adata = synth_data.white_noise(nTrials, samplerate=fs,
                                    nSamples=nSamples,
-                                   nChannels=nChannels)
+                                   nChannels=nChannels,
+                                   seed=42)
 
     # change trial sizes, original interval is [-1, 1.495] seconds
     trldef = adata.trialdefinition
@@ -57,7 +58,7 @@ class TestTimelockanalysis:
         trldef[2] = [680, 960, -20]  # [-0.1, 1.295] seconds
         trldef[3] = [1000, 1200, -100]  # [-0.5, 0.495] seconds
         adata.trialdefinition = trldef
-        
+
         cfg = spy.StructDict()
         cfg.latency = 'maxperiod'  # default
         cfg.covariance = True
@@ -209,7 +210,7 @@ class TestTimelockanalysis:
         # here we need to manually wipe the selection due to the
         # exception runs above
         self.adata.selection = None
-            
+
     def test_parallel_selection(self, testcluster=None):
 
         cfg = spy.StructDict()
