@@ -478,7 +478,7 @@ def detect_parallel_client(func):
         # warning only emitted if slurm available but no ACME or Dask client
         slurm_msg = ""
 
-        # if acme is around, let it manage everything
+        # if acme is around, let it manage everything assuming we are on the ESI cluster
         if spy.__acme__ and parallel is not False:
             try:
                 client = dd.get_client()
@@ -487,33 +487,35 @@ def detect_parallel_client(func):
                 if parallel:
                     msg = (f"Could not find a running dask cluster!\n"
                            "Try `esi_cluster_setup` from ACME to set up a cluster on the ESI HPC\n"
+                           "..computing sequentially"
                            )
                     logger.important(msg)
                 parallel = False
 
         # This effectively searches for a global dask cluster, and sets
         # parallel=True if one was found. If no cluster was found, parallel is set to False,
-        # so no automatic spawing of a LocalCluster or SLURMCluster via ACME,
-        # this needs explicit `parallel=True`.
+        # so no automatic spawning of a LocalCluster this needs explicit `parallel=True`.
         elif parallel is None:
             # w/o acme interface dask directly
             try:
                 client = dd.get_client()
-                check_workers_available(client, timeout=dask_timeout)
+                # wait for at least 1 worker
+                check_workers_available(client, timeout=dask_timeout, n_workers=1)
                 msg = f"..attaching to running Dask client:\n\t{client}"
                 logger.important(msg)
                 parallel = True
             except ValueError:
                 parallel = False
 
-        # If parallel processing was requested but ACME is not installed and/or
-        # we are not on a slurm cluster, and no other Dask cluster is running,
-        # initialize a local dask cluster
+        # If parallel processing was requested but ACME is not installed
+        # and no other Dask cluster is running,
+        # initialize a local dask cluster as fallback for local machines
         elif parallel is True:
             # if already one cluster is reachable do nothing
             try:
                 client = dd.get_client()
-                check_workers_available(client, timeout=dask_timeout)
+                # wait for at least 1 worker
+                check_workers_available(client, timeout=dask_timeout, n_workers=1)
                 msg = f"..attaching to running Dask client:\n{client}"
                 logger.important(msg)
             except ValueError:

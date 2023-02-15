@@ -32,23 +32,14 @@ def check_slurm_available():
     return has_slurm
 
 
-def check_workers_available(client, timeout=120):
+def check_workers_available(client, n_workers=1, timeout=120):
     """
     Checks for available (alive) Dask workers and waits max `timeout` seconds
-    until at least a fraction of the workers is available.
-
-    The minimum number of workers to be waited on depends
-    on the total number of requested workers, and scales with:
-
-        minWorkers = totalWorkers^0.7
-
-    Meaning for 10 ``totalWorkers``, at least 5 have to be available,
-    wheareas for 100 ``totalWorkers`` only 25 have to be available.
+    until at least ``n_workers`` workers are available.
     """
 
     logger = get_logger()
     totalWorkers = len(client.cluster.requested)
-    minWorkers = int(totalWorkers**0.7)
 
     # dictionary of workers
     workers = client.cluster.scheduler_info['workers']
@@ -56,15 +47,14 @@ def check_workers_available(client, timeout=120):
     # some small initial wait
     sleep(.25)
 
-    if len(workers) < minWorkers:
-        logger.important(f"waiting for at least {minWorkers}/{totalWorkers} workers being available, timeout after {timeout} seconds..")
-    client.wait_for_workers(minWorkers, timeout=timeout)
+    if len(workers) < n_workers:
+        logger.important(f"waiting for at least {n_workers}/{totalWorkers} workers being available, timeout after {timeout} seconds..")
+    client.wait_for_workers(n_workers, timeout=timeout)
 
-    # wait a little more to get consistent client print out
     sleep(.25)
 
-    if len(workers) != totalWorkers:
-        logger.important(f"{len(workers)}/{totalWorkers} workers available, starting computation..")
+    # report what we have
+    logger.important(f"{len(workers)}/{totalWorkers} workers available, starting computation..")
 
     # wait a little more to get consistent client print out
     sleep(.25)
