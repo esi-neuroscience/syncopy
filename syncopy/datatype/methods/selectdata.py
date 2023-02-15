@@ -338,6 +338,14 @@ def selectdata(data,
         selectDict['latency'] = window
         data.selection = selectDict
 
+    if type(data) == spy.SpikeData and data.waveform is not None:
+        if inplace:
+            spy.log("Inplace selection of SpikeData with waveform not supported for the waveform.", level="INFO")
+        else:
+            print(f"BEFORE CF: Data.selection is {data.selection}, with vars: {vars(data.selection)}.")
+            print(f"BEFORE CF: Data.selection.trials is {[t for t in data.selection.trials]}")
+            print(f"BEFORE CF: data.selection._trial_ids is {data.selection._trial_ids}")
+
     # If an in-place selection was requested we're done.
     if inplace:
         # attach frontend parameters for replay
@@ -370,17 +378,25 @@ def selectdata(data,
         if inplace:
             spy.log("Inplace selection of SpikeData with waveform not supported for the waveform.", level="INFO")
         else:
-            print(f"Data.selection is {data.selection}")
+            print("CF Done.")
+            print(f"Data.selection is {data.selection}, with vars: {vars(data.selection)}.")
             print(f"Data.selection.trials is {[t for t in data.selection.trials]}")
+            rel_trial_ids = data.selection._trial_ids
+            print(f"data.selection._trial_ids is {data.selection._trial_ids}")
+            hdf5_trials_ids = [data._preview_trial(t).idx[0] for t in rel_trial_ids]
+            print(f"hdf5_trial_ids is {hdf5_trials_ids}")
 
             # Copy the waveform dataset to `out`, the new `SpikeData` object.
-            # TODO: Thuis currently fails because the waveform shape is incorrect after the
+            # TODO: This currently fails because the waveform shape is incorrect after the
             # selection: we must only copy the relevant trials (or part of the data).
-            hdf5_file_in = data._get_backing_hdf5_file_handle()
-            hdf5_file_out = out._get_backing_hdf5_file_handle()
-            #ds = hdf5_file_out.create_dataset('/waveform', data=hdf5_file_in['/waveform'])
-            ds = hdf5_file_out.create_dataset('/waveform', data=data.waveform)
-            out.waveform = ds
+            do_copy_waveform = True
+            if do_copy_waveform:
+                hdf5_file_in = data._get_backing_hdf5_file_handle()
+                hdf5_file_out = out._get_backing_hdf5_file_handle()
+
+                selected_data = hdf5_file_in['/waveform'][hdf5_trials_ids, :, :]
+                ds = hdf5_file_out.create_dataset('/waveform', data=selected_data)
+                out.waveform = ds
 
             ## Create the selection from trial ids
             #trl_idx = data._preview_trial(trl_id).idx
