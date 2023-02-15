@@ -5,6 +5,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+import h5py
 
 # Local imports
 import syncopy as spy
@@ -337,14 +338,6 @@ def selectdata(data,
         selectDict['latency'] = window
         data.selection = selectDict
 
-    # Handle selection of waveform for SpikeData objects
-    if type(data) == spy.SpikeData and data.waveform is not None:
-        if inplace:
-            spy.log("Inplace selection of SpikeData with waveform not supported for the waveform.", level="INFO")
-        else:
-            print(f"Data.selection is {data.selection}")
-            print(f"Data.selection.trials is {[t for t in data.selection.trials]}")
-
     # If an in-place selection was requested we're done.
     if inplace:
         # attach frontend parameters for replay
@@ -371,6 +364,26 @@ def selectdata(data,
     selectMethod.initialize(data, out._stackingDim, chan_per_worker=kwargs.get("chan_per_worker"))
     selectMethod.compute(data, out, parallel=kwargs.get("parallel"),
                          log_dict=log_dct)
+
+    # Handle selection of waveform for SpikeData objects
+    if type(data) == spy.SpikeData and data.waveform is not None:
+        if inplace:
+            spy.log("Inplace selection of SpikeData with waveform not supported for the waveform.", level="INFO")
+        else:
+            print(f"Data.selection is {data.selection}")
+            print(f"Data.selection.trials is {[t for t in data.selection.trials]}")
+
+            # Copy the waveform dataset to `out`, the new `SpikeData` object.
+            # TODO: Thuis currently fails because the waveform shape is incorrect after the
+            # selection: we must only copy the relevant trials (or part of the data).
+            hdf5_file_in = data._get_backing_hdf5_file_handle()
+            hdf5_file_out = out._get_backing_hdf5_file_handle()
+            #ds = hdf5_file_out.create_dataset('/waveform', data=hdf5_file_in['/waveform'])
+            ds = hdf5_file_out.create_dataset('/waveform', data=data.waveform)
+            out.waveform = ds
+
+            ## Create the selection from trial ids
+            #trl_idx = data._preview_trial(trl_id).idx
 
     # Wipe data-selection slot to not alter input object
     data.selection = None

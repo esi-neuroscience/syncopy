@@ -513,3 +513,9 @@ if __name__ == '__main__':
     T1 = TestSpikeData()
     T2 = TestEventData()
     T3 = TestWaveform()
+
+    numSpikes, waveform_dimsize = 20, 50
+    spiked = getSpikeData(nSpikes = numSpikes)
+    spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
+    selection = { 'trials': [0] }
+    res = spiked.selectdata(selection)
