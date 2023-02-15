@@ -517,5 +517,6 @@ if __name__ == '__main__':
     numSpikes, waveform_dimsize = 20, 50
     spiked = getSpikeData(nSpikes = numSpikes)
     spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
-    selection = { 'trials': [0] }
+    selection = { 'trials': [0, 2] }
+    print(f"{len(spiked.trials)} source trial shapes are: {[t.shape for t in spiked.trials]})")
     res = spiked.selectdata(selection)

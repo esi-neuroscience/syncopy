@@ -338,14 +338,6 @@ def selectdata(data,
         selectDict['latency'] = window
         data.selection = selectDict
 
-    if type(data) == spy.SpikeData and data.waveform is not None:
-        if inplace:
-            spy.log("Inplace selection of SpikeData with waveform not supported for the waveform.", level="INFO")
-        else:
-            print(f"BEFORE CF: Data.selection is {data.selection}, with vars: {vars(data.selection)}.")
-            print(f"BEFORE CF: Data.selection.trials is {[t for t in data.selection.trials]}")
-            print(f"BEFORE CF: data.selection._trial_ids is {data.selection._trial_ids}")
-
     # If an in-place selection was requested we're done.
     if inplace:
         # attach frontend parameters for replay
@@ -386,6 +378,13 @@ def selectdata(data,
             hdf5_trials_ids = [data._preview_trial(t).idx[0] for t in rel_trial_ids]
             print(f"hdf5_trial_ids is {hdf5_trials_ids}")
 
+            fauxTrials = [data._preview_trial(trlno) for trlno in data.selection.trial_ids]
+            spikes_by_trial = [f.idx[0] for f in fauxTrials]
+            print(f"Received {len(fauxTrials)} faux trials: {fauxTrials} with indices: {spikes_by_trial}.")
+            spike_idx = np.concatenate([np.array(x).ravel() for x in spikes_by_trial])
+            print(f"Selected {spike_idx.size} spikes from {len(fauxTrials)} trials.")
+            #waveform_selection = [spike_idx, :, :]
+
             # Copy the waveform dataset to `out`, the new `SpikeData` object.
             # TODO: This currently fails because the waveform shape is incorrect after the
             # selection: we must only copy the relevant trials (or part of the data).
@@ -394,7 +393,9 @@ def selectdata(data,
                 hdf5_file_in = data._get_backing_hdf5_file_handle()
                 hdf5_file_out = out._get_backing_hdf5_file_handle()
 
-                selected_data = hdf5_file_in['/waveform'][hdf5_trials_ids, :, :]
+                selected_data = hdf5_file_in['/waveform'][spike_idx, :, :]
+                print("Copy waveform: full data shape is", data.data.shape)
+                print("Copy waveform: selected data shape is", selected_data.shape)
                 ds = hdf5_file_out.create_dataset('/waveform', data=selected_data)
                 out.waveform = ds
 
