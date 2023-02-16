@@ -576,7 +576,6 @@ class SpikeData(DiscreteData):
 
         # instance attribute to allow modification
         self._hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel", "unit")
-        self._hdfFileDatasetProperties = DiscreteData._hdfFileDatasetProperties + ("waveform",)
 
         self._unit = None
         self.unit_idx = None
@@ -589,6 +588,8 @@ class SpikeData(DiscreteData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          dimord=dimord)
+
+        self._hdfFileDatasetProperties +=  ("waveform",)
 
         self._waveform = None
 

@@ -469,11 +469,13 @@ class TestWaveform():
     def test_waveform_valid_set(self):
         """Sets waveform in a correct way."""
         spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
+
         assert not spiked._is_empty()
         assert spiked.data.shape == (2, 3,)
         assert type(spiked.data) == h5py.Dataset
         assert spiked._get_backing_hdf5_file_handle() is not None
         spiked.waveform = np.ones((2, 3), dtype=int)
+        assert "waveform" in spiked._hdfFileDatasetProperties
         assert spiked.waveform.shape == (2, 3,)
 
     def test_waveform_valid_set_with_None(self):
@@ -527,6 +529,7 @@ class TestWaveform():
         with tempfile.TemporaryDirectory() as tmpdirname:
             tmp_spy_filename = os.path.join(tmpdirname, "mywffile.spike")
             save(spiked, filename=tmp_spy_filename)
+            assert "waveform" in h5py.File(tmp_spy_filename, mode="r").keys()
             spkd2 = load(filename=tmp_spy_filename)
             assert isinstance(spkd2.waveform, h5py.Dataset), f"Expected h5py.Dataset, got {type(spkd2.waveform)}"
             assert np.array_equal(spiked.waveform[()], spkd2.waveform[()])
