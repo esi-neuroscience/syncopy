@@ -8,6 +8,7 @@ import pytest
 import numpy as np
 import dask.distributed as dd
 import matplotlib.pyplot as ppl
+import scipy.stats as st
 
 # Local imports
 import syncopy as spy
@@ -21,7 +22,7 @@ from syncopy.statistics.compRoutines import NumpyStatDim
 from syncopy.nwanalysis.AV_compRoutines import NormalizeCrossSpectra
 
 
-class TestStatistics:
+class TestSumStatistics:
 
     # initialize rng instance
     rng = np.random.default_rng(helpers.test_seed)
@@ -313,7 +314,7 @@ class TestJackknife:
         """
         Mean estimation via jackknifing yields exactly the same
         results as the direct estimate (sample mean/variance)
-        and hence can directly serve as an easy test case
+        and hence can directly serve as a straightforward test
         """
 
         # create test data
@@ -356,17 +357,14 @@ class TestJackknife:
         # as there is no bias, this the same as the direct estimate
         assert np.allclose(jack_estimate.data, direct_est.data)
 
-    def test_jk_coh(self, **kwargs):
+    def test_jk_csd(self, **kwargs):
         """
-        Jackknife a coherence analysis.
-
-        First, look only at the
-        cross-spectral densities, here again the trivial average/variance
+        Jackknife cross-spectral densities, here again the trivial average/variance
         yields the same results.
         """
         nTrials = 10
         nSamples = 500
-        adata = sd.white_noise(nTrials, nSamples=nSamples, seed=helpers.test_seed)
+        adata = 10 * sd.white_noise(nTrials, nSamples=nSamples, seed=helpers.test_seed)
         # to test for property propagation
         adata.channel = [f'chV_{i}' for i in range(1, 3)]
 
@@ -375,12 +373,15 @@ class TestJackknife:
         # single trial cross spectra (not densities!)
         cross_spectra = spy.connectivityanalysis(adata,
                                                  method='csd',
-                                                 output='complex',
                                                  keeptrials=True)
 
         # direct cross spectral density estimate (must be a trial average)
+        # is here just the trial average
         csd = spy.mean(cross_spectra, dim='trials')
+
+        # compute avg replicates
         replicates_avg = jk.trial_avg_replicates(cross_spectra)
+
         # now compute bias and variance
         bias, variance = jk.bias_var(csd, replicates_avg)
 
@@ -390,8 +391,8 @@ class TestJackknife:
         assert np.all(variance.channel_j == adata.channel)
 
         # now again as this is still just a simple average
-        # there is no bias
-        assert np.allclose(bias.data[()], np.zeros(bias.data.shape))
+        # there can be no real bias
+        assert np.allclose(bias.data[()], np.zeros(bias.data.shape), atol=1e-5)
 
         # direct variances still coincide,
         # `show` strips of empty time axis
@@ -399,20 +400,112 @@ class TestJackknife:
         assert np.allclose(direct_var * (nTrials / (nTrials - 1) + 0j),
                            variance.show())
 
-        # -- jackknife coherence --
+    def test_jk_coh(self, **kwargs):
+        """
+        Jackknife a coherence analysis.
 
-        CR = NormalizeCrossSpectra(output='abs')
-        replicates_coh = CrossSpectralData(dimord=csd.dimord)
+        For the coherence confidence intervals see:
+        "Tables of the distribution of the coefficient of coherence for
+        stationary bivariate Gaussian processes, Sandia monograph by Amos and Koopmans(1963)"
+        """
+
+        nTrials = 50
+        nSamples = 1000
+        # sufficient to check this entry
+        show_kwargs = {'channel_i': 0, 'channel_j': 1}
+        adata = sd.white_noise(nTrials, nSamples=nSamples, seed=helpers.test_seed)
+
+        # confidence for 100 trials from
+        # above mentioned publication for squared coherence
+        ci95 = {30: 0.98, 50: 0.06, 100: 0.03}
+
+        # important to match between
+        # replicates and direct estimate!
+        output = 'pow'
+
+        # direct estimate
+        coh = spy.connectivityanalysis(adata,
+                                       method='coh',
+                                       output=output)
+
+        # first check that we got the right statistics
+        # by asserting that less of 5% of the freq. bins are outside
+        # the (one-sided) 95% conf. interval
+        assert np.sum(coh.show(**show_kwargs) > ci95[nTrials]) / coh.freq.size < 0.05
+
+        # single trial cross spectra (not densities!)
+        cross_spectra = spy.connectivityanalysis(adata,
+                                                 method='csd',
+                                                 keeptrials=True)
+
+        # first create trivial avg/csd replicates
+        replicates_avg = jk.trial_avg_replicates(cross_spectra)
+
+        # -- compute coherence replicates --
+
+        # from those compute jackknife replicates of the coherence
+        CR = NormalizeCrossSpectra(output=output)
+        replicates_coh = CrossSpectralData(dimord=coh.dimord)
         log_dict = {}
         # now fire up CR on all loo averages to get
-        # the cohrence jackknife replicates
+        # the coherence jackknife replicates
         CR.initialize(replicates_avg, replicates_coh._stackingDim, chan_per_worker=None)
         CR.compute(replicates_avg, replicates_coh, parallel=kwargs.get("parallel"),
                    log_dict=log_dict)
 
-        return replicates_coh
+        assert len(replicates_coh.trials) == nTrials
+        assert np.all(replicates_coh.channel_i == adata.channel)
+
+        # now compute bias and variance
+        bias, variance = jk.bias_var(coh, replicates_coh)
+
+        # here we have some actual bias
+        assert not np.allclose(bias.data[()], np.zeros(bias.data.shape), atol=1e-5)
+
+
+        # look at the 0,1 entry
+        b01, v01, c01 = (bias.show(**show_kwargs),
+                         variance.show(**show_kwargs),
+                         coh.show(**show_kwargs))
+
+        # standard error of the mean
+        SEM = np.sqrt(v01 / nTrials)
+
+        fig, ax = ppl.subplots()
+        ax.set_title(f"Coherence of white noise with nTrials={nTrials}")
+        ax.set_xlabel("frequency (Hz)")
+        ax.set_ylabel("Coherence $|C|^2$")
+        ax.plot(coh.freq, c01, marker='.')
+        ax.fill_between(coh.freq, c01, c01 + 1.96 * SEM, color='k', alpha=0.3, label='95% Jackknife CI')
+        # truncate to 0 for negative values
+        ci2 = c01 - 1.96 * SEM
+        ci2[ci2 < 0] = 0
+        ax.fill_between(coh.freq, c01, ci2, color='k', alpha=0.3)
+        ax.set_xlim((100, 150))
+        ax.legend()
+
+        # calculate the z-scores from the jackknife estimate
+        # and jackknife variance for 0 coherence
+        # as 0-hypothesis (we have uncorrelated noise)
+        Zs = (c01 - b01) / SEM
+
+        # now get p-values from survival function
+        pvals = st.norm.sf(Zs)
+
+        fig, ax = ppl.subplots()
+        ax.set_title("Jackknife p-values for $H_0$: $|C|^2 = 0$")
+        ax.set_xlabel("Coherence $|C|^2$")
+        ax.set_ylabel("p-value")
+        ax.plot(c01, pvals, '.')
+        ax.plot([0, c01.max()], [0.05, 0.05], 'k--', label='5%')
+        ax.legend()
+
+        # turns out, the jackknife confidence intervals are quite conservative
+        # and no frequency bin has a coherence high enough to reject the C=0 hypothesis
+        # we could still expect to get a 'significant' coherence max 5% of the time
+        assert np.sum(pvals < 0.05) / coh.freq.size < 0.05
 
 if __name__ == '__main__':
 
-    T1 = TestStatistics()
+    T1 = TestSumStatistics()
     T2 = TestJackknife()

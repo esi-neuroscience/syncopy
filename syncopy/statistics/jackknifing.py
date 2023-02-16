@@ -140,7 +140,7 @@ def trial_avg_replicates(trl_ensemble):
     return replicates
 
 
-def bias_var(raw_estimate, replicates):
+def bias_var(direct_estimate, replicates):
     """
     Implements the general jackknife recipe to
     compute the bias and variance of a statiscial parameter
@@ -149,11 +149,11 @@ def bias_var(raw_estimate, replicates):
 
     Note that the jackknife bias-corrected estimate then simply is:
 
-        jack_estimate = raw_estimate - bias
+        jack_estimate = direct_estimate - bias
 
     Parameters
     ----------
-    raw_estimate : syncopy data object, e.g. :class:`~syncopy.SpectralData`
+    direct_estimate : syncopy data object, e.g. :class:`~syncopy.SpectralData`
         Must have exactly one trial representing the direct trial statistic
         to be jackknifed
     replicates : syncopy data object, e.g. :class:`~syncopy.SpectralData`
@@ -168,10 +168,10 @@ def bias_var(raw_estimate, replicates):
         error of the mean
     """
 
-    if len(raw_estimate.trials) != 1:
+    if len(direct_estimate.trials) != 1:
         lgl = "original trial statistic with one remaining trial"
-        act = f"{len(raw_estimate.trials)} trials"
-        raise SPYValueError(lgl, 'raw_estimate', act)
+        act = f"{len(direct_estimate.trials)} trials"
+        raise SPYValueError(lgl, 'direct_estimate', act)
 
     if len(replicates.trials) <= 1:
         lgl = "jackknife replicates with at least 2 trials"
@@ -185,66 +185,33 @@ def bias_var(raw_estimate, replicates):
     # compute the bias, shapes should match as both
     # quantities come from the same data and
     # got computed by the same CR
-    if jack_avg.data.shape != raw_estimate.data.shape:
+    if jack_avg.data.shape != direct_estimate.data.shape:
         msg = ("Got mismatching shapes for jackknife bias computation:\n"
-               f"jack: {jack_avg.data.shape}, original estimate: {raw_estimate.data.shape}"
+               f"jack: {jack_avg.data.shape}, original estimate: {direct_estimate.data.shape}"
                )
         raise SPYError(msg)
 
     nTrials = len(replicates.trials)
     prefac = nTrials - 1
     # to avoid different type real/complex warning..
-    prefac = prefac + 0j if 'complex' in str(raw_estimate.data.dtype) else prefac
-    bias = prefac * (jack_avg - raw_estimate)
+    prefac = prefac + 0j if 'complex' in str(direct_estimate.data.dtype) else prefac
+    bias = prefac * (jack_avg - direct_estimate)
 
     # Variance calculation, it is always real (as opposed to pseudo-variance)
     # compute sequentially into accumulator array
-    var = np.zeros(raw_estimate.data.shape, dtype=np.float32)
+    var = np.zeros(direct_estimate.data.shape, dtype=np.float32)
     for loo in replicates.trials:
         # need abs for complex variance
         var += (np.abs(jack_avg.trials[0] - loo))**2
     # normalize
     var *= (nTrials - 1)
+
     # create the syncopy data object for the variance
-    variance = raw_estimate.__class__(samplerate=raw_estimate.samplerate,
-                                      dimord=raw_estimate.dimord)
+    variance = direct_estimate.__class__(samplerate=direct_estimate.samplerate,
+                                         dimord=direct_estimate.dimord)
 
     # bind to syncopy object -> creates the hdf5 dataset
     variance.data = var
-    propagate_properties(raw_estimate, variance)
+    propagate_properties(direct_estimate, variance)
 
     return bias, variance
-
-
-@unwrap_select
-def do_jk(trl_ensemble):
-    """
-    Convenience function to demonstrate
-    how to interface the jackknife recipe
-
-    Parameters
-    ----------
-    spy_data : syncopy data object, e.g. :class:`~syncopy.AnalogData`
-        The input which was used to generate the ``raw_esimate`` from the ``CR``
-    raw_estimate : syncopy data object, e.g. :class:`~syncopy.SpectralData`
-        Must have exactly one trial representing the direct trial statistic
-        to be jackknifed
-    CR : A derived :class:`~syncopy.shared.computational_routine.ComputationalRoutine` instance
-        The computational routine which computed the ``raw_estimate`` statistic to be jackknifed
-
-    Returns
-    -------
-    jack_estimate : syncopy data object
-        The bias-corrected jackknife estimate
-    bias : syncopy data object
-        The bias of the ``raw estimate`` determined by jackknifing
-    variance : syncopy data object
-        The variance of the ``raw estimate`` determined by jackknifing
-    """
-
-    replicates = trial_avg_replicates(trl_ensemble)
-    raw_estimate = spy.mean(trl_ensemble, dim='trials')
-    bias, variance = bias_var(raw_estimate, replicates)
-
-    jack_estimate = raw_estimate - bias
-    return jack_estimate, bias, variance
