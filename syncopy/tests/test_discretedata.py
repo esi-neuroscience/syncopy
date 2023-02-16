@@ -534,11 +534,13 @@ class TestWaveform():
             assert isinstance(spkd2.waveform, h5py.Dataset), f"Expected h5py.Dataset, got {type(spkd2.waveform)}"
             assert np.array_equal(spiked.waveform[()], spkd2.waveform[()])
 
-            # Test delete/unregister.
+            # Test delete/unregister when setting to None.
             spkd2.waveform = None
             assert spkd2.waveform is None
-            #spkd2._unregister_dataset("dset_mean")
             assert "waveform" not in h5py.File(tmp_spy_filename, mode="r").keys()
+
+            # Test that we can set waveform again after deleting it.
+            spkd2.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
 
 
 if __name__ == '__main__':
