@@ -7,20 +7,16 @@
 import os
 import tempfile
 import time
-import random
 import h5py
 import pytest
 import numpy as np
-import dask.distributed as dd
+
 
 # Local imports
 from syncopy.datatype import AnalogData, SpikeData, EventData
-from syncopy.datatype.base_data import Selector
-from syncopy.shared.tools import StructDict
-from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.io import save, load
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.tests.misc import construct_spy_filename, flush_local_cluster
+from syncopy.tests.misc import construct_spy_filename
 from syncopy.tests.test_selectdata import getSpikeData
 
 
@@ -486,13 +482,19 @@ class TestWaveform():
         assert not spiked._is_empty()
         assert spiked.data.shape == (2, 3,)
         spiked.waveform = np.ones((2, 3), dtype=int)
+        assert spiked.waveform.shape == (2, 3,)
         spiked.waveform = None
         assert spiked.waveform is None
+        # try to set again
+        spiked.waveform = np.ones((2, 3), dtype=int)
+        assert spiked.waveform.shape == (2, 3,)
+
 
     def test_waveform_selection_trial(self):
         numSpikes, waveform_dimsize = 20, 50
         spiked = getSpikeData(nSpikes = numSpikes)
         assert sum([s.shape[0] for s in spiked.trials]) == numSpikes
+        assert spiked.waveform is None
         spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
         for spikeidx in range(numSpikes):
             spiked.waveform[spikeidx, :, :] = np.ones((3, waveform_dimsize), dtype=int) * spikeidx
@@ -515,6 +517,26 @@ class TestWaveform():
         exp_data = np.where((spiked.trialid == 0) | (spiked.trialid == 2))[0]
         for waveform_idx in range(res.waveform.shape[0]):
             assert np.all(res.waveform[waveform_idx, :, :] == spiked.waveform[exp_data[waveform_idx], :, :])
+
+    def test_save_load_with_waveform(self):
+        """Test saving file with waveform data."""
+        numSpikes, waveform_dimsize = 20, 50
+        spiked = getSpikeData(nSpikes = numSpikes)
+        spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            tmp_spy_filename = os.path.join(tmpdirname, "mywffile.spike")
+            save(spiked, filename=tmp_spy_filename)
+            spkd2 = load(filename=tmp_spy_filename)
+            assert isinstance(spkd2.waveform, h5py.Dataset), f"Expected h5py.Dataset, got {type(spkd2.waveform)}"
+            assert np.array_equal(spiked.waveform[()], spkd2.waveform[()])
+
+            # Test delete/unregister.
+            spkd2.waveform = None
+            assert spkd2.waveform is None
+            #spkd2._unregister_dataset("dset_mean")
+            assert "waveform" not in h5py.File(tmp_spy_filename, mode="r").keys()
+
 
 if __name__ == '__main__':
 

@@ -207,7 +207,7 @@ class BaseData(ABC):
 
         supportedSetters[type(inData)](inData, propertyName, ndim=ndim)
 
-    def _unregister_dataset(self, propertyName, del_from_file=True):
+    def _unregister_dataset(self, propertyName, del_from_file=True, del_attr=True):
         """
         Unregister and delete an additional dataset from the Syncopy data object,
         and optionally delete it from the backing hdf5 file.
@@ -220,14 +220,17 @@ class BaseData(ABC):
                 The name of the entry in `self._hdfFileDatasetProperties` to remove.
                 The attribute named `'_' + propertyName` of this SyncopyData object will be deleted.
             del_from_file: bool
-                Whether to also remove the dataset named 'propertyName' from the backing hdf5 file on disk.
+                Whether to remove the dataset named 'propertyName' from the backing hdf5 file on disk.
+            del_attr: bool
+                Whether to remove the dataset attribute from the Syncopy data object.
         """
-        if propertyName in self._hdfFileDatasetProperties:
-            tmp_list = list(self._hdfFileDatasetProperties)
-            tmp_list.remove(propertyName)
-            self._hdfFileDatasetProperties = tuple(tmp_list)
-        if hasattr(self, "_" + propertyName):
-            delattr(self, "_" + propertyName)
+        if del_attr:
+            if propertyName in self._hdfFileDatasetProperties:
+                tmp_list = list(self._hdfFileDatasetProperties)
+                tmp_list.remove(propertyName)
+                self._hdfFileDatasetProperties = tuple(tmp_list)
+            if hasattr(self, "_" + propertyName):
+                delattr(self, "_" + propertyName)
         if del_from_file:
             if self.mode == "r":
                 lgl = "HDF5 dataset with write or copy-on-write access"
