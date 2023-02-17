@@ -333,6 +333,10 @@ def SPYParallelLog(msg, loglevel="INFO", caller=None):
     """Log a message in parallel code run via slurm.
 
     This uses the parallel logger and one file per machine.
+
+    Returns
+    -------
+    Nothing : None
     """
     numeric_level = getattr(logging, loglevel.upper(), None)
     if not isinstance(numeric_level, int):  # Invalid string was set.
@@ -346,9 +350,13 @@ def SPYParallelLog(msg, loglevel="INFO", caller=None):
                           msg=msg))
 
 def SPYLog(msg, loglevel="INFO", caller=None):
-    """Log a message in seqiential code.
+    """Log a message in sequential code.
 
-    This uses the standard logger that logs to console by default.
+    This uses the standard logger that logs to console and a local log file by default.
+
+    Returns
+    -------
+    Nothing : None
     """
     numeric_level = getattr(logging, loglevel.upper(), None)
     if not isinstance(numeric_level, int):  # Invalid string was set.
@@ -360,6 +368,30 @@ def SPYLog(msg, loglevel="INFO", caller=None):
     logfunc = getattr(logger, loglevel.lower())
     logfunc(PrintMsg.format(caller=" <" + caller + ">" if len(caller) else caller,
                           msg=msg))
+
+def log(msg, level="IMPORTANT", par=False, caller=None):
+    """
+    Log a message using the Syncopy logging setup.
+
+    Parameters
+    ----------
+    msg    : str
+        The message to be logged.
+    level  : str
+        One of 'DEBUG', 'IMPORTANT', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'.
+    caller : None or str
+        Issuer of warning message. If `None`, name of calling method is
+        automatically fetched and pre-pended to `msg`.
+    par    : bool, whether to use the parallel logger.
+
+    Returns
+    -------
+    Nothing : None
+    """
+    if par:
+        SPYParallelLog(msg, loglevel=level, caller=caller)
+    else:
+        SPYLog(msg, loglevel=level, caller=caller)
 
 
 def SPYInfo(msg, caller=None, tag="INFO"):

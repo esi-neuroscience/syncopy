@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 ## Unreleased WIP
 
 ### NEW
+- add logging functionality and respective developer documentation, #208
 
 ### CHANGED
 - major performance improvements for DiscreteData #403 #418, #424
