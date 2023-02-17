@@ -4,14 +4,11 @@
 #
 import h5py
 import numpy as np
-from copy import deepcopy
 
 # Syncopy imports
 import syncopy as spy
 from syncopy.shared.computational_routine import propagate_properties
-from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYError
-from syncopy.shared.kwarg_decorators import unwrap_select
+from syncopy.shared.errors import SPYValueError, SPYError
 
 from syncopy.tests import synth_data as sd
 
@@ -143,7 +140,7 @@ def trial_avg_replicates(trl_ensemble):
 def bias_var(direct_estimate, replicates):
     """
     Implements the general jackknife recipe to
-    compute the bias and variance of a statiscial parameter
+    compute the bias and variance of a statistical parameter
     over trials from an ensemble of leave-one-out replicates
     and the original raw estimate.
 
