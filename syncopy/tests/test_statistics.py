@@ -496,7 +496,7 @@ class TestJackknife:
         ax.set_title("Jackknife p-values for $H_0$: $|C|^2 = 0$")
         ax.set_xlabel("Coherence $|C|^2$")
         ax.set_ylabel("p-value")
-        ax.plot(c01, pvals, 'o', alpha=0.3, c='k', ms=3)
+        ax.plot(c01, pvals, 'o', alpha=0.4, c='k', ms=3.5, mec='w')
         ax.plot([0, c01.max()], [0.05, 0.05], 'k--', label='5%')
         ax.legend()
 
