@@ -232,7 +232,7 @@ class TestWelch():
 
         for sigl_idx, sig_len in enumerate(sig_lengths):
             for overl_idx, overlap in enumerate(overlaps):
-                wn = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=sig_len, samplerate=1000)
+                wn = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=sig_len, samplerate=1000, seed=test_seed)
 
                 cfg = TestWelch.get_welch_cfg()  # Results in 100 windows of length 100.
                 cfg.toi = overlap
