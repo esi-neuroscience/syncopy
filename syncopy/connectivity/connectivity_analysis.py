@@ -8,8 +8,8 @@ import numpy as np
 
 # Syncopy imports
 import syncopy as spy
-from syncopy.nwanalysis.AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCausality
-from syncopy.nwanalysis.ST_compRoutines import CrossSpectra, CrossCovariance, SpectralDyadicProduct
+from syncopy.connectivity.AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCausality
+from syncopy.connectivity.ST_compRoutines import CrossSpectra, CrossCovariance, SpectralDyadicProduct
 from syncopy.shared.input_processors import (
     process_taper,
     process_foi,
@@ -176,7 +176,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         based on the `method` used to compute it:
 
         * For `method='granger'`, the `out.info` property contains
-          the keys listed and explained in :data:`~syncopy.nwanalysis.AV_compRoutines.GrangerCausality.metadata_keys`.
+          the keys listed and explained in :data:`~syncopy.connectivity.AV_compRoutines.GrangerCausality.metadata_keys`.
         * if `jackknife=True`, `out.jack_var` and `out.jack_bias` contain the jackknife variance and bias
 
     Examples

@@ -136,7 +136,7 @@ from .shared import *
 from .io import *
 from .datatype import *
 from .specest import *
-from .nwanalysis import *
+from .connectivity import *
 from .statistics import *
 from .plotting import *
 from .preproc import *
@@ -178,9 +178,7 @@ __all__.extend(datatype.__all__)
 __all__.extend(io.__all__)
 __all__.extend(shared.__all__)
 __all__.extend(specest.__all__)
-__all__.extend(nwanalysis.__all__)
+__all__.extend(connectivity.__all__)
 __all__.extend(statistics.__all__)
 __all__.extend(plotting.__all__)
 __all__.extend(preproc.__all__)
-
-
