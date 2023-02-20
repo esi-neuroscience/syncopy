@@ -43,7 +43,7 @@ def collect_trials(trial_generator):
     """
 
     @functools.wraps(trial_generator)
-    def wrapper_synth(nTrials=None, samplerate=1000, seed=42, seed_per_trial=True, **tg_kwargs):
+    def wrapper_synth(nTrials=None, samplerate=1000, seed=None, seed_per_trial=True, **tg_kwargs):
 
         seed_array = None  # One seed per trial.
         if nTrials is not None and seed is not None and seed_per_trial:  # Use the single seed to create one seed per trial.

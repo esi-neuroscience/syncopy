@@ -176,12 +176,8 @@ def timelockanalysis(data,
     tld._update_dataset('avg', avg.data)
     tld._update_dataset('var', var.data)
 
-    # unregister datasets to detach from objects
-    avg._unregister_dataset("data", del_from_file=False)
-    var._unregister_dataset("data", del_from_file=False)
-
-    # scramble filenames and delete unneeded objects
-    avg.filename, var.filename = '', ''
+    # explicitly delete unneeded objects but keep the data
+    avg._persistent_hdf5, var._persistent_hdf5 = True, True
     del avg, var
 
     # -- set up covariance CR --
@@ -219,9 +215,9 @@ def timelockanalysis(data,
 def _dataset_from_trials(spy_data, dset_name='new_data', filename=None):
     """
     Helper to construct a new dataset from
-    a trial Indexer, respecting selections
+    a TrialIndexer, respecting selections
 
-    This function is only needed if a dataset is to be tranferred
+    This function is only needed if a dataset is to be transferred
     between two different Syncopy data classes, for the
     same data class a standard ``new = old.selectdata(..., inplace=False)``
     does the trick.
@@ -229,18 +225,19 @@ def _dataset_from_trials(spy_data, dset_name='new_data', filename=None):
 
     stackDim = spy_data._stackingDim
 
-    # re-initialize the Indexer
-    def trials():
-        if spy_data.selection is None:
-            return spy_data.trials
-        else:
-            return spy_data.selection.trials
+    # get the TrialIndexer
+    if spy_data.selection is None:
+        trials = spy_data.trials
+    else:
+        trials = spy_data.selection.trials
 
     # shapes have to match except for stacking dim
     # which is guaranteed by the source trials Indexer
-    stackingDimSize = sum([trl.shape[stackDim] for trl in trials()])
+    stackingDimSize = sum([trl.shape[stackDim] for trl in trials])
 
-    new_shape = list(trials()[0].shape)
+    # index of 1st trial
+    idx0 = 0 if spy_data.selection is None else spy_data.selection.trial_ids[0]
+    new_shape = list(trials[idx0].shape)
     # plug in stacking dimension
     new_shape[stackDim] = stackingDimSize
 
@@ -257,7 +254,7 @@ def _dataset_from_trials(spy_data, dset_name='new_data', filename=None):
         # stacking dim chunk size counter
         stacking = 0
         # now stream the trials into the new dataset
-        for trl in trials():
+        for trl in trials:
             # length along stacking dimension
             trl_len = trl.shape[stackDim]
             # define the chunk and increment stacking dim indexer
