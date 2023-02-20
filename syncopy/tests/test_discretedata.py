@@ -72,6 +72,12 @@ class TestSpikeData():
         with pytest.raises(SPYValueError, match='cannot assign `channel` without data'):
             _ = SpikeData(channel=['a', 'b', 'c'])
 
+    def test_register_dset(self):
+        sdata = SpikeData(self.data, samplerate=10)
+        assert not sdata._is_empty()
+        sdata._register_dataset("blah", np.zeros((3,3), dtype=float))
+
+
     def test_empty(self):
         dummy = SpikeData()
         assert len(dummy.cfg) == 0
@@ -223,6 +229,11 @@ class TestEventData():
         # wrong shape for data-type
         with pytest.raises(SPYValueError):
             EventData(np.ones((3,)))
+
+    def test_register_dset(self):
+        edata = EventData(self.data, samplerate=10)
+        assert not edata._is_empty()
+        edata._register_dataset("blah", np.zeros((3,3), dtype=float))
 
     def test_ed_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
