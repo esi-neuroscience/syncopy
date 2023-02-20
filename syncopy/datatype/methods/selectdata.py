@@ -378,7 +378,11 @@ def selectdata(data,
             hdf5_file_in = data._get_backing_hdf5_file_handle()
             hdf5_file_out = out._get_backing_hdf5_file_handle()
 
-            ds = hdf5_file_out.create_dataset('/waveform', data=hdf5_file_in['/waveform'][spike_idx, :, :])
+            # Copy the waveform dataset into the new file, spike by spike to prevent memory issues.
+            ds = hdf5_file_out.create_dataset('waveform', shape=(len(spike_idx), *data.waveform.shape[1:]), dtype=data.waveform.dtype)
+            for new_idx, old_idx in enumerate(spike_idx):
+                ds[new_idx, :, :] = hdf5_file_in['/waveform'][old_idx, :, :]
+
             out.waveform = ds
 
     # Wipe data-selection slot to not alter input object
