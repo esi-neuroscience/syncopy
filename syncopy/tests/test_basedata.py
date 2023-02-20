@@ -367,7 +367,8 @@ class TestBaseData():
             # Difference in actual numerical data
             dummy3 = dummy.copy()
             for dsetName in dummy3._hdfFileDatasetProperties:
-                getattr(dummy3, dsetName)[0, 0] = -99
+                if dsetName == "data":
+                    getattr(dummy3, dsetName)[0, 0] = -99
             assert dummy3.data != dummy.data
 
             del dummy, dummy3, other

@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### NEW
 - add logging functionality and respective developer documentation, #208
+- add waveform extra dataset to DiscreteData to store raw data, #238
 
 ### CHANGED
 - major performance improvements for DiscreteData #403 #418, #424
