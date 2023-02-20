@@ -380,8 +380,16 @@ def selectdata(data,
 
             # Copy the waveform dataset into the new file, spike by spike to prevent memory issues.
             ds = hdf5_file_out.create_dataset('waveform', shape=(len(spike_idx), *data.waveform.shape[1:]), dtype=data.waveform.dtype)
-            for new_idx, old_idx in enumerate(spike_idx):
-                ds[new_idx, :, :] = hdf5_file_in['/waveform'][old_idx, :, :]
+            #for new_idx, old_idx in enumerate(spike_idx):
+            #    ds[new_idx, :, :] = hdf5_file_in['/waveform'][old_idx, :, :]
+            cur_new_idx = 0
+            for tidx, old_trial_indices in enumerate(spikes_by_trial):
+                num_spikes_this_trial = len(old_trial_indices)
+                new_indices = range(cur_new_idx, cur_new_idx + num_spikes_this_trial)
+                print(f"Copying {num_spikes_this_trial} spikes (for trial {tidx}/{len(spikes_by_trial)}) {old_trial_indices} to {new_indices}")
+                assert len(old_trial_indices) == len(new_indices)
+                ds[new_indices, :, :] = hdf5_file_in['/waveform'][old_trial_indices, :, :]
+                cur_new_idx = new_indices[-1] + 1
 
             out.waveform = ds
 

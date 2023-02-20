@@ -534,9 +534,9 @@ class TestWaveform():
         assert res.waveform.shape[0] == trial0_nspikes + trial2_nspikes  # Verify selection on waveform
 
         # Verify on data level.
-        exp_data = np.where((spiked.trialid == 0) | (spiked.trialid == 2))[0]
-        for waveform_idx in range(res.waveform.shape[0]):
-            assert np.all(res.waveform[waveform_idx, :, :] == spiked.waveform[exp_data[waveform_idx], :, :])
+        expected_data_indices = np.where((spiked.trialid == 0) | (spiked.trialid == 2))[0]
+        for spike_idx in range(res.waveform.shape[0]):
+            assert np.all(res.waveform[spike_idx, :, :] == spiked.waveform[expected_data_indices][spike_idx, :, :])
 
     def test_save_load_with_waveform(self):
         """Test saving file with waveform data."""
