@@ -17,7 +17,7 @@ from syncopy.shared.errors import SPYValueError
 from syncopy.tests import helpers
 from syncopy.tests import synth_data as sd
 from syncopy.statistics import jackknifing as jk
-from syncopy.nwanalysis.AV_compRoutines import NormalizeCrossSpectra
+from syncopy.connectivity.AV_compRoutines import NormalizeCrossSpectra
 
 
 class TestSumStatistics:
@@ -502,7 +502,13 @@ class TestJackknife:
         # we could still expect to get a 'significant' coherence max 5% of the time
         assert np.sum(pvals < 0.05) / coh.freq.size < 0.05
 
-        return coh, variance
+        # finally fire up the frontend and compare results
+        res = spy.connectivityanalysis(adata, method='coh', jackknife=True, output=output)
+
+        assert np.allclose(res.jack_var, variance.data)
+        assert np.allclose(res.jack_bias, bias.data)
+
+        return res, coh, variance
 
 if __name__ == '__main__':
 

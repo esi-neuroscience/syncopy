@@ -355,9 +355,9 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             st_compRoutine = SpectralDyadicProduct()
             st_dimord = SpectralDyadicProduct.dimord
 
-    # --- Set up of computation of trial-averaged CSDs is complete ---
+    # --- Set up of computation of single trial cross quantities is complete ---
 
-    if method in ('coh', 'csd'):
+    if method == 'coh':
         if output not in connectivity_outputs:
             lgl = f"one of {connectivity_outputs}"
             raise SPYValueError(lgl, varname="output", actual=output)
@@ -366,7 +366,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # final normalization after trial averaging
         av_compRoutine = NormalizeCrossSpectra(output=output)
 
-    if method == 'granger':
+    elif method == 'granger':
         besides = ['jackknife']
         # spectral analysis only possible with AnalogData
         if isinstance(data, AnalogData):
@@ -380,6 +380,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                           nIter=100,
                                           cond_max=1e4
                                           )
+    elif method == 'csd':
+        av_compRoutine = None
 
     # -------------------------------------------------
     # Call the chosen single trial ComputationalRoutine
@@ -388,11 +390,14 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # the single trial results need a new DataSet
     st_out = CrossSpectralData(dimord=st_dimord)
 
+    # we need single trials for the jackknife
+    keeptrials = True if (keeptrials or jackknife) else False
+
     # Perform the trial-parallelized computation of the matrix quantity
     st_compRoutine.initialize(data,
                               st_out._stackingDim,
                               chan_per_worker=None,   # no parallelisation over channels possible
-                              keeptrials=jackknife)  # True for jackknifing
+                              keeptrials=keeptrials)  # True for jackknifing
     st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
     if jackknife:
