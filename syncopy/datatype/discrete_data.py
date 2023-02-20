@@ -531,8 +531,8 @@ class SpikeData(DiscreteData):
             return
 
         if waveform.shape[0] != self.data.shape[0]:
-            raise SPYValueError(f"wrong size waveform", f"waveform shape[0]={waveform.shape[0]} must equal nSpikes={self.data.shape[0]}. " +
-                                "Please create one waveform per spike in data.")
+            raise SPYValueError(f"waveform shape[0]={waveform.shape[0]} must equal nSpikes={self.data.shape[0]}. " +
+                                "Please create one waveform per spike in data.", varname="waveform", actual=f"wrong size waveform with shape {waveform.shape}")
         self._set_dataset_property(waveform, 'waveform')
 
     # "Constructor"
