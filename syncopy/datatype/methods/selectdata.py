@@ -383,7 +383,8 @@ def selectdata(data,
             cur_new_idx = 0
             for tidx, old_trial_indices in enumerate(spikes_by_trial):
                 num_spikes_this_trial = len(old_trial_indices)
-                new_indices = range(cur_new_idx, cur_new_idx + num_spikes_this_trial)
+                #new_indices = range(cur_new_idx, cur_new_idx + num_spikes_this_trial)
+                new_indices = np.arange(cur_new_idx, cur_new_idx + num_spikes_this_trial)
                 ds[new_indices, :, :] = hdf5_file_in['/waveform'][old_trial_indices, :, :]
                 cur_new_idx = new_indices[-1] + 1
 
