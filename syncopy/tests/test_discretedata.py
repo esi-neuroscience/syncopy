@@ -13,6 +13,7 @@ import numpy as np
 
 
 # Local imports
+import syncopy as spy
 from syncopy.datatype import AnalogData, SpikeData, EventData
 from syncopy.io import save, load
 from syncopy.shared.errors import SPYValueError, SPYTypeError
@@ -558,6 +559,22 @@ class TestWaveform():
 
             # Test that we can set waveform again after deleting it.
             spkd2.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
+
+    def test_psth_with_waveform(self):
+        """Test that the waveform does not break frontend functions, like PSTH.
+           The waveform should just be ignored, and the resulting TimeLockData
+           will of course NOT have a waveform.
+        """
+        numSpikes, waveform_dimsize = 20, 50
+        spiked = getSpikeData(nSpikes = numSpikes)
+        spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
+
+        cfg = spy.StructDict()
+        cfg.binsize = 0.1
+        cfg.latency = 'maxperiod'  # frontend default
+        res = spy.spike_psth(spiked, cfg)
+        assert type(res) == spy.TimeLockData
+        assert not hasattr(res, "waveform")
 
 
 if __name__ == '__main__':
