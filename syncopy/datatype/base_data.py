@@ -371,15 +371,15 @@ class BaseData(ABC):
             if self.mode == "r":
                 lgl = "dataset with write or copy-on-write access"
                 act = "read-only file"
-                raise SPYValueError(legal=lgl, varname="mode", actual=act)
+                raise SPYValueError(legal=lgl, varname=propertyName, actual=act)
             if prop.shape != inData.shape:
                 lgl = "dataset with shape {}".format(str(prop.shape))
                 act = "data with shape {}".format(str(inData.shape))
-                raise SPYValueError(legal=lgl, varname="data", actual=act)
+                raise SPYValueError(legal=lgl, varname=propertyName, actual=act)
             if prop.dtype != inData.dtype:
                 lgl = "dataset of type {}".format(prop.dtype.name)
                 act = "data of type {}".format(inData.dtype.name)
-                raise SPYValueError(legal=lgl, varname="data", actual=act)
+                raise SPYValueError(legal=lgl, varname=propertyName, actual=act)
             prop[...] = inData
 
         # or create backing file on disk
