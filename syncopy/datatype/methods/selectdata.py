@@ -368,7 +368,7 @@ def selectdata(data,
     # Handle selection of waveform for SpikeData objects
     if type(data) == spy.SpikeData and data.waveform is not None:
         if inplace:
-            spy.log("Inplace selection of SpikeData with waveform not supported for the waveform.", level="INFO")
+            spy.log("Inplace selection of SpikeData with waveform not supported for the waveform.", level="WARNING")
         else:
             fauxTrials = [data._preview_trial(trlno) for trlno in data.selection.trial_ids]
             spikes_by_trial = [f.idx[0] for f in fauxTrials]
