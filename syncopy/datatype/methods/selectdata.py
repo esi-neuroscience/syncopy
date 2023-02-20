@@ -378,8 +378,7 @@ def selectdata(data,
             hdf5_file_in = data._get_backing_hdf5_file_handle()
             hdf5_file_out = out._get_backing_hdf5_file_handle()
 
-            selected_data = hdf5_file_in['/waveform'][spike_idx, :, :]
-            ds = hdf5_file_out.create_dataset('/waveform', data=selected_data)
+            ds = hdf5_file_out.create_dataset('/waveform', data=hdf5_file_in['/waveform'][spike_idx, :, :])
             out.waveform = ds
 
     # Wipe data-selection slot to not alter input object
