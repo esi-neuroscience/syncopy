@@ -523,12 +523,15 @@ class SpikeData(DiscreteData):
         """Set a waveform dataset from a numpy array, `None`, or an `h5py.Dataset` instance."""
         if self.data is None:
             if waveform is not None:
-                raise SPYValueError(f"non-empty SpikeData", "cannot assign `waveform` without data. " +
-                                    "Please assign data first")
+                raise SPYValueError(legal="non-empty SpikeData", varname="waveform",
+                actual="empty SpikeData main dataset (None). Cannot assign `waveform` without data. Please assign data first.")
         if waveform is None:
             self._set_dataset_property(waveform, 'waveform') # None
             self._unregister_dataset("waveform", del_attr=False)
             return
+
+        if waveform.ndim < 2:
+            raise SPYValueError(legal="waveform data with at least 2 dimensions", varname="waveform", actual=f"data with {waveform.ndim} dimensions")
 
         if waveform.shape[0] != self.data.shape[0]:
             raise SPYValueError(f"waveform shape[0]={waveform.shape[0]} must equal nSpikes={self.data.shape[0]}. " +

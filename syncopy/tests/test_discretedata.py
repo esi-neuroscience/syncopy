@@ -466,6 +466,12 @@ class TestWaveform():
         with pytest.raises(SPYValueError, match="Please assign data first"):
             spiked.waveform = np.ones((3, 3), dtype=int)
 
+    def test_waveform_invalid_set_1dim(self):
+        """Tries to set waveform with data that has ndim=1."""
+        spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
+        with pytest.raises(SPYValueError, match="waveform data with at least 2 dimensions"):
+            spiked.waveform = np.ones((3), dtype=int)
+
     def test_waveform_valid_set(self):
         """Sets waveform in a correct way."""
         spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
