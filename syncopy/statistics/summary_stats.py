@@ -169,7 +169,7 @@ def median(spy_data, dim, keeptrials=True, **kwargs):
 
 @unwrap_select
 def itc(spec_data, **kwargs):
-    """
+    r"""
     Calculates the inter trial coherence for a
     SpectralData `spec_data` object, the input
     spectrum needs to be complex.
