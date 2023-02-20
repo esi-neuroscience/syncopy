@@ -502,6 +502,8 @@ class TestJackknife:
         # we could still expect to get a 'significant' coherence max 5% of the time
         assert np.sum(pvals < 0.05) / coh.freq.size < 0.05
 
+        return coh, variance
+
 if __name__ == '__main__':
 
     T1 = TestSumStatistics()

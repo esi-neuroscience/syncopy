@@ -4,6 +4,10 @@
 #
 
 # Builtin/3rd party package imports
+import numpy as np
+
+# Syncopy imports
+import syncopy as spy
 from syncopy.nwanalysis.AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCausality
 from syncopy.nwanalysis.ST_compRoutines import CrossSpectra, CrossCovariance, SpectralDyadicProduct
 from syncopy.shared.input_processors import (
@@ -18,13 +22,13 @@ from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
 from syncopy.shared.errors import (
     SPYValueError,
     SPYWarning,
-    SPYInfo)
+    SPYInfo,
+    SPYTypeError)
+
 from syncopy.datatype import CrossSpectralData, AnalogData, SpectralData
 from syncopy.shared.tools import get_defaults, best_match, get_frontend_cfg
 from syncopy.shared.parsers import data_parser, scalar_parser
-import numpy as np
-# Syncopy imports
-
+from syncopy.statistics import jackknifing as jk
 
 availableMethods = ("coh", "corr", "granger", "csd")
 connectivity_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag"}
@@ -36,7 +40,7 @@ connectivity_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "im
 def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                          foi=None, foilim=None, pad='maxperlen',
                          polyremoval=0, tapsmofrq=None, nTaper=None,
-                         taper="hann", taper_opt=None, **kwargs):
+                         taper="hann", taper_opt=None, jackknife=False, **kwargs):
     """
     Perform connectivity analysis of Syncopy :class:`~syncopy.SpectralData` OR directly
     :class:`~syncopy.AnalogData` objects
@@ -68,6 +72,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
+        * **jackknife**: set to `True` to compute the variance via jackknife resampling
 
     "csd" : ('Multi-) tapered cross spectral density estimate
         Computes the cross spectral estimates between all channel combinations
@@ -103,6 +108,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional, not recommended) number of slepian tapers
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
+        * **jackknife**: set to `True` to compute the variance via jackknife resampling
 
         After the computation, information about the convergence and potential
         regularization of the cross-spectral densities can be obtained
@@ -159,6 +165,9 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         Dictionary with keys for additional taper parameters.
         For example :func:`~scipy.signal.windows.kaiser` has
         the additional parameter 'beta'. For multi-tapering set ``tapsmofrq`` directly.
+    jackknife: bool, optional
+        Set to `True` to compute the variance via jackknife resampling, only available
+        (and meaningful) for methods `coh` and `granger`
 
     Returns
     -------
@@ -168,6 +177,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
         * For `method='granger'`, the `out.info` property contains
           the keys listed and explained in :data:`~syncopy.nwanalysis.AV_compRoutines.GrangerCausality.metadata_keys`.
+        * if `jackknife=True`, `out.jack_var` and `out.jack_bias` contain the jackknife variance and bias
 
     Examples
     --------
@@ -222,6 +232,15 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
         raise SPYValueError(legal=lgl, varname="method", actual=method)
+
+    if not isinstance(jackknife, bool):
+        raise SPYTypeError(jackknife, 'jackknife', 'boolean')
+
+    if jackknife and method not in ['coh', 'granger']:
+        # makes only sense for these methods
+        spy.log(f"Jackknife is not available for method {method}", level='WARNING',
+                caller='connectivityanalysis')
+        jackknife = False
 
     # output selection is only valid for coherence
     if method != 'coh' and output != defaults['output']:
@@ -306,7 +325,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             # the actual number of samples in case of later padding
             nSamples = process_padding(pad, lenTrials, data.samplerate)
 
-            check_effective_parameters(CrossSpectra, defaults, lcls)
+            check_effective_parameters(CrossSpectra, defaults, lcls, besides=('jackknife',))
 
             st_compRoutine, st_dimord = cross_spectra(data, method, nSamples,
                                                       foi, foilim, tapsmofrq,
@@ -330,7 +349,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             # by constraining to output='fourier', detrimental taper averaging
             # gets already catched by freqanalysis!
 
-            check_effective_parameters(SpectralDyadicProduct, defaults, lcls)
+            check_effective_parameters(SpectralDyadicProduct, defaults, lcls, besides=('jackknife'),)
             # there are no free parameters here,
             # everything had to be setup during freqanalysis!
             st_compRoutine = SpectralDyadicProduct()
@@ -348,8 +367,11 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         av_compRoutine = NormalizeCrossSpectra(output=output)
 
     if method == 'granger':
+        besides = ['jackknife']
         # spectral analysis only possible with AnalogData
-        besides = ['tapsmofrq'] if isinstance(data, AnalogData) else None
+        if isinstance(data, AnalogData):
+            besides += ['taper', 'tapsmofrq', 'nTaper']
+
         check_effective_parameters(GrangerCausality, defaults, lcls, besides=besides)
 
         # after trial averaging
@@ -370,21 +392,25 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     st_compRoutine.initialize(data,
                               st_out._stackingDim,
                               chan_per_worker=None,   # no parallelisation over channels possible
-                              keeptrials=keeptrials)
+                              keeptrials=jackknife)  # True for jackknifing
     st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
-    # for single trial cross-corr results <-> keeptrials is True
+    if jackknife:
+        jack_in = st_out  # single trials for the replicates
+        # the trial average for the direct estimate by the av_compRoutine
+        st_out = spy.mean(st_out, dim='trials')
+        # compute all the leave-one-out (loo) trial average replicates
+        replicates_avg = jk.trial_avg_replicates(jack_in)
+
+    # for single trial cross-corr/cross spectra results <-> keeptrials is True
     if av_compRoutine is None:
+        st_out.cfg.update(data.cfg)
+        st_out.cfg.update({'connectivityanalysis': new_cfg})
         return st_out
 
     # ----------------------------------------------------------------------------------
     # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
     # ----------------------------------------------------------------------------------
-    if method == 'csd':
-        # new_cfg.update({'output': st_out.data.dtype.name})
-        st_out.cfg.update(data.cfg)
-        st_out.cfg.update({'connectivityanalysis': new_cfg})
-        return st_out
     else:
         out = CrossSpectralData(dimord=st_dimord)
         # now take the trial average from the single trial CR as input
@@ -396,8 +422,30 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # to support chained frontend calls..
         out.cfg.update(data.cfg)
         # attach frontend parameters for replay
-        new_cfg.update({'output': out.data.dtype.name if method != 'coh' else output})
+        new_cfg.update({'output': output})
         out.cfg.update({'connectivityanalysis': new_cfg})
+
+        # `out` is the direct estimate
+        if jackknife:
+            jack_rep = CrossSpectralData(dimord=st_dimord)
+            av_compRoutine.initialize(replicates_avg, jack_rep._stackingDim)
+            # without `pre_check` we can compute the replicates for all loo averages (in parallel!)
+            av_compRoutine.compute(replicates_avg, jack_rep, parallel=kwargs.get("parallel"),
+                                   log_dict=log_dict)
+            # now compute bias and variance
+            bias, variance = jk.bias_var(out, jack_rep)
+
+            bias._persistent_hdf5 = True
+            variance._persistent_hdf5 = True
+
+            # and attach to output object
+            out._register_dataset('jack_var', inData=variance.data)
+            out._register_dataset('jack_bias', inData=bias.data)
+
+            # for now, as we don't have dynamic properties
+            out.jack_var = out._jack_var
+            out.jack_bias = out._jack_bias
+
         return out
 
 
