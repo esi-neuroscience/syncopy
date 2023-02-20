@@ -14,11 +14,9 @@ import scipy.stats as st
 import syncopy as spy
 from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData
 from syncopy.shared.errors import SPYValueError
-from syncopy.shared.tools import StructDict
 from syncopy.tests import helpers
 from syncopy.tests import synth_data as sd
 from syncopy.statistics import jackknifing as jk
-from syncopy.statistics.compRoutines import NumpyStatDim
 from syncopy.nwanalysis.AV_compRoutines import NormalizeCrossSpectra
 
 
@@ -224,6 +222,7 @@ class TestSumStatistics:
         self.test_selections()
         # should have no effect here
         self.test_trial_statistics()
+        client.close()
 
     def test_itc(self, do_plot=True):
 
@@ -305,8 +304,6 @@ class TestSumStatistics:
             ax.legend()
             ax.set_title("time dependent ITC")
 
-        return itc, spec
-
 
 class TestJackknife:
 
@@ -354,7 +351,7 @@ class TestJackknife:
         # the bias corrected jackknife estimate
         jack_estimate = direct_est - bias
 
-        # as there is no bias, this the same as the direct estimate
+        # as there is no bias, this is the same as the direct estimate
         assert np.allclose(jack_estimate.data, direct_est.data)
 
     def test_jk_csd(self, **kwargs):

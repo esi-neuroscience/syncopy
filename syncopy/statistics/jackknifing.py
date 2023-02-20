@@ -10,35 +10,6 @@ import syncopy as spy
 from syncopy.shared.computational_routine import propagate_properties
 from syncopy.shared.errors import SPYValueError, SPYError
 
-from syncopy.tests import synth_data as sd
-
-# create test data
-nTrials = 10
-adata = spy.AnalogData(data=[i * np.ones((5, 3)) for i in range(nTrials)],
-                       samplerate=7)
-
-# to test for property propagation
-adata.channel = [f'chV_{i}' for i in range(1, 4)]
-raw_est = spy.mean(adata, dim='time', keeptrials=True)
-
-
-nTrials = 10
-nSamples = 500
-adata = sd.white_noise(nTrials, nSamples=nSamples, seed=42)
-# to test for property propagation
-adata.channel = [f'chV_{i}' for i in range(1, 3)]
-
-# -- still trivial CSDs --
-
-# single trial cross spectra (not densities!)
-cross_spectra = spy.connectivityanalysis(adata,
-                                         method='csd',
-                                         output='complex',
-                                         keeptrials=True)
-
-# direct cross spectral density estimate (must be a trial average)
-csd = spy.mean(cross_spectra, dim='trials')
-
 
 def trial_avg_replicates(trl_ensemble):
     """
@@ -90,8 +61,6 @@ def trial_avg_replicates(trl_ensemble):
 
     # we still need to write into it
     replicates._reopen()
-
-    log_dict = {}
 
     # -- replicate computations --
 
@@ -161,8 +130,7 @@ def bias_var(direct_estimate, replicates):
     bias : syncopy data object, e.g. :class:`~syncopy.SpectralData`
         The bias of the original estimator
     variance : syncopy data object, e.g. :class:`~syncopy.SpectralData`
-        The sample variance of the jackknife replicates, e.g. the standard
-        error of the mean
+        The sample variance of the jackknife replicates
     """
 
     if len(direct_estimate.trials) != 1:
@@ -191,7 +159,7 @@ def bias_var(direct_estimate, replicates):
     nTrials = len(replicates.trials)
     prefac = nTrials - 1
     # to avoid different type real/complex warning..
-    prefac = prefac + 0j if 'complex' in str(direct_estimate.data.dtype) else prefac
+    prefac = prefac + 0j if np.issubdtype(direct_estimate.data.dtype, complex) else prefac
     bias = prefac * (jack_avg - direct_estimate)
 
     # Variance calculation, it is always real (as opposed to pseudo-variance)
