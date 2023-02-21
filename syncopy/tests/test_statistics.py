@@ -4,6 +4,7 @@
 #
 
 # Builtin/3rd party package imports
+import os
 import pytest
 import numpy as np
 import dask.distributed as dd
@@ -13,7 +14,7 @@ import scipy.stats as st
 # Local imports
 import syncopy as spy
 from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests import helpers
 from syncopy.tests import synth_data as sd
 from syncopy.statistics import jackknifing as jk
@@ -508,8 +509,43 @@ class TestJackknife:
         assert np.allclose(res.jack_var, variance.data)
         assert np.allclose(res.jack_bias, bias.data)
 
-        return res, coh, variance
+    def test_jk_frontend(self):
 
+        # no seed needed here
+        adata = spy.AnalogData(data=[i * np.random.randn(5, 3) for i in range(3)],
+                               samplerate=7)
+
+        # test check for boolean type
+        with pytest.raises(SPYTypeError, match='expected boolean'):
+            spy.connectivityanalysis(adata, method='coh', jackknife=3)
+
+        # test log filing for methods not supporting jackknife
+        spy.connectivityanalysis(adata, method='csd', jackknife=True)
+        logfile = os.path.join(spy.__logdir__, "syncopy.log")
+        with open(logfile, 'r') as lfile:
+            lines = lfile.readlines()
+            assert 'Jackknife is not available for method' in lines[-1]
+
+        spy.connectivityanalysis(adata, method='corr', jackknife=True)
+        logfile = os.path.join(spy.__logdir__, "syncopy.log")
+        with open(logfile, 'r') as lfile:
+            lines = lfile.readlines()
+            assert 'Jackknife is not available for method' in lines[-1]
+
+        # check that jack attributes are not appended if no jackknifing was done
+        res = spy.connectivityanalysis(adata, method='corr')
+        assert not hasattr(res, 'jack_var')
+        assert not hasattr(res, 'jack_bias')
+
+        res = spy.connectivityanalysis(adata, method='coh', jackknife=False)
+        assert not hasattr(res, 'jack_var')
+        assert not hasattr(res, 'jack_bias')
+
+        res = spy.connectivityanalysis(adata, method='granger', jackknife=False)
+        assert not hasattr(res, 'jack_var')
+        assert not hasattr(res, 'jack_bias')
+
+    
 if __name__ == '__main__':
 
     T1 = TestSumStatistics()

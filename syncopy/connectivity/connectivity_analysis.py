@@ -290,7 +290,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             msg = 'Parameter `foi` has no effect for method `corr`'
             SPYWarning(msg)
 
-        check_effective_parameters(CrossCovariance, defaults, lcls)
+        check_effective_parameters(CrossCovariance, defaults, lcls, besides=('jackknife',))
 
         # single trial cross-correlations
         if keeptrials:
