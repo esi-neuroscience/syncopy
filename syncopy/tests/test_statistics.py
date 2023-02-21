@@ -545,7 +545,68 @@ class TestJackknife:
         assert not hasattr(res, 'jack_var')
         assert not hasattr(res, 'jack_bias')
 
-    
+    def test_jk_granger(self):
+
+        AdjMat = np.zeros((2,2))
+        # weak coupling 1 -> 0
+        AdjMat[1, 0] = 0.025
+        nTrials = 35
+        adata = sd.AR2_network(nTrials, AdjMat=AdjMat, seed=42)
+        # real causality is around 200Hz
+        flims = [190, 210]
+
+        # direct estimate
+        res = spy.connectivityanalysis(adata, method='granger',
+                                       jackknife=True,
+                                       tapsmofrq=5)
+        # there will be bias
+        assert not np.allclose(res.jack_bias, np.zeros(res.data.shape))
+
+        b10, v10, g10 = (res.jack_bias[0,:, 1, 0],
+                         res.jack_var[0,:, 1, 0],
+                         res.show(channel_i=1, channel_j=0)
+                         )
+        # standard error of the mean
+        SEM = np.sqrt(v10 / nTrials)
+
+        # plot confidence intervals
+        fig, ax = ppl.subplots()
+        ax.set_title(f"Granger causality between weakly coupled AR(2)")
+        ax.set_xlabel("frequency (Hz)")
+        ax.set_ylabel("Granger")
+        ax.plot(res.freq, g10, label=f"nTrials={nTrials}")
+        ax.fill_between(res.freq, g10, g10 + 1.96 * SEM, color='k', alpha=0.3, label='95% Jackknife CI')
+        ci2 = g10 - 1.96 * SEM
+        ci2[ci2 < 0] = 0
+        ax.fill_between(res.freq, g10, ci2, color='k', alpha=0.3)
+        ax.plot([flims[0], flims[0]], [0, 0.04], '--', alpha=0.5, lw=2, c='red')
+        ax.plot([flims[-1], flims[-1]], [0, 0.04], '--', alpha=0.5, lw=2, c='red')
+        ax.legend()
+        fig.tight_layout()
+
+        # calculate the z-scores from the jackknife estimate
+        # and jackknife variance for 0 coherence
+        # as 0-hypothesis (we have uncorrelated noise)
+        Zs = (g10 - b10) / SEM
+
+        # now get p-values from survival function
+        pvals = st.norm.sf(Zs)
+
+        bi = (res.freq > flims[0]) & (res.freq < flims[-1])
+
+        fig, ax = ppl.subplots()
+        ax.set_title("Jackknife p-values for $H_0$: Granger = 0")
+        ax.set_xlabel("Granger causality")
+        ax.set_ylabel("p-value")
+        ax.plot(g10[~bi], pvals[~bi], 'o', alpha=0.4, c='k', ms=5, mec='w')
+        ax.plot(g10[bi], pvals[bi], 'o', alpha=0.4, c='red', ms=4, label=f'{flims[0]}Hz-{flims[-1]}Hz')
+
+        ax.plot([0, g10.max()], [0.05, 0.05], 'k--', label='5%')
+        ax.legend()
+
+        # make sure most frequency bins outside the causality region have high p-value
+        assert np.sum(pvals[~bi] > 0.05) / (res.freq.size - np.sum(bi)) > 0.95
+
 if __name__ == '__main__':
 
     T1 = TestSumStatistics()
