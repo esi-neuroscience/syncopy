@@ -585,8 +585,8 @@ class TestJackknife:
         fig.tight_layout()
 
         # calculate the z-scores from the jackknife estimate
-        # and jackknife variance for 0 coherence
-        # as 0-hypothesis (we have uncorrelated noise)
+        # and jackknife variance for 0 granger causality
+        # as 0-hypothesis
         Zs = (g10 - b10) / SEM
 
         # now get p-values from survival function
@@ -609,7 +609,7 @@ class TestJackknife:
         assert np.sum(pvals[~bi] > 0.05) / (res.freq.size - np.sum(bi)) > 0.95
 
         # check that at least 80% of causality values within the freq interval are below
-        # the 5% significance interval
+        # the 5% significance interval and hence are deteceted as true positives
         assert np.sum(pvals[bi] < 0.05) / bi[bi].size > 0.8
 
 
