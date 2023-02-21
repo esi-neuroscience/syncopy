@@ -552,7 +552,7 @@ class TestJackknife:
         AdjMat[1, 0] = 0.025
         nTrials = 35
         adata = sd.AR2_network(nTrials, AdjMat=AdjMat, seed=42)
-        # real causality is around 200Hz
+        # true causality is at 200Hz
         flims = [190, 210]
 
         # direct estimate
@@ -562,8 +562,8 @@ class TestJackknife:
         # there will be bias
         assert not np.allclose(res.jack_bias, np.zeros(res.data.shape))
 
-        b10, v10, g10 = (res.jack_bias[0,:, 1, 0],
-                         res.jack_var[0,:, 1, 0],
+        b10, v10, g10 = (res.jack_bias[0, :, 1, 0],
+                         res.jack_var[0, :, 1, 0],
                          res.show(channel_i=1, channel_j=0)
                          )
         # standard error of the mean
@@ -592,6 +592,7 @@ class TestJackknife:
         # now get p-values from survival function
         pvals = st.norm.sf(Zs)
 
+        # boolean indices of frequency interval with true causality
         bi = (res.freq > flims[0]) & (res.freq < flims[-1])
 
         fig, ax = ppl.subplots()
@@ -604,8 +605,13 @@ class TestJackknife:
         ax.plot([0, g10.max()], [0.05, 0.05], 'k--', label='5%')
         ax.legend()
 
-        # make sure most frequency bins outside the causality region have high p-value
+        # make sure most (>95%) frequency bins outside the causality region have high p-value
         assert np.sum(pvals[~bi] > 0.05) / (res.freq.size - np.sum(bi)) > 0.95
+
+        # check that at least 80% of causality values within the freq interval are below
+        # the 5% significance interval
+        assert np.sum(pvals[bi] < 0.05) / bi[bi].size > 0.8
+
 
 if __name__ == '__main__':
 
