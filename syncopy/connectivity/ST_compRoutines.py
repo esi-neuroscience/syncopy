@@ -7,6 +7,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+import h5py
 from scipy.signal import fftconvolve, detrend
 from inspect import signature
 from hashlib import blake2b
@@ -27,7 +28,7 @@ def spectral_dyadic_product_cF(specs,
                                chunkShape=None,
                                noCompute=False):
     """
-    Single trial cross spectra directly from power spectra,
+    Single trial cross spectra directly from complex power spectra,
     hence no Fourier transforms are needed and all what is
     left to do is to take the outer product along the channel axis.
 
@@ -36,10 +37,10 @@ def spectral_dyadic_product_cF(specs,
 
     Parameters
     ----------
-    specs: (K, N) :class:`numpy.ndarray`
-        Complex and frequency aligned multi-channel single-trial spectral data.
-        The 1st dimension is interpreted as the frequency axis,
-        `N` columns represent individual channels.
+    specs: (K, M, L, N) :class:`numpy.ndarray`
+        Complex and time and frequency aligned multi-channel single-trial spectral data.
+        The 3rd dimension is interpreted as the frequency axis, `M` is the number
+        of tapers used. `N` columns represent individual channels.
     noCompute : bool
         Preprocessing flag. If `True`, do not perform actual calculation but
         instead return expected shape and :class:`numpy.dtype` of output
@@ -47,9 +48,10 @@ def spectral_dyadic_product_cF(specs,
 
     Returns
     -------
-    CS_ij : (1, len(K), N, N) :class:`numpy.ndarray`
+    CS_ij : (K, L, N, N) :class:`numpy.ndarray` with complex dtype
         Complex cross spectra for all channel combinations ``i,j``.
-        `N` corresponds to number of input channels.
+        `K` is the number  of samples, `L` is number of frequencies
+        and `N` corresponds to number of input channels.
 
     Notes
     -----
@@ -127,7 +129,89 @@ class SpectralDyadicProduct(ComputationalRoutine):
         propagate_properties(data, out, self.keeptrials, time_axis)
         out.freq = data.freq
 
-        
+
+@process_io
+def ppc_column_cF(cross_spectrum,
+                  trl2_idx=None,
+                  hdf5_path=None,
+                  chunkShape=None,
+                  noCompute=False):
+    """
+    The PPC involves computations on all nTrials(nTrials-1) pairs. This compute function
+    in combination with the PPC CR can be used to compute one column, consisting
+    of nTrials-1 pairs (and the single diagonal entry), of the implicit
+    nTrials x nTrials matrix of trial pairs.
+
+    We express the dot product of equation 14 of the source publication
+    (Vinck 2010) between the two unit vectors associated to the relative phases
+    via the cosine and the conjugate product of the complex
+    cross-spectral entries of two trials j and k:
+
+    .. math::
+
+          z_j = r_j e^(i \theta_j)
+
+    with
+
+    .. math::
+
+        arg(z_j) = \theta_j
+
+    we can write :
+
+    .. math::
+
+          f(\theta_j, \theta_k) = cos(arg(z_j z_k^*))
+
+    Where `f()` denotes the dot product as in the source publication, equation 14.
+    Note that no normalization to unit vectors is needed,
+    as `arg` directly extracts the angular distance from the conjugate product,
+    irrespective of the norms of the z's.
+
+    Parameters
+    ----------
+    cross_spectrum : (K, L, N, N) :class:`numpy.ndarray` with complex dtype
+        A single trial cross spectrum, the 1st trial of the pair
+    trl2_idx : tuple
+        A tuple of indices pointing to the 2nd trial of the pair
+    hdf5_path : str
+        Path to the backing hdf5 dataset, providing the 2nd trial via `trl2_idx`
+    noCompute : bool
+        Preprocessing flag. If `True`, do not perform actual calculation but
+        instead return expected shape and :class:`numpy.dtype` of output
+        array.
+
+    Returns
+    -------
+    ppc_ij : (K, L, N, N) :class:`numpy.ndarray` with complex dtype
+        Complex dot product for a single cross-spectral trial pair and for all
+        channel combinations ``i,j``. `K` is the number  of samples,
+        `L` is number of frequencies and `N` corresponds to number of
+        input channels.
+
+    """
+
+    # the shape does not change
+    outShape = cross_spectrum.shape
+
+    # cross spectra are complex, input gets checked in frontend!
+    if noCompute:
+        return outShape, spectralDTypes["fourier"]
+
+    # get the 2nd trial as array
+    with h5py.File(hdf5_path, "r") as h5file:
+        cross_spectrum2 = h5file['data'][trl2_idx]
+
+    # first compute the conjugate product for the complete cross spectra
+    # (all channels, all freqs and even time if applicable)
+    ppc_ij = cross_spectrum * cross_spectrum2.conj()
+
+    # now all what remains is to extract the angular distance
+    # and take the cosine
+    ppc_ij = np.cos(np.angle(ppc_ij))
+
+    return ppc_ij
+
 @process_io
 def cross_spectra_cF(trl_dat,
                      samplerate=1,
@@ -209,6 +293,10 @@ def cross_spectra_cF(trl_dat,
 
     Notes
     -----
+    For time dependent cross-spectra, first compute a time-frequency spectrum
+    via :func:`~syncopy.freqanalysis` and then directly use
+    :func:`~syncopy.connectivity.ST_compRoutines.spectral_dyadic_product_cF`
+
     This method is intended to be used as
     :meth:`~syncopy.shared.computational_routine.ComputationalRoutine.computeFunction`
     inside a :class:`~syncopy.shared.computational_routine.ComputationalRoutine`.
@@ -218,6 +306,8 @@ def cross_spectra_cF(trl_dat,
 
     See also
     --------
+    spectral_dyadic_product_cF : :func:`~syncopy.connectivity.ST_compRoutines.spectral_dyadic_product_cF`
+             Cross spectra from spectral input
     csd : :func:`~syncopy.connectivity.csd.csd`
              Cross-spectra backend function
     normalize_csd : :func:`~syncopy.connectivity.csd.normalize_csd`

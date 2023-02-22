@@ -453,7 +453,7 @@ def _trial_var(in_data, out_arr):
 
 def _trial_circ_average(in_data, out_arr):
     """
-    Sequential complex average, can be used for
+    Sequential complex average on the unit circle, can be used for
     inter trial coherence (order parameter) or mean phase estimation.
     Shape checking and dealing with selections is done in `_trial_statistics`.
 
@@ -467,7 +467,7 @@ def _trial_circ_average(in_data, out_arr):
 
     trials = in_data.selection.trials
     for trl in trials:
-        # add cartesian unit vectors
+        # add complex unit vectors
         out_arr += trl / np.abs(trl)
 
     # normalize
