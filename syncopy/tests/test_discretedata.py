@@ -7,19 +7,18 @@
 import os
 import tempfile
 import time
-import random
+import h5py
 import pytest
 import numpy as np
-import dask.distributed as dd
+
 
 # Local imports
+import syncopy as spy
 from syncopy.datatype import AnalogData, SpikeData, EventData
-from syncopy.datatype.base_data import Selector
-from syncopy.shared.tools import StructDict
-from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.io import save, load
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.tests.misc import construct_spy_filename, flush_local_cluster
+from syncopy.tests.misc import construct_spy_filename
+from syncopy.tests.test_selectdata import getSpikeData
 
 
 class TestSpikeData():
@@ -73,6 +72,12 @@ class TestSpikeData():
         # no data but labels
         with pytest.raises(SPYValueError, match='cannot assign `channel` without data'):
             _ = SpikeData(channel=['a', 'b', 'c'])
+
+    def test_register_dset(self):
+        sdata = SpikeData(self.data, samplerate=10)
+        assert not sdata._is_empty()
+        sdata._register_dataset("blah", np.zeros((3,3), dtype=float))
+
 
     def test_empty(self):
         dummy = SpikeData()
@@ -225,6 +230,11 @@ class TestEventData():
         # wrong shape for data-type
         with pytest.raises(SPYValueError):
             EventData(np.ones((3,)))
+
+    def test_register_dset(self):
+        edata = EventData(self.data, samplerate=10)
+        assert not edata._is_empty()
+        edata._register_dataset("blah", np.zeros((3,3), dtype=float))
 
     def test_ed_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
@@ -453,8 +463,122 @@ class TestEventData():
         with pytest.raises(SPYValueError):
             ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
 
+class TestWaveform():
+
+    def test_waveform_invalid_set(self):
+        """Sets invalid waveform for data: dimension mismatch"""
+        spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
+        assert spiked.data.shape == (2, 3,)
+        with pytest.raises(SPYValueError, match="wrong size waveform"):
+            spiked.waveform = np.ones((3, 3), dtype=int)
+
+    def test_waveform_invalid_set_emptydata(self):
+        """Tries to set waveform without any data."""
+        spiked = SpikeData()
+        with pytest.raises(SPYValueError, match="Please assign data first"):
+            spiked.waveform = np.ones((3, 3), dtype=int)
+
+    def test_waveform_invalid_set_1dim(self):
+        """Tries to set waveform with data that has ndim=1."""
+        spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
+        with pytest.raises(SPYValueError, match="waveform data with at least 2 dimensions"):
+            spiked.waveform = np.ones((3), dtype=int)
+
+    def test_waveform_valid_set(self):
+        """Sets waveform in a correct way."""
+        spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
+
+        assert not spiked._is_empty()
+        assert spiked.data.shape == (2, 3,)
+        assert type(spiked.data) == h5py.Dataset
+        assert spiked._get_backing_hdf5_file_handle() is not None
+        spiked.waveform = np.ones((2, 3), dtype=int)
+        assert "waveform" in spiked._hdfFileDatasetProperties
+        assert spiked.waveform.shape == (2, 3,)
+
+    def test_waveform_valid_set_with_None(self):
+        """Sets waveform to None, which is valid."""
+        spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
+        assert not spiked._is_empty()
+        assert spiked.data.shape == (2, 3,)
+        spiked.waveform = np.ones((2, 3), dtype=int)
+        assert spiked.waveform.shape == (2, 3,)
+        spiked.waveform = None
+        assert spiked.waveform is None
+        # try to set again
+        spiked.waveform = np.ones((2, 3), dtype=int)
+        assert spiked.waveform.shape == (2, 3,)
+
+
+    def test_waveform_selection_trial(self):
+        numSpikes, waveform_dimsize = 20, 50
+        spiked = getSpikeData(nSpikes = numSpikes)
+        assert sum([s.shape[0] for s in spiked.trials]) == numSpikes
+        assert spiked.waveform is None
+        spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
+        for spikeidx in range(numSpikes):
+            spiked.waveform[spikeidx, :, :] = np.ones((3, waveform_dimsize), dtype=int) * spikeidx
+
+        trial0_nspikes = spiked.trials[0].shape[0]
+        trial2_nspikes = spiked.trials[2].shape[0]
+
+        # Select 2 trials and verify that the number of spikes is correct.
+        selection = { 'trials': [0, 2] }
+        res = spiked.selectdata(selection)
+        assert len(res.trials) == 2
+        assert res.trials[0].shape[0] == trial0_nspikes
+        assert res.trials[1].shape[0] == trial2_nspikes
+
+        # Verify that the waveform selection is also correct.
+        assert res.waveform is not None
+        assert res.waveform.shape[0] == trial0_nspikes + trial2_nspikes  # Verify selection on waveform
+
+        # Verify on data level.
+        expected_data_indices = np.where((spiked.trialid == 0) | (spiked.trialid == 2))[0]
+        for spike_idx in range(res.waveform.shape[0]):
+            assert np.all(res.waveform[spike_idx, :, :] == spiked.waveform[expected_data_indices][spike_idx, :, :])
+
+    def test_save_load_with_waveform(self):
+        """Test saving file with waveform data."""
+        numSpikes, waveform_dimsize = 20, 50
+        spiked = getSpikeData(nSpikes = numSpikes)
+        spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            tmp_spy_filename = os.path.join(tmpdirname, "mywffile.spike")
+            save(spiked, filename=tmp_spy_filename)
+            assert "waveform" in h5py.File(tmp_spy_filename, mode="r").keys()
+            spkd2 = load(filename=tmp_spy_filename)
+            assert isinstance(spkd2.waveform, h5py.Dataset), f"Expected h5py.Dataset, got {type(spkd2.waveform)}"
+            assert np.array_equal(spiked.waveform[()], spkd2.waveform[()])
+
+            # Test delete/unregister when setting to None.
+            spkd2.waveform = None
+            assert spkd2.waveform is None
+            assert "waveform" not in h5py.File(tmp_spy_filename, mode="r").keys()
+
+            # Test that we can set waveform again after deleting it.
+            spkd2.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
+
+    def test_psth_with_waveform(self):
+        """Test that the waveform does not break frontend functions, like PSTH.
+           The waveform should just be ignored, and the resulting TimeLockData
+           will of course NOT have a waveform.
+        """
+        numSpikes, waveform_dimsize = 20, 50
+        spiked = getSpikeData(nSpikes = numSpikes)
+        spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
+
+        cfg = spy.StructDict()
+        cfg.binsize = 0.1
+        cfg.latency = 'maxperiod'  # frontend default
+        res = spy.spike_psth(spiked, cfg)
+        assert type(res) == spy.TimeLockData
+        assert not hasattr(res, "waveform")
+
 
 if __name__ == '__main__':
 
     T1 = TestSpikeData()
     T2 = TestEventData()
+    T3 = TestWaveform()

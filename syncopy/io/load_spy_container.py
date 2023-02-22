@@ -17,8 +17,8 @@ from syncopy.shared.parsers import io_parser, data_parser, filename_parser, arra
 from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYIOError,
                                    SPYError, SPYWarning)
 from syncopy.io.utils import hash_file, startInfoDict
-
 import syncopy.datatype as spd
+import syncopy as spy
 
 # to allow loading older spy containers
 legacy_not_required = ['info']
@@ -297,7 +297,16 @@ def _load(filename, checksum, mode, out):
         out._hdfFileDatasetProperties = tuple(json_hdfFileDatasetProperties) # It's a list in the JSON, so convert to tuple.
     for datasetProperty in out._hdfFileDatasetProperties:
         targetProperty = datasetProperty if datasetProperty == "data" else "_" + datasetProperty
-        setattr(out, targetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
+        try:
+            setattr(out, targetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
+        except KeyError:
+            if datasetProperty == "data":
+                raise SPYError("Data file {file} does not contain a dataset named 'data'.".format(file=hdfFile))
+            else:
+                spy.log(f"Dataset '{datasetProperty}' not present in HDF5 file, cannot load it. Setting to None.", level="DEBUG")
+                # It is fine if an extra dataset is not present in the file, e.g., the SpikeData waveform dataset is not present when set to None.
+                setattr(out, targetProperty, None)
+
 
     # Abuse ``definetrial`` to set trial-related props
     trialdef = h5py.File(hdfFile, mode="r")["trialdefinition"][()]

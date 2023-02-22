@@ -506,6 +506,38 @@ class SpikeData(DiscreteData):
 
         return indices
 
+    @property
+    def waveform(self):
+        """The waveform of the spikes in the data.
+
+        This is a tiny part of the raw data around the time point at which a spike was detected
+        (by the recording hardware/software: keep in mind that the spike data Syncopy is working
+        with is already pre-processed). From this sequence of samples, one can derive
+        the waveform type of the spike (via classification), which may allow to
+        derive the type of neuron that produced the spike.
+        """
+        return self._waveform
+
+    @waveform.setter
+    def waveform(self, waveform):
+        """Set a waveform dataset from a numpy array, `None`, or an `h5py.Dataset` instance."""
+        if self.data is None:
+            if waveform is not None:
+                raise SPYValueError(legal="non-empty SpikeData", varname="waveform",
+                actual="empty SpikeData main dataset (None). Cannot assign `waveform` without data. Please assign data first.")
+        if waveform is None:
+            self._set_dataset_property(waveform, 'waveform') # None
+            self._unregister_dataset("waveform", del_attr=False)
+            return
+
+        if waveform.ndim < 2:
+            raise SPYValueError(legal="waveform data with at least 2 dimensions", varname="waveform", actual=f"data with {waveform.ndim} dimensions")
+
+        if waveform.shape[0] != self.data.shape[0]:
+            raise SPYValueError(f"waveform shape[0]={waveform.shape[0]} must equal nSpikes={self.data.shape[0]}. " +
+                                "Please create one waveform per spike in data.", varname="waveform", actual=f"wrong size waveform with shape {waveform.shape}")
+        self._set_dataset_property(waveform, 'waveform')
+
     # "Constructor"
     def __init__(self,
                  data=None,
@@ -559,6 +591,10 @@ class SpikeData(DiscreteData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          dimord=dimord)
+
+        self._hdfFileDatasetProperties +=  ("waveform",)
+
+        self._waveform = None
 
         # for fast lookup and labels
         self._compute_unique_idx()

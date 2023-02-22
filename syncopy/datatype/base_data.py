@@ -207,7 +207,7 @@ class BaseData(ABC):
 
         supportedSetters[type(inData)](inData, propertyName, ndim=ndim)
 
-    def _unregister_dataset(self, propertyName, del_from_file=True):
+    def _unregister_dataset(self, propertyName, del_from_file=True, del_attr=True):
         """
         Unregister and delete an additional dataset from the Syncopy data object,
         and optionally delete it from the backing hdf5 file.
@@ -220,14 +220,17 @@ class BaseData(ABC):
                 The name of the entry in `self._hdfFileDatasetProperties` to remove.
                 The attribute named `'_' + propertyName` of this SyncopyData object will be deleted.
             del_from_file: bool
-                Whether to also remove the dataset named 'propertyName' from the backing hdf5 file on disk.
+                Whether to remove the dataset named 'propertyName' from the backing hdf5 file on disk.
+            del_attr: bool
+                Whether to remove the dataset attribute from the Syncopy data object.
         """
-        if propertyName in self._hdfFileDatasetProperties:
-            tmp_list = list(self._hdfFileDatasetProperties)
-            tmp_list.remove(propertyName)
-            self._hdfFileDatasetProperties = tuple(tmp_list)
-        if hasattr(self, "_" + propertyName):
-            delattr(self, "_" + propertyName)
+        if del_attr:
+            if propertyName in self._hdfFileDatasetProperties:
+                tmp_list = list(self._hdfFileDatasetProperties)
+                tmp_list.remove(propertyName)
+                self._hdfFileDatasetProperties = tuple(tmp_list)
+            if hasattr(self, "_" + propertyName):
+                delattr(self, "_" + propertyName)
         if del_from_file:
             if self.mode == "r":
                 lgl = "HDF5 dataset with write or copy-on-write access"
@@ -368,15 +371,15 @@ class BaseData(ABC):
             if self.mode == "r":
                 lgl = "dataset with write or copy-on-write access"
                 act = "read-only file"
-                raise SPYValueError(legal=lgl, varname="mode", actual=act)
+                raise SPYValueError(legal=lgl, varname=propertyName, actual=act)
             if prop.shape != inData.shape:
                 lgl = "dataset with shape {}".format(str(prop.shape))
                 act = "data with shape {}".format(str(inData.shape))
-                raise SPYValueError(legal=lgl, varname="data", actual=act)
+                raise SPYValueError(legal=lgl, varname=propertyName, actual=act)
             if prop.dtype != inData.dtype:
                 lgl = "dataset of type {}".format(prop.dtype.name)
                 act = "data of type {}".format(inData.dtype.name)
-                raise SPYValueError(legal=lgl, varname="data", actual=act)
+                raise SPYValueError(legal=lgl, varname=propertyName, actual=act)
             prop[...] = inData
 
         # or create backing file on disk
@@ -421,13 +424,13 @@ class BaseData(ABC):
             act = "backing HDF5 file is closed"
             raise SPYValueError(legal=lgl, actual=act, varname="data")
 
-        # Ensure dataset has right no. of dimensions
-        if inData.ndim != ndim:
-            lgl = "{}-dimensional data".format(ndim)
-            act = "{}-dimensional HDF5 dataset".format(inData.ndim)
-            raise SPYValueError(legal=lgl, varname="data", actual=act)
-
         if propertyName == "data":
+            # Ensure dataset has right no. of dimensions
+            if inData.ndim != ndim:
+                lgl = "{}-dimensional data".format(ndim)
+                act = "{}-dimensional HDF5 dataset".format(inData.ndim)
+                raise SPYValueError(legal=lgl, varname="data", actual=act)
+
             self._check_dataset_property_discretedata(inData)
             self.filename = inData.file.filename
         else:
@@ -947,24 +950,26 @@ class BaseData(ABC):
 
     # Destructor
     def __del__(self):
-        if self.filename is not None:
-            for propertyName in self._hdfFileDatasetProperties:
-                prop = getattr(self, "_" + propertyName)
+
+        # keep all datasets alive and open
+        if self._persistent_hdf5:
+            return
+
+        # close hdf5 file
+        for propertyName in self._hdfFileDatasetProperties:
+            prop = getattr(self, "_" + propertyName)
+            if prop is not None:
                 try:
-                    if isinstance(prop, h5py.Dataset):
-                        try:
-                            prop.file.close()
-                        except (IOError, ValueError, TypeError, ImportError):
-                            pass
-                        except Exception as exc:
-                            raise exc
-                    else:
-                        del prop
-                except TypeError:
-                    del prop
-            if __storage__ in self.filename and os.path.exists(self.filename):
-                os.unlink(self.filename)
-                shutil.rmtree(os.path.splitext(self.filename)[0], ignore_errors=True)
+                    prop.file.close()
+                # can happen if the file was deleted elsewhere
+                # or we exit un-gracefully from some undefined state
+                except (ValueError, ImportError):
+                    pass
+
+        # remove from file system
+        if __storage__ in self.filename and os.path.exists(self.filename):
+            os.unlink(self.filename)
+            shutil.rmtree(os.path.splitext(self.filename)[0], ignore_errors=True)
 
     # Support for basic arithmetic operations (no in-place computations supported yet)
     def __add__(self, other):
@@ -1117,14 +1122,15 @@ class BaseData(ABC):
         self._cfg = {}
         self._info = SerializableDict()
 
+        # set to `True` to keep backing hdf5 alive
+        # when the destructor is hit
+        self._persistent_hdf5 = False
+
         # Initialize hidden attributes
         for propertyName in self._hdfFileDatasetProperties:
             setattr(self, "_" + propertyName, None)
 
         self._selector = None
-
-        # Make instantiation persistent in all subclasses
-        super().__init__()
 
         # Set mode
         self.mode = mode
@@ -2106,7 +2112,7 @@ class Selector:
                     chanPerTrial.append(rawChanInTrial[combinedSelect])
                 elif areShuffled:
                     combinedSelect = combinedSelect.tolist()
-                    
+
                 # The usual list -> slice conversion (if possible)
                 if len(combinedSelect) > 1:
                     selSteps = np.diff(combinedSelect)

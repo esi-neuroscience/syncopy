@@ -280,17 +280,20 @@ class TestCoherence:
     f1, f2 = 20, 40
     # a lot of phase diffusion (1% per step) in the 20Hz band
     s1 = synth_data.phase_diffusion(nTrials, freq=f1,
-                                    eps=.01,
+                                    eps=.03,
                                     nChannels=nChannels,
-                                    nSamples=nSamples)
+                                    nSamples=nSamples,
+                                    seed=helpers.test_seed)
 
     # little diffusion in the 40Hz band
     s2 = synth_data.phase_diffusion(nTrials, freq=f2,
                                     eps=.001,
                                     nChannels=nChannels,
-                                    nSamples=nSamples)
+                                    nSamples=nSamples,
+                                    seed=helpers.test_seed)
 
-    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples)
+    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples,
+                                seed=helpers.test_seed)
 
     # superposition
     data = s1 + s2 + wn
@@ -325,17 +328,21 @@ class TestCoherence:
         # check that we have still the same time axis
         assert np.all(spec_tf.time[0] == test_data.time[0])
 
-        # abs spectra for plotting
+        # abs averaged spectra for plotting
         spec_tf_abs = spy.SpectralData(data=np.abs(spec_tf.data),
                                        samplerate=self.fs,
                                        trialdefinition=spec_tf.trialdefinition)
         spec_tf_abs.freq = spec_tf.freq
         spec_tf_abs.multipanelplot(trials=0)
 
-        # rough check that the power indeed drops over time
-        # along the 20Hz band which has stronger phase diffusion
-        profile_20 = spec_tf_abs.show(frequency=self.f1, trials=2)[:, 1]
-        assert profile_20.argmax() < profile_20.argmin()
+        # rough check that the power in the 20Hz band is lower than in the 40Hz
+        # band due to more phase diffusion
+        spec_tf_avabs = spy.mean(spec_tf_abs, dim='trials')
+        profile_20 = spec_tf_avabs.show(frequency=self.f1)[:, 1]
+        profile_40 = spec_tf_avabs.show(frequency=self.f2)[:, 1]
+
+        assert profile_40.mean() > profile_20.mean()
+        assert profile_40.max() > profile_20.max()
 
         # compute time dependent coherence
         coh = cafunc(data=spec_tf, method='coh')
