@@ -6,8 +6,9 @@
 import subprocess
 from time import sleep
 
-# Syncopy import
+# Syncopy imports
 from syncopy.shared.errors import SPYWarning, SPYInfo
+from .log import get_logger
 
 
 def check_slurm_available():
@@ -31,20 +32,29 @@ def check_slurm_available():
     return has_slurm
 
 
-def check_workers_available(cluster):
+def check_workers_available(client, n_workers=1, timeout=120):
     """
-    Tries to see the Dask workers and waits
-    until all requested workers are available
+    Checks for available (alive) Dask workers and waits max `timeout` seconds
+    until at least ``n_workers`` workers are available.
     """
 
-    totalWorkers = len(cluster.requested)    
-    sec = 0
-    workers = cluster.scheduler_info['workers']
+    logger = get_logger()
+    totalWorkers = len(client.cluster.requested)
 
-    while len(workers) != totalWorkers:
-        SPYInfo(f"{len(workers)}/{totalWorkers} workers available, waiting.. {sec}s")
-        sleep(1)
-        sec += 2
-        workers = cluster.scheduler_info['workers']
+    # dictionary of workers
+    workers = client.cluster.scheduler_info['workers']
+
+    # some small initial wait
+    sleep(.25)
+
+    if len(workers) < n_workers:
+        logger.important(f"waiting for at least {n_workers}/{totalWorkers} workers being available, timeout after {timeout} seconds..")
+    client.wait_for_workers(n_workers, timeout=timeout)
+
+    sleep(.25)
+
+    # report what we have
+    logger.important(f"{len(workers)}/{totalWorkers} workers available, starting computation..")
+
     # wait a little more to get consistent client print out
-    sleep(1)
+    sleep(.25)
