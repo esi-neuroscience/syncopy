@@ -214,6 +214,8 @@ def itc(spec_data, **kwargs):
     # takes care of remaining checks
     res = _trial_statistics(spec_data, operation='itc')
     write_log(spec_data, res, kwargs, op_name='itc')
+    # attach cfg
+    res.cfg.update(spec_data.cfg)
     return res
 
 
@@ -316,6 +318,9 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
     if hasattr(spy_data.selection, '_cleanup'):
         spy_data.cfg.pop('selectdata')
         spy_data.selection = None
+
+    # re-attach config
+    out.cfg.update(spy_data.cfg)
 
     return out
 
