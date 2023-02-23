@@ -9,7 +9,7 @@ import numpy as np
 # Syncopy imports
 import syncopy as spy
 from syncopy.connectivity.AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCausality
-from syncopy.connectivity.ST_compRoutines import CrossSpectra, CrossCovariance, SpectralDyadicProduct
+from syncopy.connectivity.ST_compRoutines import CrossSpectra, CrossCovariance, SpectralDyadicProduct, PPC_column
 from syncopy.shared.input_processors import (
     process_taper,
     process_foi,
@@ -29,8 +29,9 @@ from syncopy.datatype import CrossSpectralData, AnalogData, SpectralData
 from syncopy.shared.tools import get_defaults, best_match, get_frontend_cfg
 from syncopy.shared.parsers import data_parser, scalar_parser
 from syncopy.statistics import jackknifing as jk
+from syncopy.statistics import summary_stats as st
 
-availableMethods = ("coh", "corr", "granger", "csd")
+availableMethods = ("coh", "corr", "granger", "csd", "ppc")
 connectivity_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag"}
 
 
@@ -47,7 +48,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     In case the input is an :class:`~syncopy.AnalogData` object, a (multi-)tapered Fourier
     analysis is performed implicitly to arrive at the cross spectral densities needed for
-    coherence and Granger causality estimates.
+    coherence, ppc and Granger causality estimates.
     Relevant parameters are the same as for :func:`~syncopy.freqanalysis` with ``method='mtmfft'``:
 
         ('foi', 'foilim', 'pad', 'tapsmofrq', 'nTaper', 'taper', 'taper_opt', 'polyremoval')
@@ -65,6 +66,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         between all channel combinations
 
         * **output** : one of ('abs', 'pow', 'complex', 'angle', 'imag' or 'real')
+        * **jackknife**: set to `True` to compute the variance via jackknife resampling
 
         **Spectral analysis** (input is :class:`~syncopy.AnalogData`):
 
@@ -72,12 +74,11 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
-        * **jackknife**: set to `True` to compute the variance via jackknife resampling
 
     "csd" : ('Multi-) tapered cross spectral density estimate
         Computes the cross spectral estimates between all channel combinations
 
-        output : complex spectrum
+        output : complex cross spectra
 
         **Spectral analysis** (input is :class:`~syncopy.AnalogData`):
 
@@ -86,14 +87,19 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
 
-    "corr" : Cross-correlations
-        Computes the one sided (positive lags) cross-correlations
-        between all channel combinations of :class:`~syncopy.AnalogData`.
-        The maximal lag is half the trial lengths.
+    "ppc" : Pairwise phase consistency, [Vinck2010]_
+        Computes the PPC phase locking index for all channel combinations
 
-        * **keeptrials** : set to `True` for single trial cross-correlations
+        output : real ppc spectrum
 
-    "granger" : Spectral Granger-Geweke causality
+        **Spectral analysis** (input is :class:`~syncopy.AnalogData`):
+
+        * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
+        * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
+        * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
+        * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
+
+    "granger" : Spectral Granger-Geweke causality following [Dhamala2008]_
         Computes linear causality estimates between
         all channel combinations.
 
@@ -102,13 +108,14 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         done without foi/foilim specification as Granger causality needs all
         attainable frequencies (0, f_Nyquist)!
 
+        * **jackknife**: set to `True` to compute the variance via jackknife resampling
+
         **Spectral analysis** (input is :class:`~syncopy.AnalogData`):
 
         * **taper** : one of :data:`~syncopy.shared.const_def.availableTapers`
         * **tapsmofrq** : spectral smoothing box for slepian tapers (in Hz)
         * **nTaper** : (optional, not recommended) number of slepian tapers
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
-        * **jackknife**: set to `True` to compute the variance via jackknife resampling
 
         After the computation, information about the convergence and potential
         regularization of the cross-spectral densities can be obtained
@@ -116,20 +123,27 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         object. Keys of that info-dict are:
         ```{'converged', 'max rel. err', 'reg. factor', 'initial cond. num'}```.
 
+    "corr" : Cross-correlations
+        Computes the one sided (positive lags) cross-correlations
+        between all channel combinations of :class:`~syncopy.AnalogData`.
+        The maximal lag is half the trial lengths.
+
+        * **keeptrials** : set to `True` for single trial cross-correlations
+
     Parameters
     ----------
     data : `~syncopy.AnalogData`
         A non-empty Syncopy :class:`~syncopy.SpectralData` or
         :class:`~syncopy.AnalogData` object
     method : str
-        Connectivity estimation method, one of ``'coh'`, 'corr', 'granger', 'csd'``
+        Connectivity estimation method, one of ``'coh'`, 'corr', 'granger', 'csd', 'ppc'``
     output : str
-        Relevant for cross-spectral density estimation (``method='coh'``)
+        Relevant for coherence estimation (``method='coh'``)
         Use ``'pow'`` for absolute squared coherence, ``'abs'`` for absolute value of coherence
         , ``'complex'`` for the complex valued coherency or ``'angle'``, ``'imag'`` or ``'real'``
         to extract the phase difference, imaginary or real part of the coherency respectively.
     keeptrials : bool
-        Relevant for cross-correlations (``method='corr'``).
+        Relevant for cross-correlations (``method='corr'``) and cross spectra (``method='csd'``).
         If `True` single-trial cross-correlations are returned.
     foi : array-like or None
         Frequencies of interest (Hz) for output. If desired frequencies cannot be
@@ -187,8 +201,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     and plot the results for two combinations between 30Hz and 90Hz:
 
     >>> coh = spy.connectivityanalysis(adata, method='coh', tapsmofrq=2)
-    >>> coh.singlepanelplot(channel_i=0, channel_j=1, foilim=[30,90])
-    >>> coh.singlepanelplot(channel_i=1, channel_j=2, foilim=[30,90])
+    >>> coh.singlepanelplot(channel_i=0, channel_j=1, frequency=[30,90])
+    >>> coh.singlepanelplot(channel_i=1, channel_j=2, frequency=[30,90])
 
     Compute the cross-correlation between channel 8 and 12 and
     plot the results for the first 200ms:
@@ -197,7 +211,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     >>> cfg.method = 'corr'
     >>> cfg.select = {'channel': ['channel8', 'channel12']}
     >>> corr = spy.connectivityanalysis(adata, cfg)
-    >>> corr.singlepanelplot(channel_i='channel8', channel_j='channel12', toilim=[0, 0.2])
+    >>> corr.singlepanelplot(channel_i='channel8', channel_j='channel12', latency=[0, 0.2])
 
     Estimate Granger causality between the same channels (re-using the cfg from above):
 
@@ -206,7 +220,12 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     Plot the results between 15Hz and 30Hz:
 
-    >>> granger.singlepanelplot(channel_i='channel8', channel_j='channel12', foilim=[15, 25])
+    >>> granger.singlepanelplot(channel_i='channel8', channel_j='channel12', frequency=[15, 25])
+
+    Notes
+    -----
+    .. [Dhamala2008] Dhamala, Mukeshwar, Govindan Rangarajan, and Mingzhou Ding. "Analyzing information flow in brain networks with nonparametric Granger causality." Neuroimage 41.2 (2008): 354-362.
+    .. [Vinck2010] Vinck, Martin, et al. "The pairwise phase consistency: a bias-free measure of rhythmic neuronal synchronization." Neuroimage 51.1 (2010): 112-122.
     """
 
     # Make sure our one mandatory input object can be processed
@@ -308,15 +327,16 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # hard coded as class attribute
         st_dimord = CrossCovariance.dimord
 
-    elif method in ['coh', 'granger', 'csd']:
+    elif method in ['csd', 'coh', 'ppc', 'granger']:
+        # all these methods need the single trial cross spectra
         nTrials = len(data.trials)
         if nTrials == 1:
             lgl = "multi-trial input data, spectral connectivity measures critically depend on trial averaging!"
             act = "only one trial"
             raise SPYValueError(lgl, 'data', act)
 
-        if keeptrials is not False and method in ('coh', 'granger'):
-            lgl = "False, trial averaging needed for 'coh' and 'granger'!"
+        if keeptrials is not False and method in ('coh', 'ppc', 'granger'):
+            lgl = f"False, trial averaging needed for method {method}!"
             act = keeptrials
             raise SPYValueError(lgl, varname="keeptrials", actual=act)
 
@@ -334,7 +354,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # SpectralData input
         elif isinstance(data, SpectralData):
             # cross-spectra need complex input spectra
-            if data.data.dtype != np.complex64 and data.data.dtype != np.complex128:
+            if not np.issubdtype(data.data.dtype, np.complexfloating):
                 lgl = "complex valued spectra, set `output='fourier` in spy.freqanalysis!"
                 act = "real valued spectral data"
                 raise SPYValueError(lgl, 'data', act)
@@ -366,6 +386,18 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # final normalization after trial averaging
         av_compRoutine = NormalizeCrossSpectra(output=output)
 
+    elif method == 'ppc':
+        # besides = ['jackknife']
+        # spectral analysis only possible with AnalogData
+        if isinstance(data, AnalogData):
+            besides = ['taper', 'tapsmofrq', 'nTaper']
+
+        check_effective_parameters(PPC_column, defaults, lcls, besides=besides)
+
+        # this needs to be treated differently, as we need repeated
+        # inits of the PPC CR to compute all trial pairs
+        av_compRoutine = "ppc"
+
     elif method == 'granger':
         besides = ['jackknife']
         # spectral analysis only possible with AnalogData
@@ -391,7 +423,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     st_out = CrossSpectralData(dimord=st_dimord)
 
     # we need single trials for the jackknife
-    keeptrials = True if (keeptrials or jackknife) else False
+    keeptrials = True if (keeptrials or (jackknife or method == 'ppc')) else False
 
     # Perform the trial-parallelized computation of the matrix quantity
     st_compRoutine.initialize(data,
@@ -407,15 +439,57 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # compute all the leave-one-out (loo) trial average replicates
         replicates_avg = jk.trial_avg_replicates(jack_in)
 
-    # for single trial cross-corr/cross spectra results <-> keeptrials is True
+    # for single trial cross-corr/cross spectra results <-> keeptrials can be True
     if av_compRoutine is None:
         st_out.cfg.update(data.cfg)
         st_out.cfg.update({'connectivityanalysis': new_cfg})
         return st_out
 
-    # ----------------------------------------------------------------------------------
-    # Sanitize output and call the chosen ComputationalRoutine on the averaged ST output
-    # ----------------------------------------------------------------------------------
+    # ---------------
+    # PPC computation
+    # ---------------
+
+    # set up nTrials(nTrials-1) pair computations
+    # which needs an outer loop over nTrials as a single CR
+    # can only compute one column of the nTrials x nTrials combinations
+    elif av_compRoutine == 'ppc':
+        # we need to average all the CR results, shapes match
+        accumulator = np.zeros(st_out.trials[0].shape, dtype=np.float32)
+        nTrials = len(st_out.trials)
+        # any selection got already digested by the preceding st_compRoutine
+        # so we can loop over all trials
+        for trl_idx in range(nTrials):
+            # hdf5 index tuple to access a 2nd trial
+            trl2_idx = st_out._preview_trial(trl_idx).idx
+            hdf5_path = st_out._filename
+
+            # set up CR
+            ppc_CR = PPC_column(trl2_idx=trl2_idx,
+                                hdf5_path=hdf5_path)
+            # inner result
+            trl_pairs = CrossSpectralData(dimord=st_dimord)
+            ppc_CR.initialize(st_out, trl_pairs._stackingDim,
+                              chan_per_worker=None,
+                              keeptrials=True)
+            # no log, as those are only transient outputs
+            ppc_CR.compute(st_out, trl_pairs, parallel=kwargs.get("parallel"), log_dict=None)
+
+            # deselect diagonal entry for correct ppc average
+            trl_sel = list(range(nTrials))
+            trl_sel.remove(trl_idx)
+            trl_pairs.selectdata(trials=trl_sel, inplace=True)
+            # now average the nTrials-1 remaining pairs
+            trl_pairs_avg = st.mean(trl_pairs, dim='trials')
+            accumulator += trl_pairs_avg.trials[0]
+
+        # normalize and create single trial output object
+        accumulator /= nTrials
+        out = CrossSpectralData(dimord=st_dimord, data=accumulator)
+
+    # -----------------------------------------------
+    # ComputationalRoutine for the averaged ST output
+    # -----------------------------------------------
+
     else:
         out = CrossSpectralData(dimord=st_dimord)
         # now take the trial average from the single trial CR as input
@@ -451,7 +525,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             out.jack_var = out._jack_var
             out.jack_bias = out._jack_bias
 
-        return out
+    return out
 
 
 def cross_spectra(data, method, nSamples,
@@ -481,55 +555,54 @@ def cross_spectra(data, method, nSamples,
             msg = "Multi-channel Granger analysis can be numerically unstable, it is recommended to have at least 10 times the number of trials compared to the number of channels. Try calculating in sub-groups of fewer channels!"
             SPYWarning(msg)
 
-    if method in ['coh', 'granger', 'csd']:
-        # --- set up computation of the single trial CSDs ---
+    # --- set up computation of the single trial CSDs ---
 
+    # Construct array of maximally attainable frequencies
+    freqs = np.fft.rfftfreq(nSamples, 1 / data.samplerate)
+
+    # Match desired frequencies as close as possible to
+    # actually attainable freqs
+    # these are the frequencies attached to the CrossSpectralData by the CR!
+    if foi is not None:
+        foi, _ = best_match(freqs, foi, squash_duplicates=True)
+    elif foilim is not None:
+        foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
+    elif foi is None and foilim is None:
         # Construct array of maximally attainable frequencies
-        freqs = np.fft.rfftfreq(nSamples, 1 / data.samplerate)
+        msg = (f"Setting frequencies of interest to {freqs[0]:.1f}-"
+               f"{freqs[-1]:.1f}Hz")
+        SPYInfo(msg)
+        foi = freqs
 
-        # Match desired frequencies as close as possible to
-        # actually attainable freqs
-        # these are the frequencies attached to the CrossSpectralData by the CR!
-        if foi is not None:
-            foi, _ = best_match(freqs, foi, squash_duplicates=True)
-        elif foilim is not None:
-            foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
-        elif foi is None and foilim is None:
-            # Construct array of maximally attainable frequencies
-            msg = (f"Setting frequencies of interest to {freqs[0]:.1f}-"
-                   f"{freqs[-1]:.1f}Hz")
-            SPYInfo(msg)
-            foi = freqs
+    # sanitize taper selection and retrieve dpss settings
+    taper, taper_opt = process_taper(taper,
+                                     taper_opt,
+                                     tapsmofrq,
+                                     nTaper,
+                                     keeptapers=False,   # ST_CSD's always average tapers
+                                     foimax=foi.max(),
+                                     samplerate=data.samplerate,
+                                     nSamples=nSamples,
+                                     output="pow")   # ST_CSD's always have this unit/norm
 
-        # sanitize taper selection and retrieve dpss settings
-        taper, taper_opt = process_taper(taper,
-                                         taper_opt,
-                                         tapsmofrq,
-                                         nTaper,
-                                         keeptapers=False,   # ST_CSD's always average tapers
-                                         foimax=foi.max(),
-                                         samplerate=data.samplerate,
-                                         nSamples=nSamples,
-                                         output="pow")   # ST_CSD's always have this unit/norm
+    log_dict["foi"] = foi
+    log_dict["taper"] = taper
+    if taper_opt and taper == 'dpss':
+        log_dict["nTaper"] = taper_opt["Kmax"]
+        log_dict["tapsmofrq"] = tapsmofrq
+    elif taper_opt:
+        log_dict["taper_opt"] = taper_opt
 
-        log_dict["foi"] = foi
-        log_dict["taper"] = taper
-        if taper_opt and taper == 'dpss':
-            log_dict["nTaper"] = taper_opt["Kmax"]
-            log_dict["tapsmofrq"] = tapsmofrq
-        elif taper_opt:
-            log_dict["taper_opt"] = taper_opt
+    # parallel computation over trials
+    st_compRoutine = CrossSpectra(samplerate=data.samplerate,
+                                  nSamples=nSamples,
+                                  taper=taper,
+                                  taper_opt=taper_opt,
+                                  demean_taper=method == 'granger',
+                                  polyremoval=polyremoval,
+                                  timeAxis=timeAxis,
+                                  foi=foi)
+    # hard coded as class attribute
+    st_dimord = CrossSpectra.dimord
 
-        # parallel computation over trials
-        st_compRoutine = CrossSpectra(samplerate=data.samplerate,
-                                      nSamples=nSamples,
-                                      taper=taper,
-                                      taper_opt=taper_opt,
-                                      demean_taper=method == 'granger',
-                                      polyremoval=polyremoval,
-                                      timeAxis=timeAxis,
-                                      foi=foi)
-        # hard coded as class attribute
-        st_dimord = CrossSpectra.dimord
-
-        return st_compRoutine, st_dimord
+    return st_compRoutine, st_dimord

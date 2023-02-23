@@ -139,7 +139,7 @@ def ppc_column_cF(cross_spectrum,
     """
     The PPC involves computations on all nTrials(nTrials-1) pairs. This compute function
     in combination with the PPC CR can be used to compute one column, consisting
-    of nTrials-1 pairs (and the single diagonal entry), of the implicit
+    of nTrials-1 pairs (and single diagonal entry), of the implicit
     nTrials x nTrials matrix of trial pairs.
 
     We express the dot product of equation 14 of the source publication
@@ -184,19 +184,18 @@ def ppc_column_cF(cross_spectrum,
     Returns
     -------
     ppc_ij : (K, L, N, N) :class:`numpy.ndarray` with complex dtype
-        Complex dot product for a single cross-spectral trial pair and for all
-        channel combinations ``i,j``. `K` is the number  of samples,
-        `L` is number of frequencies and `N` corresponds to number of
-        input channels.
+        Dot product for a single cross-spectral trial pair i, j.
+        `K` is the number  of samples, `L` is number of frequencies
+        and `N` corresponds to number of channels.
 
     """
 
     # the shape does not change
     outShape = cross_spectrum.shape
 
-    # cross spectra are complex, input gets checked in frontend!
+    # ppc spectra are real
     if noCompute:
-        return outShape, spectralDTypes["fourier"]
+        return outShape, spectralDTypes["abs"]
 
     # get the 2nd trial as array
     with h5py.File(hdf5_path, "r") as h5file:
@@ -211,6 +210,35 @@ def ppc_column_cF(cross_spectrum,
     ppc_ij = np.cos(np.angle(ppc_ij))
 
     return ppc_ij
+
+
+class PPC_column(ComputationalRoutine):
+
+    """
+    Compute class that computes the dotproduct between nTrials-1 trial pairs by
+    streaming as usual through all trials available, and pairing it with one
+    fixed 2nd trial (controlled by `trl2_idx`).
+
+    Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
+    see :doc:`/developer/compute_kernels` for technical details on Syncopy's compute
+    classes and metafunctions.
+
+    See also
+    --------
+    syncopy.connectivityanalysis : parent metafunction
+    """
+
+    computeFunction = staticmethod(ppc_column_cF)
+
+    # 1st argument,the data, gets omitted
+    valid_kws = list(signature(ppc_column_cF).parameters.keys())[1:]
+
+    def process_metadata(self, data, out):
+
+        # same data type, so trivial propagation
+        propagate_properties(data, out, self.keeptrials)
+
+
 
 @process_io
 def cross_spectra_cF(trl_dat,
