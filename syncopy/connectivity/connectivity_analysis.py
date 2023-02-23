@@ -28,6 +28,7 @@ from syncopy.shared.errors import (
 from syncopy.datatype import CrossSpectralData, AnalogData, SpectralData
 from syncopy.shared.tools import get_defaults, best_match, get_frontend_cfg
 from syncopy.shared.parsers import data_parser, scalar_parser
+from syncopy.shared.computational_routine import propagate_properties
 from syncopy.statistics import jackknifing as jk
 from syncopy.statistics import summary_stats as st
 
@@ -144,7 +145,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         to extract the phase difference, imaginary or real part of the coherency respectively.
     keeptrials : bool
         Relevant for cross-correlations (``method='corr'``) and cross spectra (``method='csd'``).
-        If `True` single-trial cross-correlations are returned.
+        If `True` single-trial cross-correlations/cross-spectra are returned.
     foi : array-like or None
         Frequencies of interest (Hz) for output. If desired frequencies cannot be
         matched exactly, the closest possible frequencies are used. If ``foi`` is ``None``
@@ -422,7 +423,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # the single trial results need a new DataSet
     st_out = CrossSpectralData(dimord=st_dimord)
 
-    # we need single trials for the jackknife
+    # we need single trials for the jackknife and the PPC
     keeptrials = True if (keeptrials or (jackknife or method == 'ppc')) else False
 
     # Perform the trial-parallelized computation of the matrix quantity
@@ -439,7 +440,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # compute all the leave-one-out (loo) trial average replicates
         replicates_avg = jk.trial_avg_replicates(jack_in)
 
-    # for single trial cross-corr/cross spectra results <-> keeptrials can be True
+    # for single trial cross-corr/cross spectra results
+    # keeptrials can be True and hence we are done here
     if av_compRoutine is None:
         st_out.cfg.update(data.cfg)
         st_out.cfg.update({'connectivityanalysis': new_cfg})
@@ -450,8 +452,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # ---------------
 
     # set up nTrials(nTrials-1) pair computations
-    # which needs an outer loop over nTrials as a single CR
-    # can only compute one column of the nTrials x nTrials combinations
+    # which need an outer loop over nTrials as a single CR
+    # can only compute one column of all the nTrials x nTrials combinations
     elif av_compRoutine == 'ppc':
         # we need to average all the CR results, shapes match
         accumulator = np.zeros(st_out.trials[0].shape, dtype=np.float32)
@@ -471,8 +473,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             ppc_CR.initialize(st_out, trl_pairs._stackingDim,
                               chan_per_worker=None,
                               keeptrials=True)
-            # no log, as those are only transient outputs
-            ppc_CR.compute(st_out, trl_pairs, parallel=kwargs.get("parallel"), log_dict=None)
+            ppc_CR.compute(st_out, trl_pairs, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
             # deselect diagonal entry for correct ppc average
             trl_sel = list(range(nTrials))
@@ -482,9 +483,13 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             trl_pairs_avg = st.mean(trl_pairs, dim='trials')
             accumulator += trl_pairs_avg.trials[0]
 
-        # normalize and create single trial output object
+        # normalize and create single trial PPC output object
         accumulator /= nTrials
         out = CrossSpectralData(dimord=st_dimord, data=accumulator)
+        time_axis = np.any(np.diff(st_out.trialdefinition)[:, 0] != 1)
+        propagate_properties(st_out, out, keeptrials=False, time_axis=time_axis)
+        # add log from last PPC CR call
+        out.log = trl_pairs._log
 
     # -----------------------------------------------
     # ComputationalRoutine for the averaged ST output
@@ -497,12 +502,6 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         av_compRoutine.pre_check()   # make sure we got a trial_average
         av_compRoutine.compute(st_out, out, parallel=kwargs.get("parallel"),
                                log_dict=log_dict)
-        # attach potential older cfg's from the input
-        # to support chained frontend calls..
-        out.cfg.update(data.cfg)
-        # attach frontend parameters for replay
-        new_cfg.update({'output': output})
-        out.cfg.update({'connectivityanalysis': new_cfg})
 
         # `out` is the direct estimate
         if jackknife:
@@ -525,6 +524,13 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             out.jack_var = out._jack_var
             out.jack_bias = out._jack_bias
 
+    # attach potential older cfg's from the input
+    # to support chained frontend calls..
+    out.cfg.update(data.cfg)
+    # attach frontend parameters for replay
+    new_cfg.update({'output': output})
+    out.cfg.update({'connectivityanalysis': new_cfg})
+            
     return out
 
 
@@ -533,7 +539,7 @@ def cross_spectra(data, method, nSamples,
                   nTaper, taper, taper_opt,
                   polyremoval, log_dict, timeAxis):
     '''
-    Calculates the single trial cross-spectral densities from AnalogData
+    Sets up the CR to compute the single trial cross-spectra from AnalogData
     '''
 
     # --- Basic foi sanitization ---

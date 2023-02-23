@@ -120,12 +120,7 @@ class SpectralDyadicProduct(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        # time dependent coherence needs SpectralData input
-        if 'Spectral' in data.__class__.__name__:
-            time_axis = np.any(np.diff(data.trialdefinition)[:,0] != 1)
-        else:
-            time_axis = False
-
+        time_axis = np.any(np.diff(data.trialdefinition)[:,0] != 1)
         propagate_properties(data, out, self.keeptrials, time_axis)
         out.freq = data.freq
 
@@ -215,8 +210,8 @@ def ppc_column_cF(cross_spectrum,
 class PPC_column(ComputationalRoutine):
 
     """
-    Compute class that computes the dotproduct between nTrials-1 trial pairs by
-    streaming as usual through all trials available, and pairing it with one
+    Compute class that computes the dotproduct between nTrials-1 cross-spectral trial pairs
+    by streaming as usual through all trials available, and pairing it with one
     fixed 2nd trial (controlled by `trl2_idx`).
 
     Sub-class of :class:`~syncopy.shared.computational_routine.ComputationalRoutine`,
@@ -235,8 +230,13 @@ class PPC_column(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
+        time_axis = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
+
+        propagate_properties(data, out, self.keeptrials, time_axis)
+        out.freq = data.freq
+
         # same data type, so trivial propagation
-        propagate_properties(data, out, self.keeptrials)
+        propagate_properties(data, out, self.keeptrials, time_axis)
 
 
 
