@@ -88,7 +88,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
 
-    "ppc" : Pairwise phase consistency, [Vinck2010]_
+    "ppc" : Pairwise phase consistency, see [Vinck2010]_
         Computes the PPC phase locking index for all channel combinations
 
         output : real ppc spectrum
@@ -262,7 +262,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                 caller='connectivityanalysis')
         jackknife = False
 
-    # output selection is only valid for coherence
+    # output seettings are only relevant for coherence
     if method != 'coh' and output != defaults['output']:
         msg = f"Setting `output` for method {method} has not effect!"
         SPYWarning(msg)
@@ -328,8 +328,9 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # hard coded as class attribute
         st_dimord = CrossCovariance.dimord
 
+    # all these methods need the single trial cross spectra
+    # we just have to sort out if we need an mtmfft first
     elif method in ['csd', 'coh', 'ppc', 'granger']:
-        # all these methods need the single trial cross spectra
         nTrials = len(data.trials)
         if nTrials == 1:
             lgl = "multi-trial input data, spectral connectivity measures critically depend on trial averaging!"
@@ -392,7 +393,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # spectral analysis only possible with AnalogData
         if isinstance(data, AnalogData):
             besides = ['taper', 'tapsmofrq', 'nTaper']
-
+        else:
+            besides = None
         check_effective_parameters(PPC_column, defaults, lcls, besides=besides)
 
         # this needs to be treated differently, as we need repeated
@@ -413,6 +415,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                                           nIter=100,
                                           cond_max=1e4
                                           )
+    # here the single trial spectra are the final result
     elif method == 'csd':
         av_compRoutine = None
 
@@ -530,7 +533,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # attach frontend parameters for replay
     new_cfg.update({'output': output})
     out.cfg.update({'connectivityanalysis': new_cfg})
-            
+
     return out
 
 
