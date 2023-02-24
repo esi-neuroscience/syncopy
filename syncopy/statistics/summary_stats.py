@@ -342,8 +342,8 @@ def _trial_statistics(in_data, operation='mean'):
         in_data.selection._cleanup = True
 
     nTrials = len(in_data.selection.trials)
-    if nTrials <= 1:
-        lgl = "at least 2 trials"
+    if nTrials < 1:
+        lgl = "at least 1 trial"
         act = f"got {nTrials} trials"
         raise SPYValueError(lgl, 'in_data', act)
 

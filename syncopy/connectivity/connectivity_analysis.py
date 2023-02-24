@@ -461,12 +461,23 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # we need to average all the CR results, shapes match
         accumulator = np.zeros(st_out.trials[0].shape, dtype=np.float32)
         nTrials = len(st_out.trials)
+        # to create the trial selections
+        trl_arr = np.arange(nTrials)
+        # upper triangle weights for grand average
+        weights = np.arange(1, nTrials) / (nTrials - 1)
+
         # any selection got already digested by the preceding st_compRoutine
-        # so we can loop over all trials
-        for trl_idx in range(nTrials):
+        # so we can loop over all trials for the upper triangular (w/o diagonal)
+        for trl_idx in range(1, nTrials):
+
             # hdf5 index tuple to access a 2nd trial
+            # needs to be done before(!) any trial subselection
             trl2_idx = st_out._preview_trial(trl_idx).idx
             hdf5_path = st_out._filename
+
+            # create selection for upper triangle
+            trl_bi = trl_arr < trl_idx
+            st_out.selectdata(trials=trl_arr[trl_bi], inplace=True)
 
             # set up CR
             ppc_CR = PPC_column(trl2_idx=trl2_idx,
@@ -478,16 +489,16 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                               keeptrials=True)
             ppc_CR.compute(st_out, trl_pairs, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
-            # deselect diagonal entry for correct ppc average
-            trl_sel = list(range(nTrials))
-            trl_sel.remove(trl_idx)
-            trl_pairs.selectdata(trials=trl_sel, inplace=True)
             # now average the nTrials-1 remaining pairs
             trl_pairs_avg = st.mean(trl_pairs, dim='trials')
-            accumulator += trl_pairs_avg.trials[0]
+            accumulator += trl_pairs_avg.trials[0] * weights[trl_idx - 1]
+
+            # reset selection
+            st_out.selection = None
 
         # normalize and create single trial PPC output object
-        accumulator /= nTrials
+        accumulator *= 2 / nTrials
+
         out = CrossSpectralData(dimord=st_dimord, data=accumulator)
         time_axis = np.any(np.diff(st_out.trialdefinition)[:, 0] != 1)
         propagate_properties(st_out, out, keeptrials=False, time_axis=time_axis)
