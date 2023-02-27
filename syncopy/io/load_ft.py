@@ -26,17 +26,12 @@ def load_ft_raw(filename,
                 list_only=False,
                 select_structures=None,
                 include_fields=None,
-                mem_use=2000):
+                mem_use=4000):
 
     """
     Imports raw time-series data from Field Trip
     into potentially multiple :class:`~syncopy.AnalogData` objects,
     one for each structure found within the MAT-file.
-
-    For MAT-File < v7.3 the MAT-file gets loaded completely
-    into RAM, but its size should be capped by Matlab at 2GB.
-    The v7.3 is in hdf5 format and will be read in trial-by-trial,
-    this should be the Matlab default for MAT-Files exceeding 2GB.
 
     The aim is to parse each FT data structure, which
     have the following fields (Syncopy analogon on the right):
@@ -50,17 +45,20 @@ def load_ft_raw(filename,
     +--------------------+------------+
     | time               | time       |
     +--------------------+------------+
+    | trialinfo          | trialinfo  |
+    +--------------------+------------+
     | fsample (optional) | samplerate |
     +--------------------+------------+
-    | cfg                | ?          |
+    | cfg                | cfg        |
     +--------------------+------------+
 
     Limitations:
 
     The FT `cfg` contains a lot of meta data which at the
-    moment we don't import into Syncopy.
+    moment we don't import into Syncopy. Syncopy however has
+    it's own `cfg` mirroring FT's functionality (replay analyses)
 
-    FT `sampleinfo` is not compatible with Syncopy
+    FT's `sampleinfo` is not generally compatible with Syncopy
 
     Parameters
     ----------
@@ -86,6 +84,13 @@ def load_ft_raw(filename,
     out_dict: dict
         Dictionary with the names of the structures as keys loaded from the MAT-File,
         and :class:`~syncopy.AnalogData` datasets as values
+
+    Notes
+    -----
+    For MAT-File < v7.3 the MAT-file gets loaded completely
+    into RAM using :func:`scipy.io.loadmat`, but its size should be capped by Matlab at 2GB.
+    The >v7.3 MAT-files are in hdf5 format and will be read in trial-by-trial,
+    this should be the Matlab default for MAT-files exceeding 2GB.
 
     See also
     --------
@@ -265,14 +270,22 @@ def _read_hdf_structure(h5Group,
     # -- retrieve shape information --
     nTrials = trl_refs.size
 
-    # peek in 1st trial to determine single trial shape
-    # we only support equal trial lengths at this stage
-    nSamples, nChannels = h5File[trl_refs[0]].shape
-    nTotalSamples = nTrials * nSamples
+    # peek in 1st trial to determine the number of channels
+    # and one trial size for
+    nSamples1, nChannels = h5File[trl_refs[0]].shape
+    # compute total hdf5 shape
+    # we stack along 1st axis
+    trlSamples = [h5File[ref].shape[0] for ref in trl_refs]
+    # in samples
+    mean_trl_size = np.mean(trlSamples)
+    nTotalSamples = np.sum(trlSamples)
+    # get sample indices
+    si = np.r_[0, np.cumsum(trlSamples)]
+    sampleinfo = np.column_stack([si[:-1], si[1:]])
 
     itemsize = h5File[trl_refs[0]].dtype.itemsize
     # in Mbyte
-    trl_size = itemsize * nSamples * nChannels / 1e6
+    trl_size = itemsize * mean_trl_size * nChannels / 1e6
 
     # assumption: single trial fits into RAM
     if trl_size >= 0.4 * mem_use:
@@ -285,39 +298,42 @@ def _read_hdf_structure(h5Group,
     # create new hdf5 dataset for our AnalogData
     # with the default dimord ['time', 'channel']
     # and our default data type np.float32 -> implicit casting!
-    h5FileOut = h5py.File(AData.filename, mode="w")
-    ADset = h5FileOut.create_dataset("data",
-                                     dtype=np.float32,
-                                     shape=[nTotalSamples, nChannels])
+    with h5py.File(AData.filename, mode="w") as h5FileOut:
+        ADset = h5FileOut.create_dataset("data",
+                                         dtype=np.float32,
+                                         shape=[nTotalSamples, nChannels])
 
-    pbar = tqdm(trl_refs, desc=f"{struct_name} - loading {nTrials} trials", disable=None)
-    SampleCounter = 0   # trial stacking
+        pbar = tqdm(trl_refs, desc=f"{struct_name} - loading {nTrials} trials", disable=None)
 
-    # one swipe per trial
-    for tr in pbar:
-        trl_array = h5File[tr]
-        if trl_array.shape != (nSamples, nChannels):
-            lgl = 'trials of equal lenghts'
-            actual = 'trials of unequal lengths'
-            raise SPYValueError(lgl, actual=actual)
-        ADset[SampleCounter:SampleCounter + nSamples, :] = trl_array
-        SampleCounter += nSamples
-    pbar.close()
+        SampleCounter = 0   # trial stacking
+        # one swipe per trial
+        for tr in pbar:
+            trl_array = h5File[tr]
+            # in samples
+            trl_samples = trl_array.shape[0]
+            ADset[SampleCounter:SampleCounter + trl_samples, :] = trl_array
+            SampleCounter += trl_samples
+        pbar.close()
 
-    AData.data = ADset
+        AData.data = ADset
+
+    AData._reopen()
 
     # -- trialdefinition --
-
-    nTr_rng = np.arange(nTrials)
-    sampleinfo = np.vstack([nTr_rng, nTr_rng + 1]).T * nSamples
 
     offsets = []
     # we need to look into the time vectors for each trial
     for time_r in time_refs:
         offsets.append(h5File[time_r][0, 0])
-    offsets = np.array(offsets)
-
+    offsets = np.rint(np.array(offsets) * AData.samplerate)
     trl_def = np.hstack([sampleinfo, offsets[:, None]])
+
+    # check if there is a 'trialinfo'
+    try:
+        trl_def = np.hstack([trl_def, h5Group['trialinfo']])
+    except KeyError:
+        pass
+
     AData.trialdefinition = trl_def
 
     # each channel label is an integer array with shape (X, 1),
@@ -438,7 +454,7 @@ def _read_dict_structure(structure, include_fields=None):
     offsets = np.array([tvec[0] for tvec in structure['time']])
     offsets *= AData.samplerate
 
-    # build trialdefinition    
+    # build trialdefinition
     trl_def = np.column_stack([sampleinfo, offsets])
 
     # check if there is a 'trialinfo'
