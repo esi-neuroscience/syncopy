@@ -55,10 +55,12 @@ def load_ft_raw(filename,
     | cfg                | ?          |
     +--------------------+------------+
 
+    Limitations:
+
     The FT `cfg` contains a lot of meta data which at the
     moment we don't import into Syncopy.
 
-    This is still experimental code, use with caution!!
+    FT `sampleinfo` is not compatible with Syncopy
 
     Parameters
     ----------
@@ -388,23 +390,6 @@ def _read_dict_structure(structure, include_fields=None):
     Syncopy has nSamples x nChannels
     """
 
-    # nTrials = structure["trial"].shape[0]
-    trials = []
-
-    # 1st trial as reference
-    nChannels, nSamples = structure['trial'][0].shape
-
-    # check equal trial lengths
-    for trl in structure['trial']:
-
-        if trl.shape[-1] != nSamples:
-            lgl = 'Trials of equal lengths'
-            actual = 'Trials of unequal lengths'
-            raise SPYValueError(lgl, varname="load .mat", actual=actual)
-
-        # channel x sample ordering in FT
-        # default data type np.float32 -> implicit casting!
-        trials.append(trl.T.astype(np.float32))
 
     # initialize AnalogData
     if 'fsample' in structure:
@@ -412,20 +397,56 @@ def _read_dict_structure(structure, include_fields=None):
     else:
         samplerate = _infer_fsample(structure['time'][0])
 
-    AData = AnalogData(trials, samplerate=samplerate)
+    AData = AnalogData(samplerate=samplerate)
+
+    # compute total hdf5 shape
+    # we use fixed stacking along 1st axis
+    # but channel x sample ordering in FT
+    nTotalSamples = np.sum([trl.shape[1] for trl in structure['trial']])
+    nChannels = structure['trial'][0].shape[0]
+    sampleinfo = []
+
+    with h5py.File(AData._filename, 'w') as h5file:
+
+        dset = h5file.create_dataset("data",
+                                     dtype=np.float32,
+                                     shape=[nTotalSamples, nChannels])
+
+        stack_count = 0
+        for trl in structure['trial']:
+            trl_size = trl.shape[1]
+            # default data type np.float32 -> implicit casting!
+            dset[stack_count:stack_count + trl_size] = trl.T.astype(np.float32)
+
+            # construct on the fly to cover all the trials
+            sampleinfo.append(np.array([stack_count, stack_count + trl_size]))
+
+            stack_count += trl_size
+
+        AData.data = dset
+
+    AData._reopen()
+
+    sampleinfo = np.array(sampleinfo)
 
     # get the channel ids
     channels = structure['label']
     # set the channel ids
     AData.channel = list(channels.astype(str))
 
-    # update trialdefinition
-    times_array = np.vstack(structure['time'])
+    # get the offets
+    offsets = np.array([tvec[0] for tvec in structure['time']])
+    offsets *= AData.samplerate
 
-    # nTrials x nSamples
-    offsets = times_array[:, 0] * AData.samplerate
+    # build trialdefinition    
+    trl_def = np.column_stack([sampleinfo, offsets])
 
-    trl_def = np.hstack([AData.sampleinfo, offsets[:, None]])
+    # check if there is a 'trialinfo'
+    try:
+        trl_def = np.hstack([trl_def, structure['trialinfo']])
+    except KeyError:
+        pass
+
     AData.trialdefinition = trl_def
 
     # -- Additional Fields --

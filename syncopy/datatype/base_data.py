@@ -716,7 +716,7 @@ class BaseData(ABC):
     @sampleinfo.setter
     def sampleinfo(self, sinfo):
         raise SPYError(
-            "Cannot set sampleinfo. Use `BaseData._trialdefinition` instead."
+            "Cannot set sampleinfo. Use `BaseData.trialdefinition` instead."
         )
 
     @property
@@ -772,7 +772,7 @@ class BaseData(ABC):
     @trialinfo.setter
     def trialinfo(self, trl):
         raise SPYError(
-            "Cannot set trialinfo. Use `BaseData._trialdefinition` or `syncopy.definetrial` instead."
+            "Cannot set trialinfo. Use `BaseData.trialdefinition` or `syncopy.definetrial` instead."
         )
 
     # Helper function that grabs a single trial

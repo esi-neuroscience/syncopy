@@ -93,10 +93,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 raise exc
             evt = True
         else:
-            try:
-                array_parser(trialdefinition, varname="trialdefinition", dims=2)
-            except Exception as exc:
-                raise exc
+            array_parser(trialdefinition, varname="trialdefinition", dims=2)
 
             if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
                 scount = obj.data.shape[obj.dimord.index("time")]
