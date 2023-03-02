@@ -4,7 +4,6 @@
 #
 
 # Builtin/3rd party package imports
-import sys
 import re
 import h5py
 import numpy as np
@@ -12,7 +11,7 @@ from scipy import io as sio
 from tqdm import tqdm
 
 # Local imports
-from syncopy.shared.errors import SPYValueError, SPYInfo, SPYWarning, SPYTypeError
+from syncopy.shared.errors import SPYValueError, SPYInfo, SPYWarning
 from syncopy.shared.parsers import io_parser, sequence_parser, scalar_parser
 from syncopy.datatype import AnalogData
 
@@ -209,7 +208,6 @@ def load_ft_raw(filename,
         _check_req_fields(req_fields_raw, structure)
         # the AnalogData objs
         adata = struct_reader(structure)
-        thisMethod = sys._getframe().f_code.co_name.replace("_", "")
 
         # Write log-entry
         msg = f"loaded struct `{skey}` from Matlab file version {version}\n"
