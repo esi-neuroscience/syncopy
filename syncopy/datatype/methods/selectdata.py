@@ -245,16 +245,21 @@ def selectdata(data,
     """
 
     # Ensure our one mandatory input is usable
-    try:
-        data_parser(data, varname="data", empty=False)
-    except Exception as exc:
-        raise exc
+    data_parser(data, varname="data", empty=False)
 
     # Vet the only inputs not checked by `Selector`
     if not isinstance(inplace, bool):
         raise SPYTypeError(inplace, varname="inplace", expected="Boolean")
     if not isinstance(clear, bool):
         raise SPYTypeError(clear, varname="clear", expected="Boolean")
+
+    # there is no `@unwrap_select` decorator in place here,
+    # a `select` dictionary must therefore be directly passed via ** unpacking:
+    # select = {'channel': [0]}; spy.selectdata(data, **select)
+    if 'select' in kwargs:
+        lgl = "unpacked selection keywords directly, try `**select`"
+        act = "`select` as explicit parameter"
+        raise SPYValueError(legal=lgl, varname="selection kwargs", actual=act)
 
     # get input arguments into cfg dict
     new_cfg = get_frontend_cfg(get_defaults(selectdata), locals(), kwargs)

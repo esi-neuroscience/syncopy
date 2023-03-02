@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - add waveform extra dataset to DiscreteData to store raw data, #238
 
 ### CHANGED
+- support unequal trial sizes for `load_ft_raw`
 - major performance improvements for DiscreteData #403 #418, #424
 
 ### Fixed
