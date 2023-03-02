@@ -368,7 +368,16 @@ def _trial_statistics(in_data, operation='mean'):
     elif operation == 'std':
         result = np.sqrt(_trial_var(in_data, result))
     elif operation == 'itc':
-        result = np.abs(_trial_circ_average(in_data, result))
+        # itc is only available for SpectralData
+        # ..get's checked in `spy.itc` above
+        result = _trial_circ_average(in_data, result)
+        # average out tapers (if any)
+        taper_ax = in_data.dimord.index('taper')
+        result = np.mean(result, axis=taper_ax, keepdims=True)
+        # now take the abs to get the resultant vector
+        result = np.abs(result)
+        # silence already digested taper selection
+        in_data.selection._taper = None
 
     # there is no apparent clever way to achieve
     # this efficiently over multiple dimensions
@@ -460,15 +469,15 @@ def _trial_circ_average(in_data, out_arr):
 
     Parameters
     ----------
-    in_data : Syncopy data object
-        To get a fresh trial indexer instance, pointing to the trial arrays
+    in_data : Syncopy data object of complex dtype, e.g. :class:`~syncopy.SpectralData`
+        Complex valued data
     out_arr : np.ndarray
         The empty NumPy array of correct shape to collect the results
     """
 
     trials = in_data.selection.trials
     for trl in trials:
-        # add cartesian unit vectors
+        # add unit vectors on complex plane
         out_arr += trl / np.abs(trl)
 
     # normalize
