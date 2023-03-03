@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - fix bug #394 'Copying a spy.StructDict returns a dict'.
 - serializable `.cfg` #392
+- single trial cross-corr bug #446
 
 ## [2022.12]
 

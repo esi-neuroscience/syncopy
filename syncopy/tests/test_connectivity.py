@@ -578,9 +578,9 @@ class TestCSD:
 class TestCorrelation:
 
     nChannels = 5
-    nTrials = 10
+    nTrials = 50
     fs = 1000
-    nSamples = 2000   # 2s long signals
+    nSamples = 2001   # 2s long signals
 
     # -- a single harmonic with phase shifts between channels
 
@@ -613,6 +613,7 @@ class TestCorrelation:
 
     def test_corr_solution(self, **kwargs):
 
+        # `keeptrials=False` is the default here!
         corr = cafunc(data=self.data, method='corr', **kwargs)
 
         # test 0-lag autocorr is 1 for all channels
@@ -656,6 +657,15 @@ class TestCorrelation:
 
         # only plot for simple solution test
         if len(kwargs) == 0:
+
+            # test that keeptrials=False yields (almost) same results
+            # as post-hoc trial averaging
+            corr_st = cafunc(data=self.data, method='corr', keeptrials=True)
+            corr_st_trl_avg = spy.mean(corr_st, dim='trials')
+            # keeptrials=False normalizes with global signal variances
+            # hence there can be actually small differences
+            assert np.allclose(corr_st_trl_avg.data[()], corr.data[()], atol=1e-2)
+
             plot_corr(corr, 0, 0, label='corr 0-0')
             plot_corr(corr, 1, 1, label='corr 1-1')
             plot_corr(corr, 0, 2, label='corr 0-2')
