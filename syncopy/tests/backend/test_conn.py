@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 #
-# syncopy.nwanalysis backend method tests
+# syncopy.connectivity backend method tests
 #
 import numpy as np
 import matplotlib.pyplot as ppl
 
 from syncopy.tests import synth_data
-from syncopy.nwanalysis import csd
-from syncopy.nwanalysis import ST_compRoutines as stCR
-from syncopy.nwanalysis.wilson_sf import (
+from syncopy.connectivity import csd
+from syncopy.connectivity import ST_compRoutines as stCR
+from syncopy.connectivity.wilson_sf import (
     wilson_sf,
     regularize_csd,
     max_rel_err
 )
-from syncopy.nwanalysis.granger import granger
+from syncopy.connectivity.granger import granger
 
 
 def test_coherence():

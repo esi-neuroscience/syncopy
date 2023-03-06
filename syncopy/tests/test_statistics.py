@@ -4,6 +4,7 @@
 #
 
 # Builtin/3rd party package imports
+import os
 import pytest
 import numpy as np
 import dask.distributed as dd
@@ -13,11 +14,11 @@ import scipy.stats as st
 # Local imports
 import syncopy as spy
 from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests import helpers
 from syncopy.tests import synth_data as sd
 from syncopy.statistics import jackknifing as jk
-from syncopy.nwanalysis.AV_compRoutines import NormalizeCrossSpectra
+from syncopy.connectivity.AV_compRoutines import NormalizeCrossSpectra
 
 
 class TestSumStatistics:
@@ -256,7 +257,9 @@ class TestSumStatistics:
                                    output='fourier',
                                    foilim=[0, 100])
 
-        spec = spy.freqanalysis(adata, foilim=[0, 100], output='fourier')
+        # test also taper averaging
+        spec = spy.freqanalysis(adata, foilim=[0, 100],
+                                output='fourier', tapsmofrq=.5, keeptapers=True)
 
         # -- calculate itc --
         itc = spy.itc(spec)
@@ -269,9 +272,9 @@ class TestSumStatistics:
         assert itc.data[()].min() >= 0
 
         # high itc around the in phase 60Hz
-        assert np.all(itc.show(frequency=60) > 0.99)
+        assert np.all(itc.show(frequency=60) > 0.6)
         # low (time averaged) itc around the drifters
-        assert np.all(itc.show(frequency=30) < 0.4)
+        assert np.all(itc.show(frequency=30) < 0.25)
 
         assert np.all(np.imag(tf_itc.data[()]) == 0)
         assert tf_itc.data[()].max() <= 1
@@ -501,6 +504,116 @@ class TestJackknife:
         # and no frequency bin has a coherence high enough to reject the C=0 hypothesis
         # we could still expect to get a 'significant' coherence max 5% of the time
         assert np.sum(pvals < 0.05) / coh.freq.size < 0.05
+
+        # finally fire up the frontend and compare results
+        res = spy.connectivityanalysis(adata, method='coh', jackknife=True, output=output)
+
+        assert np.allclose(res.jack_var, variance.data)
+        assert np.allclose(res.jack_bias, bias.data)
+
+    def test_jk_frontend(self):
+
+        # no seed needed here
+        adata = spy.AnalogData(data=[i * np.random.randn(5, 3) for i in range(3)],
+                               samplerate=7)
+
+        # test check for boolean type
+        with pytest.raises(SPYTypeError, match='expected boolean'):
+            spy.connectivityanalysis(adata, method='coh', jackknife=3)
+
+        # test log filing for methods not supporting jackknife
+        spy.connectivityanalysis(adata, method='csd', jackknife=True)
+        logfile = os.path.join(spy.__logdir__, "syncopy.log")
+        with open(logfile, 'r') as lfile:
+            lines = lfile.readlines()
+            assert 'Jackknife is not available for method' in lines[-1]
+
+        spy.connectivityanalysis(adata, method='corr', jackknife=True)
+        logfile = os.path.join(spy.__logdir__, "syncopy.log")
+        with open(logfile, 'r') as lfile:
+            lines = lfile.readlines()
+            assert 'Jackknife is not available for method' in lines[-1]
+
+        # check that jack attributes are not appended if no jackknifing was done
+        res = spy.connectivityanalysis(adata, method='corr')
+        assert not hasattr(res, 'jack_var')
+        assert not hasattr(res, 'jack_bias')
+
+        res = spy.connectivityanalysis(adata, method='coh', jackknife=False)
+        assert not hasattr(res, 'jack_var')
+        assert not hasattr(res, 'jack_bias')
+
+        res = spy.connectivityanalysis(adata, method='granger', jackknife=False)
+        assert not hasattr(res, 'jack_var')
+        assert not hasattr(res, 'jack_bias')
+
+    def test_jk_granger(self):
+
+        AdjMat = np.zeros((2,2))
+        # weak coupling 1 -> 0
+        AdjMat[1, 0] = 0.025
+        nTrials = 35
+        adata = sd.AR2_network(nTrials, AdjMat=AdjMat, seed=42)
+        # true causality is at 200Hz
+        flims = [190, 210]
+
+        # direct estimate
+        res = spy.connectivityanalysis(adata, method='granger',
+                                       jackknife=True,
+                                       tapsmofrq=5)
+        # there will be bias
+        assert not np.allclose(res.jack_bias, np.zeros(res.data.shape))
+
+        b10, v10, g10 = (res.jack_bias[0, :, 1, 0],
+                         res.jack_var[0, :, 1, 0],
+                         res.show(channel_i=1, channel_j=0)
+                         )
+        # standard error of the mean
+        SEM = np.sqrt(v10 / nTrials)
+
+        # plot confidence intervals
+        fig, ax = ppl.subplots()
+        ax.set_title(f"Granger causality between weakly coupled AR(2)")
+        ax.set_xlabel("frequency (Hz)")
+        ax.set_ylabel("Granger")
+        ax.plot(res.freq, g10, label=f"nTrials={nTrials}")
+        ax.fill_between(res.freq, g10, g10 + 1.96 * SEM, color='k', alpha=0.3, label='95% Jackknife CI')
+        ci2 = g10 - 1.96 * SEM
+        ci2[ci2 < 0] = 0
+        ax.fill_between(res.freq, g10, ci2, color='k', alpha=0.3)
+        ax.plot([flims[0], flims[0]], [0, 0.04], '--', alpha=0.5, lw=2, c='red')
+        ax.plot([flims[-1], flims[-1]], [0, 0.04], '--', alpha=0.5, lw=2, c='red')
+        ax.legend()
+        fig.tight_layout()
+
+        # calculate the z-scores from the jackknife estimate
+        # and jackknife variance for 0 granger causality
+        # as 0-hypothesis
+        Zs = (g10 - b10) / SEM
+
+        # now get p-values from survival function
+        pvals = st.norm.sf(Zs)
+
+        # boolean indices of frequency interval with true causality
+        bi = (res.freq > flims[0]) & (res.freq < flims[-1])
+
+        fig, ax = ppl.subplots()
+        ax.set_title("Jackknife p-values for $H_0$: Granger = 0")
+        ax.set_xlabel("Granger causality")
+        ax.set_ylabel("p-value")
+        ax.plot(g10[~bi], pvals[~bi], 'o', alpha=0.4, c='k', ms=5, mec='w')
+        ax.plot(g10[bi], pvals[bi], 'o', alpha=0.4, c='red', ms=4, label=f'{flims[0]}Hz-{flims[-1]}Hz')
+
+        ax.plot([0, g10.max()], [0.05, 0.05], 'k--', label='5%')
+        ax.legend()
+
+        # make sure most (>95%) frequency bins outside the causality region have high p-value
+        assert np.sum(pvals[~bi] > 0.05) / (res.freq.size - np.sum(bi)) > 0.95
+
+        # check that at least 80% of causality values within the freq interval are below
+        # the 5% significance interval and hence are deteceted as true positives
+        assert np.sum(pvals[bi] < 0.05) / bi[bi].size > 0.8
+
 
 if __name__ == '__main__':
 
