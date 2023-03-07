@@ -52,7 +52,7 @@ def runica(
 
     Examples
     --------
-    In the following `adata` is an instance of :class:`~syncopy.AnalogData`
+    In the following, `adata` is an instance of :class:`~syncopy.AnalogData`.
 
     ICA with the default FastICA method:
 

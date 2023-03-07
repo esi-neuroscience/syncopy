@@ -861,7 +861,7 @@ def _resampling_trl_definition(orig_trl, factor):
 
 
 @process_io
-def fastica_cF(dat, timeAxis=0, noCompute=False, chunkShape=None, init_params = {'random_state':0, 'whiten':'unit-variance'}):
+def fastica_cF(dat, timeAxis=0, noCompute=False, chunkShape=None, init_params = { 'n_components': None, 'random_state': 0, 'whiten': 'unit-variance'}):
     """Compute function for independent component analysis (ICA).
 
     Parameters
