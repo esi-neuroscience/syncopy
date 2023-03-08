@@ -560,16 +560,17 @@ class BaseData(ABC):
         self.trialdefinition = trialdefinition
 
     def _set_dataset_property_with_spy_list(self, inData, ndim):
-        """Set the `data` dataset property from a list of syncopy data objects.
+        """Set the `data` dataset property from a list of compatible
+           syncopy data objects.
            This implements concatenation along trials.
 
         Parameters
         ----------
-            inData : list
-                Non empty list of syncopy data objects, e.g. :class:`~syncopy.AnalogData`
-                Trials are stacked together to fill dataset.
-            ndim : int
-                Number of expected array dimensions.
+        inData : list
+            Non empty list of syncopy data objects, e.g. :class:`~syncopy.AnalogData`
+            Trials are stacked together to fill dataset.
+        ndim : int
+            Number of expected array dimensions.
         """
 
         # --  dataset shape and object attribute inquiries --
@@ -597,23 +598,27 @@ class BaseData(ABC):
         lgl = "compatible syncopy objects for concatenation"
         stack_count = 0
         for spy_obj in inData[i_ref:]:
+
             if spy_obj.data is None:
                 SPYWarning(f"Skipping empty dataset {spy_obj.filename} for concatenation")
                 continue
+
             if spy_obj._stackingDim != stacking_dim_ref:
                 act = f"different stacking dimensions, {stacking_dim_ref} and {spy_obj._stackingDim}"
                 raise SPYValueError(lgl, 'data', act)
+
             # catch mismatching dimensions (2d vs. 3d)
             if len(shape_ref) != len(spy_obj.data.shape):
                 act = f"different shapes, {tuple(shape_ref)} and {spy_obj.data.shape}"
-                raise SPYValueError(lgl, 'data', act)                
+                raise SPYValueError(lgl, 'data', act)
+
             # shape tuple gets casted by numpy for array subtraction
             if not np.all((shape_ref - spy_obj.data.shape)[bvec] == 0):
                 act = f"different shapes, {tuple(shape_ref)} and {spy_obj.data.shape}"
                 raise SPYValueError(lgl, 'data', act)
 
             # check attributes like channel, freq, etc.
-            # this catches incompatible syncopy types, e.g. SpectralData and AnalogData
+            # this also catches incompatible syncopy data types, e.g. SpectralData and AnalogData
             for attr in spy_obj._hdfFileAttributeProperties:
                 if attr.startswith('_'):
                     continue
@@ -637,7 +642,11 @@ class BaseData(ABC):
 
         # finally create the chained trial generator
         trl_gen = chain(*[spy_obj.trials for spy_obj in inData])
-        print(res_shape, self.__class__)
+
+        # and route through the generator setter
+        self._set_dataset_property_with_generator(trl_gen,
+                                                  stacking_dim_ref,
+                                                  shape=res_shape)
 
     def _set_dataset_property_with_generator(self, gen,
                                              stacking_dim,
@@ -647,6 +656,20 @@ class BaseData(ABC):
         Create a dataset from a generator yielding (single trial) numpy arrays.
         If `shape` is not given fall back to hdf5 resizable datasets along
         the stacking dimension.
+
+        Parameters
+        ----------
+        gen : generator
+            Generator yielding (single trial) numpy arrays. Their shapes
+            have to match except along the `stacking_dim`
+        stacking_dim : int
+            Axis along the (single trial) arrays get stacked into the dataset.
+        shape : tuple
+            The final shape of the hdf5 dataset. If left at `None`,
+            the dataset will be resized along the stacking dimension
+            for every trial drawn from the generator.
+        propertyName : str
+            The name of the property which manages the dataset
         """
 
         if propertyName not in self._hdfFileDatasetProperties:
@@ -658,6 +681,12 @@ class BaseData(ABC):
             lgl = "empty syncopy object"
             act = "non-empty syncopy object"
             raise SPYValueError(lgl, 'data', act)
+
+        # can't change on the fly..
+        if self._stackingDim != stacking_dim:
+            lgl = f"stacking dim = {self._stackingDim}"
+            act = stacking_dim
+            raise SPYValueError(lgl, "stacking_dim", act)
 
         # look at 1st trial to determine fixed dimensions
         if shape is None:
@@ -679,6 +708,7 @@ class BaseData(ABC):
         trlSamples = []  # for constructing the trialdefinition
         with h5py.File(self.filename, "w") as h5f:
             dset = h5f.create_dataset(propertyName, shape=shape, maxshape=maxshape)
+
             # we have to plug in the 1st trial in case it was already generated
             if resize:
                 stack_step = trial1.shape[stacking_dim]
@@ -689,9 +719,8 @@ class BaseData(ABC):
 
             # now stream through the arrays from the generator
             for trial in gen:
-                print(trial.shape, dset.shape, stack_idx)
                 stack_step = trial.shape[stacking_dim]
-                # we have to resize for every trial
+                # we have to resize for every trial if no total shape was given
                 if resize:
                     dset.resize(stack_count + stack_step, axis=stacking_dim)
                 stack_idx[stacking_dim] = np.s_[stack_count:stack_count + stack_step]
@@ -703,7 +732,8 @@ class BaseData(ABC):
 
         self._reopen()
 
-        # construct trialdefinition with a standard offset
+        # -- construct trialdefinition --
+
         si = np.r_[0, np.cumsum(trlSamples)]
         sampleinfo = np.column_stack([si[:-1], si[1:]])
         trialdefinition = np.column_stack([sampleinfo, np.zeros(len(sampleinfo))])
