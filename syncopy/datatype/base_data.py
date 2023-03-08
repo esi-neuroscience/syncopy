@@ -676,14 +676,17 @@ class BaseData(ABC):
         # -- write data --
 
         stack_count = 0
+        trlSamples = []  # for constructing the trialdefinition
         with h5py.File(self.filename, "w") as h5f:
             dset = h5f.create_dataset(propertyName, shape=shape, maxshape=maxshape)
-            # we have to plug in the 1st trial already generated
+            # we have to plug in the 1st trial in case it was already generated
             if resize:
                 stack_step = trial1.shape[stacking_dim]
                 stack_idx[stacking_dim] = np.s_[0:stack_step]
                 dset[tuple(stack_idx)] = trial1
                 stack_count += stack_step
+                trlSamples.append(stack_step)
+
             # now stream through the arrays from the generator
             for trial in gen:
                 print(trial.shape, dset.shape, stack_idx)
@@ -694,10 +697,21 @@ class BaseData(ABC):
                 stack_idx[stacking_dim] = np.s_[stack_count:stack_count + stack_step]
                 dset[tuple(stack_idx)] = trial
                 stack_count += stack_step
+                trlSamples.append(stack_step)
 
             setattr(self, '_' + propertyName, dset)
 
         self._reopen()
+
+        # construct trialdefinition with a standard offset
+        si = np.r_[0, np.cumsum(trlSamples)]
+        sampleinfo = np.column_stack([si[:-1], si[1:]])
+        trialdefinition = np.column_stack([sampleinfo, np.zeros(len(sampleinfo))])
+        if self.samplerate is not None:
+            # set standard offset to -1s
+            trialdefinition[:, 2] = -self.samplerate
+
+        self.trialdefinition = trialdefinition
 
     def _check_dataset_property_discretedata(self, inData):
         """Check `DiscreteData` input data for shape consistency
