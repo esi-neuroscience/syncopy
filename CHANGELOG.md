@@ -7,13 +7,16 @@ All notable changes to this project will be documented in this file.
 - add PPC connectivity measure
 - add Jackknifing for coherence and Granger analysis
 - add logging functionality and respective developer documentation, #208
+- add waveform extra dataset to DiscreteData to store raw data, #238
 
 ### CHANGED
+- support unequal trial sizes for `load_ft_raw`
 - major performance improvements for DiscreteData #403 #418, #424
 
 ### Fixed
 - fix bug #394 'Copying a spy.StructDict returns a dict'.
 - serializable `.cfg` #392
+- single trial cross-corr bug #446
 
 ## [2022.12]
 

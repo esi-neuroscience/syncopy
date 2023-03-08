@@ -257,7 +257,9 @@ class TestSumStatistics:
                                    output='fourier',
                                    foilim=[0, 100])
 
-        spec = spy.freqanalysis(adata, foilim=[0, 100], output='fourier')
+        # test also taper averaging
+        spec = spy.freqanalysis(adata, foilim=[0, 100],
+                                output='fourier', tapsmofrq=.5, keeptapers=True)
 
         # -- calculate itc --
         itc = spy.itc(spec)
@@ -270,9 +272,9 @@ class TestSumStatistics:
         assert itc.data[()].min() >= 0
 
         # high itc around the in phase 60Hz
-        assert np.all(itc.show(frequency=60) > 0.99)
+        assert np.all(itc.show(frequency=60) > 0.6)
         # low (time averaged) itc around the drifters
-        assert np.all(itc.show(frequency=30) < 0.4)
+        assert np.all(itc.show(frequency=30) < 0.25)
 
         assert np.all(np.imag(tf_itc.data[()]) == 0)
         assert tf_itc.data[()].max() <= 1

@@ -579,24 +579,30 @@ class CrossCovariance(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # Get trialdef array + channels from source: note, since lags are encoded
-        # in time-axis, trial offsets etc. are bogus anyway: simply take max-sample
+        # in time-axis, trial offsets etc. are bogus anyways: simply take max-sample
         # counts / 2 to fit lags
         if data.selection is not None:
             chanSec = data.selection.channel
-            trl = np.ceil(data.selection.trialdefinition / 2)
+            old_trldef = data.selection.trialdefinition
         else:
             chanSec = slice(None)
-            trl = np.ceil(data.trialdefinition / 2)
+            old_trldef = data.trialdefinition
+
+        # these are the new trial sizes:
+        # max lag is half the available sample number
+        trl_sizes = np.ceil(np.diff(old_trldef, axis=1)[:, 0] / 2)
+        # create sampleinfo
+        si = np.r_[0, np.cumsum(trl_sizes)]
+        sampleinfo = np.column_stack([si[:-1], si[1:]])
+        # set offset to 0 (the 0-lag)
+        trl_def = np.column_stack([sampleinfo, np.zeros(len(trl_sizes), dtype=np.float32)])
 
         # If trial-averaging was requested, use the first trial as reference
-        # (all trials had to have identical lengths), and average onset timings
-
+        # trials had to have the same shape
         if not self.keeptrials:
-            trl = trl[[0], :]
+            trl_def = trl_def[[0], :]
 
-        # set 1st entry of time axis to the 0-lag
-        trl[:, 2] = 0
-        out.trialdefinition = trl
+        out.trialdefinition = trl_def
 
         # Attach remaining meta-data
         out.samplerate = data.samplerate

@@ -169,14 +169,15 @@ def median(spy_data, dim, keeptrials=True, **kwargs):
 
 @unwrap_select
 def itc(spec_data, **kwargs):
-    """
+    r"""
     Calculates the inter trial coherence for a
-    SpectralData ``spec_data`` object, the input
+    SpectralData `spec_data` object, the input
     spectrum needs to be complex.
     The ITC of N trials is given by the length
-    of the complex mean of vectors z_i(f):
+    of the complex mean of vectors `z_i(f)`:
 
-        1/N \sum z_i / |z_i|
+    .. math::
+        1/N \sum_{i=1}^{N} z_i / |z_i|
 
     and have therefore values between 0 and 1.
     In the literature this measure is also often
@@ -372,7 +373,16 @@ def _trial_statistics(in_data, operation='mean'):
     elif operation == 'std':
         result = np.sqrt(_trial_var(in_data, result))
     elif operation == 'itc':
-        result = np.abs(_trial_circ_average(in_data, result))
+        # itc is only available for SpectralData
+        # ..get's checked in `spy.itc` above
+        result = _trial_circ_average(in_data, result)
+        # average out tapers (if any)
+        taper_ax = in_data.dimord.index('taper')
+        result = np.mean(result, axis=taper_ax, keepdims=True)
+        # now take the abs to get the resultant vector
+        result = np.abs(result)
+        # silence already digested taper selection
+        in_data.selection._taper = None
 
     # there is no apparent clever way to achieve
     # this efficiently over multiple dimensions
@@ -464,15 +474,15 @@ def _trial_circ_average(in_data, out_arr):
 
     Parameters
     ----------
-    in_data : Syncopy data object
-        To get a fresh trial indexer instance, pointing to the trial arrays
+    in_data : Syncopy data object of complex dtype, e.g. :class:`~syncopy.SpectralData`
+        Complex valued data
     out_arr : np.ndarray
         The empty NumPy array of correct shape to collect the results
     """
 
     trials = in_data.selection.trials
     for trl in trials:
-        # add complex unit vectors
+        # add unit vectors on complex plane
         out_arr += trl / np.abs(trl)
 
     # normalize
