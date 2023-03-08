@@ -12,6 +12,7 @@ import os
 from abc import ABC, abstractmethod
 from hashlib import blake2b
 from functools import reduce
+from itertools import chain
 import shutil
 import numpy as np
 import h5py
@@ -285,7 +286,7 @@ class BaseData(ABC):
         try:
             supportedSetters[type(inData)](inData, propertyName, ndim=ndim)
         except KeyError:
-            msg = "filename of HDF5 file, HDF5 dataset, or NumPy array"
+            msg = "filename of HDF5 file, HDF5 dataset, list or NumPy array"
             raise SPYTypeError(inData, varname="data", expected=msg)
 
     def _set_dataset_property_with_none(self, inData, propertyName, ndim):
@@ -405,7 +406,6 @@ class BaseData(ABC):
             md = "r+"
         setattr(self, "_" + propertyName, h5py.File(self.filename, md)[propertyName])
 
-
     def _set_dataset_property_with_dataset(self, inData, propertyName, ndim):
         """Set a dataset property with an already loaded HDF5 dataset
 
@@ -442,13 +442,63 @@ class BaseData(ABC):
         setattr(self, "_" + propertyName, inData)
 
     def _set_dataset_property_with_list(self, inData, propertyName, ndim):
-        """Set a dataset property with list of NumPy arrays
+        """Set a dataset property with a list of NumPy arrays or syncopy
+           data objects.
 
         Parameters
         ----------
             inData : list
-                list of :class:`numpy.ndarray`s. Each array corresponds to
-                a trial. Arrays are stacked together to fill dataset.
+                list of :class:`numpy.ndarray`s or syncopy data objects.
+            propertyName : str
+                Name of the property to be filled with the concatenated array
+                Can only be ``data`` for syncopy objects to be concatenated.
+            ndim : int
+                Number of expected array dimensions.
+        """
+
+        # first catch empty lists
+        if len(inData) == 0:
+            msg = ("Trying to set syncopy data with empty list, "
+                   f"settting `{propertyName}` dataset to `None`!")
+            SPYWarning(msg)
+            self._set_dataset_property_with_none(None, propertyName, ndim)
+            return
+
+        # check if we have consistent list entries
+        check = np.sum([isinstance(val, np.ndarray) for val in inData])
+        # check has to be either 0 (no arrays) or len(inData) (all arrays)
+        if check != 0 and check != len(inData):
+            lgl = "consistent data types"
+            act = "mix of NumPy arrays and other data types"
+            raise SPYValueError(lgl, "data", act)
+
+        # as we catched empty lists above, and checked against inconsistent
+        # types we can do a hard instance check on the 1st entry only
+        if isinstance(inData[0], np.ndarray):
+            self._set_dataset_property_with_array_list(inData,
+                                                       propertyName,
+                                                       ndim)
+        # alternatively must be all syncopy data objects
+        else:
+            for val in inData:
+                data_parser(val)
+
+            # this should not happen, as all derived classes hardcoded this in their setters
+            if propertyName != 'data':
+                raise SPYError(f"Can't concatenate syncopy objects for dataset {propertyName}")
+
+            # if we landed here all is clear
+            self._set_dataset_property_with_spy_list(inData, ndim)
+
+    def _set_dataset_property_with_array_list(self, inData, propertyName, ndim):
+        """Set a dataset property with a list of NumPy arrays.
+
+        Parameters
+        ----------
+            inData : list
+                list of :class:`numpy.ndarray`s
+                Each array corresponds to a trial. Arrays are stacked
+                together to fill dataset.
             propertyName : str
                 Name of the property to be filled with the concatenated array
             ndim : int
@@ -457,10 +507,7 @@ class BaseData(ABC):
 
         # Check list entries: must be numeric, finite NumPy arrays
         for val in inData:
-            try:
-                array_parser(val, varname="data", hasinf=False, dims=ndim)
-            except Exception as exc:
-                raise exc
+            array_parser(val, varname="data", hasinf=False, dims=ndim)
 
         # Ensure we don't have a mix of real/complex arrays
         if np.unique([np.iscomplexobj(val) for val in inData]).size > 1:
@@ -511,6 +558,82 @@ class BaseData(ABC):
         data = np.concatenate(inData, axis=self._stackingDim)
         self._set_dataset_property_with_ndarray(data, propertyName, ndim)
         self.trialdefinition = trialdefinition
+
+    def _set_dataset_property_with_spy_list(self, inData, ndim):
+        """Set the `data` dataset property from a list of syncopy data objects.
+           This implements concatenation along trials.
+
+        Parameters
+        ----------
+            inData : list
+                Non empty list of syncopy data objects, e.g. :class:`~syncopy.AnalogData`
+                Trials are stacked together to fill dataset.
+            ndim : int
+                Number of expected array dimensions.
+        """
+
+        # --  dataset shape and object attribute inquiries --
+
+        # take the 1st non-empty object as reference
+        i_ref = 0   # to avoid "probably undefined loop variable" linter warning
+        for i_ref, spy_obj in enumerate(inData):
+            if spy_obj.data is None:
+                SPYWarning(f"Skipping empty dataset {spy_obj.filename} for concatenation")
+                continue
+            else:
+                spy_obj_ref = spy_obj
+                shape_ref = np.array(spy_obj.data.shape)
+                stacking_dim_ref = spy_obj._stackingDim
+                # collect remaining attribute names like channel, freq, etc.
+                attr_ref = [attr for attr in spy_obj._hdfFileAttributeProperties
+                            if not attr.startswith('_')]
+                # boolean array to index non-stacking dimensions
+                # for strict shape comparison
+                bvec = np.ones(shape_ref.size, dtype=bool)
+                bvec[stacking_dim_ref] = False
+                break
+
+        # now loop again and check against all others
+        lgl = "compatible syncopy objects for concatenation"
+        stack_count = 0
+        for spy_obj in inData[i_ref:]:
+            if spy_obj.data is None:
+                SPYWarning(f"Skipping empty dataset {spy_obj.filename} for concatenation")
+                continue
+            if spy_obj._stackingDim != stacking_dim_ref:
+                act = f"different stacking dimensions, {stacking_dim_ref} and {spy_obj._stackingDim}"
+                raise SPYValueError(lgl, 'data', act)
+            # catch mismatching dimensions (2d vs. 3d)
+            if len(shape_ref) != len(spy_obj.data.shape):
+                act = f"different shapes, {tuple(shape_ref)} and {spy_obj.data.shape}"
+                raise SPYValueError(lgl, 'data', act)                
+            # shape tuple gets casted by numpy for array subtraction
+            if not np.all((shape_ref - spy_obj.data.shape)[bvec] == 0):
+                act = f"different shapes, {tuple(shape_ref)} and {spy_obj.data.shape}"
+                raise SPYValueError(lgl, 'data', act)
+
+            # check attributes like channel, freq, etc.
+            # this catches incompatible syncopy types, e.g. SpectralData and AnalogData
+            for attr in spy_obj._hdfFileAttributeProperties:
+                if attr.startswith('_'): continue
+
+                attr_val = getattr(spy_obj, attr, None)
+                if attr_val is None or attr not in attr_ref:
+                    act = f"missing attribute `{attr}` in {spy_obj.filename}"
+                    raise SPYValueError(lgl, 'data', act)
+                # now check values, should be all arrays/sequences
+                if not np.all(getattr(spy_obj_ref, attr) == attr_val):
+                    act = f"different attribute values for `{attr}`"
+                    raise SPYValueError(lgl, 'data', act)
+
+            # finally increment stack count
+            stack_count += spy_obj.data.shape[stacking_dim_ref]
+
+        # now we have all we need to compute
+        # the shape of the concatenated object
+        res_shape = shape_ref
+        res_shape[stacking_dim_ref] = stack_count
+        print(res_shape, self.__class__)
 
     def _check_dataset_property_discretedata(self, inData):
         """Check `DiscreteData` input data for shape consistency
