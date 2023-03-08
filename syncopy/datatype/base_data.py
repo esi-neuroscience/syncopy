@@ -391,7 +391,7 @@ class BaseData(ABC):
             if propertyName not in self._hdfFileDatasetProperties:
                 if getattr(self, "_" + propertyName) is not None and not isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
                     raise SPYValueError(legal="propertyName that does not clash with existing attributes",
-                                        varname=propertyName, actual=propertyName)
+                                        varname='propertyName', actual=propertyName)
 
             h5f = self._get_backing_hdf5_file_handle()
             if h5f is None:
@@ -615,7 +615,8 @@ class BaseData(ABC):
             # check attributes like channel, freq, etc.
             # this catches incompatible syncopy types, e.g. SpectralData and AnalogData
             for attr in spy_obj._hdfFileAttributeProperties:
-                if attr.startswith('_'): continue
+                if attr.startswith('_'):
+                    continue
 
                 attr_val = getattr(spy_obj, attr, None)
                 if attr_val is None or attr not in attr_ref:
@@ -633,7 +634,70 @@ class BaseData(ABC):
         # the shape of the concatenated object
         res_shape = shape_ref
         res_shape[stacking_dim_ref] = stack_count
+
+        # finally create the chained trial generator
+        trl_gen = chain(*[spy_obj.trials for spy_obj in inData])
         print(res_shape, self.__class__)
+
+    def _set_dataset_property_with_generator(self, gen,
+                                             stacking_dim,
+                                             shape=None,
+                                             propertyName='data'):
+        """
+        Create a dataset from a generator yielding (single trial) numpy arrays.
+        If `shape` is not given fall back to hdf5 resizable datasets along
+        the stacking dimension.
+        """
+
+        if propertyName not in self._hdfFileDatasetProperties:
+            raise SPYValueError(legal=f"one of {self._hdfFileDatasetProperties}",
+                                varname='propertyName', actual=propertyName)
+
+        # If there is existing data, get out
+        if isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
+            lgl = "empty syncopy object"
+            act = "non-empty syncopy object"
+            raise SPYValueError(lgl, 'data', act)
+
+        # look at 1st trial to determine fixed dimensions
+        if shape is None:
+            trial1 = next(gen)
+            shape = list(trial1.shape)  # initial shape
+            maxshape = shape.copy()
+            maxshape[stacking_dim] = None
+            resize = True
+        else:
+            maxshape = None
+            resize = False
+
+        # constuct slicing index
+        stack_idx = [np.s_[:] for _ in range(len(shape))]
+
+        # -- write data --
+
+        stack_count = 0
+        with h5py.File(self.filename, "w") as h5f:
+            dset = h5f.create_dataset(propertyName, shape=shape, maxshape=maxshape)
+            # we have to plug in the 1st trial already generated
+            if resize:
+                stack_step = trial1.shape[stacking_dim]
+                stack_idx[stacking_dim] = np.s_[0:stack_step]
+                dset[tuple(stack_idx)] = trial1
+                stack_count += stack_step
+            # now stream through the arrays from the generator
+            for trial in gen:
+                print(trial.shape, dset.shape, stack_idx)
+                stack_step = trial.shape[stacking_dim]
+                # we have to resize for every trial
+                if resize:
+                    dset.resize(stack_count + stack_step, axis=stacking_dim)
+                stack_idx[stacking_dim] = np.s_[stack_count:stack_count + stack_step]
+                dset[tuple(stack_idx)] = trial
+                stack_count += stack_step
+
+            setattr(self, '_' + propertyName, dset)
+
+        self._reopen()
 
     def _check_dataset_property_discretedata(self, inData):
         """Check `DiscreteData` input data for shape consistency
