@@ -1379,13 +1379,12 @@ class BaseData(ABC):
     # Class "constructor"
     def __init__(self, filename=None, dimord=None, mode="r+", **kwargs):
         """
-        Docstring
+        Keys of kwargs are the datasets from _hdfFileDatasetProperties, and
+        kwargs must *only* include datasets for which a property with a setter exists.
 
         1. filename + data = create HDF5 file at filename with data in it
         2. data only
 
-        Keys of kwargs are the datasets from _hdfFileDatasetProperties, and
-        kwargs must *only* include datasets for which a setter exists.
         """
 
         # each instance needs its own cfg!

@@ -42,7 +42,9 @@ class ContinuousData(BaseData, ABC):
 
     @property
     def data(self):
-        """array-like object representing data without trials
+        """
+        hdf5 dataset property representing contiguous
+        data without trialdefinition
 
         Trials are concatenated along the time axis.
         """
