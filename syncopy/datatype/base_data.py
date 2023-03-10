@@ -12,6 +12,7 @@ import os
 from abc import ABC, abstractmethod
 from hashlib import blake2b
 from itertools import chain
+from types import GeneratorType
 import shutil
 import numpy as np
 import h5py
@@ -261,8 +262,9 @@ class BaseData(ABC):
 
         Parameters
         ----------
-            dataIn : str, np.ndarray, or h5py.Dataset
-                Filename, array or HDF5 dataset to be stored in property
+            dataIn : str, np.ndarray, or h5py.Dataset, list, generator
+                Filename, array, list of arrays, list of syncopy objects,
+                HDF5 dataset or generator object to be stored in property
             propertyName : str
                 Name of the property. The actual data must reside in the attribute
                 `"_" + propertyName`
@@ -277,6 +279,7 @@ class BaseData(ABC):
                 ndim = len(self._defaultDimord)
 
         supportedSetters = {
+            GeneratorType: self._set_dataset_property_with_generator,
             list: self._set_dataset_property_with_list,
             str: self._set_dataset_property_with_str,
             np.ndarray: self._set_dataset_property_with_ndarray,
@@ -286,7 +289,7 @@ class BaseData(ABC):
         try:
             supportedSetters[type(inData)](inData, propertyName, ndim=ndim)
         except KeyError:
-            msg = "filename of HDF5 file, HDF5 dataset, list or NumPy array"
+            msg = "filename of HDF5 file, HDF5 dataset, list, generator or NumPy array"
             raise SPYTypeError(inData, varname="data", expected=msg)
 
     def _set_dataset_property_with_none(self, inData, propertyName, ndim):
@@ -562,7 +565,7 @@ class BaseData(ABC):
     def _set_dataset_property_with_spy_list(self, inData, ndim):
         """Set the `data` dataset property from a list of compatible
            syncopy data objects.
-           This implements concatenation along trials.
+           This implements concatenation along trials of syncopy data objects.
 
         Parameters
         ----------
@@ -584,6 +587,12 @@ class BaseData(ABC):
             else:
                 spy_obj_ref = spy_obj
                 shape_ref = np.array(spy_obj.data.shape)
+
+                if len(shape_ref) != ndim:
+                    lgl = f"dataset with dimension of {ndim}"
+                    act = f"got dataset with dimension {len(shape_ref)}"
+                    raise SPYValueError(lgl, 'data', act)
+
                 stacking_dim_ref = spy_obj._stackingDim
                 # collect remaining attribute names like channel, freq, etc.
                 attr_ref = [attr for attr in spy_obj._hdfFileAttributeProperties
@@ -618,7 +627,8 @@ class BaseData(ABC):
                 raise SPYValueError(lgl, 'data', act)
 
             # check attributes like channel, freq, etc.
-            # this also catches incompatible syncopy data types, e.g. SpectralData and AnalogData
+            # this also catches incompatible syncopy data types with same ndim,
+            # e.g. SpectralData and CrossSpectralData
             for attr in spy_obj._hdfFileAttributeProperties:
                 if attr.startswith('_'):
                     continue
@@ -627,7 +637,8 @@ class BaseData(ABC):
                 if attr_val is None or attr not in attr_ref:
                     act = f"missing attribute `{attr}` in {spy_obj.filename}"
                     raise SPYValueError(lgl, 'data', act)
-                # now check values, should be all arrays/sequences
+                # now hard check values, should be all arrays/sequences
+                # we want identical channel label, freq axis and so on..
                 if not np.all(getattr(spy_obj_ref, attr) == attr_val):
                     act = f"different attribute values for `{attr}`"
                     raise SPYValueError(lgl, 'data', act)
@@ -643,33 +654,40 @@ class BaseData(ABC):
         # finally create the chained trial generator
         trl_gen = chain(*[spy_obj.trials for spy_obj in inData])
 
+        # this setter is only valid for empty (new) syncopy objects
+        # hence it should be fine to potentially re-define the dimord here
+        self._stackingDimLabel = spy_obj_ref._stackingDimLabel
+
         # and route through the generator setter
         self._set_dataset_property_with_generator(trl_gen,
-                                                  stacking_dim_ref,
+                                                  propertyName='data',
+                                                  ndim=len(res_shape),
                                                   shape=res_shape)
 
     def _set_dataset_property_with_generator(self, gen,
-                                             stacking_dim,
-                                             shape=None,
-                                             propertyName='data'):
+                                             propertyName,
+                                             ndim,
+                                             shape=None):
         """
         Create a dataset from a generator yielding (single trial) numpy arrays.
         If `shape` is not given fall back to hdf5 resizable datasets along
         the stacking dimension.
+
+        Expects empty property - won't try to overwrite datasets with generators!
 
         Parameters
         ----------
         gen : generator
             Generator yielding (single trial) numpy arrays. Their shapes
             have to match except along the `stacking_dim`
-        stacking_dim : int
-            Axis along the (single trial) arrays get stacked into the dataset.
+        ndim : int
+            Number of dimensions of the numpy arrays
+        propertyName : str
+            The name of the property which manages the dataset
         shape : tuple
             The final shape of the hdf5 dataset. If left at `None`,
             the dataset will be resized along the stacking dimension
-            for every trial drawn from the generator.
-        propertyName : str
-            The name of the property which manages the dataset
+            for every trial drawn from the generator
         """
 
         if propertyName not in self._hdfFileDatasetProperties:
@@ -682,24 +700,38 @@ class BaseData(ABC):
             act = "non-empty syncopy object"
             raise SPYValueError(lgl, 'data', act)
 
-        # can't change on the fly..
-        if self._stackingDim != stacking_dim:
-            lgl = f"stacking dim = {self._stackingDim}"
-            act = stacking_dim
-            raise SPYValueError(lgl, "stacking_dim", act)
-
         # look at 1st trial to determine fixed dimensions
-        if shape is None:
+        try:
             trial1 = next(gen)
-            shape = list(trial1.shape)  # initial shape
+        except StopIteration:
+            lgl = "non-exhausted generator"
+            act = "exhausted generator"
+            raise SPYValueError(lgl, 'data', act)
+
+        shape1 = list(trial1.shape)  # initial shape
+
+        # further generated arrays will be checked against shape1
+        if len(shape1) != ndim:
+            lgl = f"arrays of dimension {ndim}"
+            act = f"got array with dimension {len(shape1)}"
+            raise SPYValueError(lgl, 'data', act)
+
+        # boolean array to index non-stacking dimensions
+        # for strict shape comparison
+        bvec = np.ones(len(shape1), dtype=bool)
+        bvec[self._stackingDim] = False
+
+        # prepare to resize hdf5
+        if shape is None:
+            shape = shape1
             maxshape = shape.copy()
-            maxshape[stacking_dim] = None
+            maxshape[self._stackingDim] = None
             resize = True
         else:
             maxshape = None
             resize = False
 
-        # constuct slicing index
+        # construct slicing index
         stack_idx = [np.s_[:] for _ in range(len(shape))]
 
         # -- write data --
@@ -709,21 +741,27 @@ class BaseData(ABC):
         with h5py.File(self.filename, "w") as h5f:
             dset = h5f.create_dataset(propertyName, shape=shape, maxshape=maxshape)
 
-            # we have to plug in the 1st trial in case it was already generated
-            if resize:
-                stack_step = trial1.shape[stacking_dim]
-                stack_idx[stacking_dim] = np.s_[0:stack_step]
-                dset[tuple(stack_idx)] = trial1
-                stack_count += stack_step
-                trlSamples.append(stack_step)
+            # we have to plug in the 1st trial already generated
+            stack_step = trial1.shape[self._stackingDim]
+            stack_idx[self._stackingDim] = np.s_[0:stack_step]
+            dset[tuple(stack_idx)] = trial1
+            stack_count += stack_step
+            trlSamples.append(stack_step)
 
             # now stream through the arrays from the generator
             for trial in gen:
-                stack_step = trial.shape[stacking_dim]
+
+                # check shape except stacking dim
+                if not np.all((shape1 - np.array(trial.shape))[bvec] == 0):
+                    lgl = "compatible trial shapes"
+                    act = f"mismatching shapes, {tuple(shape1)} and {trial.shape}"
+                    raise SPYValueError(lgl, 'data', act)
+
+                stack_step = trial.shape[self._stackingDim]
                 # we have to resize for every trial if no total shape was given
                 if resize:
-                    dset.resize(stack_count + stack_step, axis=stacking_dim)
-                stack_idx[stacking_dim] = np.s_[stack_count:stack_count + stack_step]
+                    dset.resize(stack_count + stack_step, axis=self._stackingDim)
+                stack_idx[self._stackingDim] = np.s_[stack_count:stack_count + stack_step]
                 dset[tuple(stack_idx)] = trial
                 stack_count += stack_step
                 trlSamples.append(stack_step)
@@ -734,14 +772,15 @@ class BaseData(ABC):
 
         # -- construct trialdefinition --
 
-        si = np.r_[0, np.cumsum(trlSamples)]
-        sampleinfo = np.column_stack([si[:-1], si[1:]])
-        trialdefinition = np.column_stack([sampleinfo, np.zeros(len(sampleinfo))])
-        if self.samplerate is not None:
-            # set standard offset to -1s
-            trialdefinition[:, 2] = -self.samplerate
+        if propertyName == 'data':
+            si = np.r_[0, np.cumsum(trlSamples)]
+            sampleinfo = np.column_stack([si[:-1], si[1:]])
+            trialdefinition = np.column_stack([sampleinfo, np.zeros(len(sampleinfo))])
+            if self.samplerate is not None:
+                # set standard offset to -1s
+                trialdefinition[:, 2] = -self.samplerate
 
-        self.trialdefinition = trialdefinition
+            self.trialdefinition = trialdefinition
 
     def _check_dataset_property_discretedata(self, inData):
         """Check `DiscreteData` input data for shape consistency
