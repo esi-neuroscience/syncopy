@@ -524,7 +524,7 @@ class BaseData(ABC):
             # Ensure shapes match up
             if any(val.shape != inData[0].shape for val in inData):
                 lgl = "NumPy arrays of identical shape"
-                act = "NumPy arrays with differing shapes"
+                act = "NumPy arrays with mismatching shapes"
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
             trialLens = [val.shape[self.dimord.index("time")] for val in inData]
 
@@ -608,6 +608,9 @@ class BaseData(ABC):
         stack_count = 0
         for spy_obj in inData[i_ref:]:
 
+            if spy_obj.selection is not None:
+                SPYWarning("In place selections will be ignored for concatenation!")
+
             if spy_obj.data is None:
                 SPYWarning(f"Skipping empty dataset {spy_obj.filename} for concatenation")
                 continue
@@ -618,12 +621,12 @@ class BaseData(ABC):
 
             # catch mismatching dimensions (2d vs. 3d)
             if len(shape_ref) != len(spy_obj.data.shape):
-                act = f"different shapes, {tuple(shape_ref)} and {spy_obj.data.shape}"
+                act = f"mismatching shapes, {tuple(shape_ref)} and {spy_obj.data.shape}"
                 raise SPYValueError(lgl, 'data', act)
 
             # shape tuple gets casted by numpy for array subtraction
             if not np.all((shape_ref - spy_obj.data.shape)[bvec] == 0):
-                act = f"different shapes, {tuple(shape_ref)} and {spy_obj.data.shape}"
+                act = f"mismatching shapes, {tuple(shape_ref)} and {spy_obj.data.shape}"
                 raise SPYValueError(lgl, 'data', act)
 
             # check attributes like channel, freq, etc.
@@ -663,6 +666,23 @@ class BaseData(ABC):
                                                   propertyName='data',
                                                   ndim=len(res_shape),
                                                   shape=res_shape)
+
+        # -- set attribute properties --
+
+        # attach dummy selection to reference object
+        # for easy propagation of properties
+        spy.selectdata(spy_obj_ref, inplace=True)
+
+        # Get/set dimensional attributes
+        for prop in spy_obj_ref.selection._dimProps:
+            selection = getattr(spy_obj_ref.selection, prop)
+            if selection is not None:
+                if np.issubdtype(type(selection), np.number):
+                    selection = [selection]
+                setattr(self, prop, getattr(spy_obj_ref, prop)[selection])
+
+        self.samplerate = spy_obj_ref.samplerate
+        spy_obj_ref.selection = None
 
     def _set_dataset_property_with_generator(self, gen,
                                              propertyName,
@@ -739,7 +759,10 @@ class BaseData(ABC):
         stack_count = 0
         trlSamples = []  # for constructing the trialdefinition
         with h5py.File(self.filename, "w") as h5f:
-            dset = h5f.create_dataset(propertyName, shape=shape, maxshape=maxshape)
+            dset = h5f.create_dataset(propertyName,
+                                      shape=shape,
+                                      maxshape=maxshape,
+                                      dtype=trial1.dtype)
 
             # we have to plug in the 1st trial already generated
             stack_step = trial1.shape[self._stackingDim]

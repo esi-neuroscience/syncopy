@@ -354,7 +354,9 @@ class ContinuousData(BaseData, ABC):
         # Call initializer
         super().__init__(data=data, **kwargs)
 
-        self.channel = channel
+        # might be set from concatenation
+        if self.channel is None:
+            self.channel = channel
 
         if self.data is not None:
 

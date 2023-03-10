@@ -362,21 +362,21 @@ class TestCrossSpectralSelections:
 
 
 def getSpikeData(nChannels = 10, nTrials = 5, samplerate = 1.0, nSpikes = 20):
-        T_max = 2 * nSpikes   # in samples, not seconds!
-        nSamples = T_max / nTrials
-        rng = np.random.default_rng(42)
+    T_max = 2 * nSpikes   # in samples, not seconds!
+    nSamples = T_max / nTrials
+    rng = np.random.default_rng(42)
 
-        data = np.vstack([np.sort(rng.choice(range(T_max), size=nSpikes)),
-                        rng.choice(np.arange(0, nChannels), size=nSpikes),
-                        rng.choice(nChannels // 2, size=nSpikes)]).T
+    data = np.vstack([np.sort(rng.choice(range(T_max), size=nSpikes)),
+                      rng.choice(np.arange(0, nChannels), size=nSpikes),
+                      rng.choice(nChannels // 2, size=nSpikes)]).T
 
-        trldef = np.vstack([np.arange(0, T_max, nSamples),
-                            np.arange(0, T_max, nSamples) + nSamples,
-                            np.ones(nTrials) * -2]).T
+    trldef = np.vstack([np.arange(0, T_max, nSamples),
+                        np.arange(0, T_max, nSamples) + nSamples,
+                        np.ones(nTrials) * -2]).T
 
-        return(spy.SpikeData(data=data,
-                               samplerate=samplerate,
-                               trialdefinition=trldef))
+    return(spy.SpikeData(data=data,
+                         samplerate=samplerate,
+                         trialdefinition=trldef))
 
 
 class TestSpikeSelections:
