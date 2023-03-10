@@ -9,7 +9,6 @@ import tempfile
 import time
 import pytest
 import random
-import numbers
 import numpy as np
 import h5py
 import dask.distributed as dd
@@ -18,7 +17,6 @@ import dask.distributed as dd
 import syncopy as spy
 from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, TimeLockData, padding
 from syncopy.io import save, load
-from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import StructDict

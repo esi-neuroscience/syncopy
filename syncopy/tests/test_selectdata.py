@@ -11,7 +11,7 @@ import dask.distributed as dd
 
 
 # Local imports
-from syncopy.datatype.base_data import Selector
+from syncopy.datatype.selector import Selector
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import flush_local_cluster
 

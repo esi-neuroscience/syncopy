@@ -251,14 +251,14 @@ class DiscreteData(BaseData, ABC):
         Notes
         -----
         This class method is intended to be solely used by
-        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely
+        :class:`syncopy.datatype.selector.Selector` objects and thus has purely
         auxiliary character. Therefore, all input sanitization and error checking
-        is left to :class:`syncopy.datatype.base_data.Selector` and not
+        is left to :class:`syncopy.datatype.selector.Selector` and not
         performed here.
 
         See also
         --------
-        syncopy.datatype.base_data.Selector : Syncopy data selectors
+        syncopy.datatype.selector.Selector : Syncopy data selectors
         """
         timing = []
         if toilim is not None:
@@ -480,14 +480,14 @@ class SpikeData(DiscreteData):
         Notes
         -----
         This class method is intended to be solely used by
-        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely
+        :class:`syncopy.datatype.selector.Selector` objects and thus has purely
         auxiliary character. Therefore, all input sanitization and error checking
-        is left to :class:`syncopy.datatype.base_data.Selector` and not
+        is left to :class:`syncopy.datatype.selector.Selector` and not
         performed here.
 
         See also
         --------
-        syncopy.datatype.base_data.Selector : Syncopy data selectors
+        syncopy.datatype.selector.Selector : Syncopy data selectors
         """
         if units is not None:
             indices = []
@@ -660,14 +660,14 @@ class EventData(DiscreteData):
         Notes
         -----
         This class method is intended to be solely used by
-        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely
+        :class:`syncopy.datatype.selector.Selector` objects and thus has purely
         auxiliary character. Therefore, all input sanitization and error checking
-        is left to :class:`syncopy.datatype.base_data.Selector` and not
+        is left to :class:`syncopy.datatype.selector.Selector` and not
         performed here.
 
         See also
         --------
-        syncopy.datatype.base_data.Selector : Syncopy data selectors
+        syncopy.datatype.selector.Selector : Syncopy data selectors
         """
         if eventids is not None:
             indices = []
