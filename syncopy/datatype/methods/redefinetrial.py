@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-# Set/update trial settings of Syncopy data objects
+# Update trialdefintions/time axis of Syncopy data objects
+# akin to ft_redefinetrial
 #
 
 # Builtin/3rd party package imports
-import sys
 import numpy as np
 from numbers import Number
 
@@ -54,8 +54,8 @@ def redefinetrial(data_obj, trials=None, minlength=None,
 
     Notes
     -----
-    This is a compatibility function, mimicking ``ft_redefinetrial``. However, 
-    if selected sample ranges (via ``toilim`` or ``trl``) are (partially) outside 
+    This is a compatibility function, mimicking ``ft_redefinetrial``. However,
+    if selected sample ranges (via ``toilim`` or ``trl``) are (partially) outside
     of the available data, an error is thrown. This is different to FieldTrips'implementation,
     where missing data is filled up with NaNs.
 
@@ -65,7 +65,7 @@ def redefinetrial(data_obj, trials=None, minlength=None,
         Manipulate the trial definition
     selectdata : :func:`~syncopy.selectdata`
         Select along general attributes like channel, frequency, etc.
-    `FieldTrip's redefinetrial <https://https://github.com/fieldtrip/fieldtrip/blob/master/ft_redefinetrial.m>`_    
+    `FieldTrip's redefinetrial <https://https://github.com/fieldtrip/fieldtrip/blob/master/ft_redefinetrial.m>`
     """
 
     # Start by vetting input object
@@ -77,14 +77,56 @@ def redefinetrial(data_obj, trials=None, minlength=None,
     check_passed_kwargs(lcls, defaults, frontend_name="redefinetrial")
     new_cfg = get_frontend_cfg(defaults, lcls, kwargs={})
 
-    # sort out mutually exclusive parameters
+    # -- sort out mutually exclusive parameters --
+
     vals = [new_cfg[par] for par in ['minlength', 'toilim', 'begsample', 'trl']]
     if vals.count(None) < 3:
         msg = "either `minlength` or `begsample`/`endsample` or `trl` or `toilim`"
         raise SPYError("Incompatible input arguments, " + msg)
 
+    # now we made sure only one of the 4 parameters above set
+
     # total number of samples
     scount = data_obj.data.shape[data_obj._stackingDim]
+
+    # -- first select trials --
+
+    if trials is not None:
+        array_parser(trials, dims=1, ntype=int)
+        ret_obj = spy.selectdata(data_obj, trials=trials)
+    else:
+        # copy in any case, that's the difference to definetrial
+        ret_obj = spy.copy(data_obj)
+
+    # -- apply latency window --
+
+    if toilim is not None:
+        array_parser(toilim, dims=(2,))
+        # use latency selection mechanic
+        ret_obj = spy.selectdata(ret_obj, latency=toilim)
+
+    elif minlength is not None:
+        min_samples = int(minlength * data_obj.samplerate)
+        trl_sel = []
+        for trl_idx, trial in enumerate(ret_obj.trials):
+            nSamples = trial.shape[data_obj._stackingDim]
+            if nSamples >= min_samples:
+                trl_sel.append(trl_idx)
+
+        spy.log(f"discarding {len(data_obj.trials) - len(trl_sel)} trials", level='INFO',
+                caller='redefinetrial')
+
+        if len(trl_sel) == 0:
+            spy.log("No trial fits the desired `minlength`, returning empty object!",
+                    caller='redefinetrial')
+            return data_obj.__class__()
+
+        ret_obj = spy.selectdata(ret_obj, trials=trl_sel)
+
+    # helper variable
+    new_trldef = ret_obj.trialdefinition
+
+    # -- OR manipulate sampleinfo --
 
     if new_cfg['trl'] is not None:
         vals = [new_cfg[par] for par in ['begsample', 'endsample', 'offset']]
@@ -93,11 +135,26 @@ def redefinetrial(data_obj, trials=None, minlength=None,
                    "`begsample`/`endsample` and `offset`")
             raise SPYError("Incompatible input arguments, " + msg)
 
+        # accepts also lists
+        array_parser(trl, varname="trl")
+        trl = np.array(trl)
+
+        # to allow simple single trial definitions
+        if trl.ndim == 1:
+            trl = trl[None, :]
+        if trl.ndim != 2:
+            lgl = "2-dimensional array"
+            act = f"{trl.ndim} array"
+            raise SPYValueError(lgl, 'trl', act)
+
         new_trldef = trl
+
+        # selecting trials and applying a new trialdefinition in one go
+        # is rather dangerous, but possible..
 
     elif begsample is not None or endsample is not None:
         vals = [new_cfg[par] for par in ['begsample', 'endsample']]
-        if vals.count(None) != 0:            
+        if vals.count(None) != 0:
             lgl = "both `begsample` and `endsample`"
             act = f"got [{begsample}, {endsample}]"
             raise SPYValueError(lgl, 'begsample/endsample', act)
@@ -111,7 +168,7 @@ def redefinetrial(data_obj, trials=None, minlength=None,
             endsample = np.array(endsample, dtype=int)
         except ValueError:
             raise SPYTypeError(endsample, 'endsample', "number or array")
-        
+
         if np.any(begsample < 0):
             lgl = "integers > 0"
             act = "relative `begsample` < 0"
@@ -125,32 +182,47 @@ def redefinetrial(data_obj, trials=None, minlength=None,
         if np.any(endsample - begsample < 0):
             raise SPYValueError("endsample > begsample", "begsample/endsample",
                                 "endsample < begsample")
-        
+
         if begsample.size != endsample.size:
-            raise SPYValueError("same sizes for `begsample/endsample`",'',
+            raise SPYValueError("same sizes for `begsample/endsample`", '',
                                 "different sizes")
-        
+
         # construct new trialdefinition
-        new_trldef = data_obj.trialdefinition
+        new_trldef = ret_obj.trialdefinition
         new_trldef[:, 0] += begsample
         new_trldef[:, 1] -= endsample
 
+    # -- manipulate offset --
+
     if isinstance(offset, Number):
+        new_trldef[:, 2] = np.ones(len(new_trldef)) * offset
+
+    elif isinstance(offset, np.ndarray):
+        if len(offset) != len(new_trldef):
+            lgl = f"array of length {len(new_trldef)}"
+            act = f"array of length {len(offset)}"
+            raise SPYValueError(lgl, 'offset', act)
+        new_trldef[:, 2] = offset
+    elif offset is None:
         pass
-    
+    else:
+        raise SPYTypeError(offset, 'offset', "number, array or None")
+
+    # -- apply (new) trialdefinition --
+
     array_parser(new_trldef, varname="trl", dims=2)
 
     array_parser(new_trldef[:, :2], varname="trl", dims=(None, 2),
                  hasnan=False, hasinf=False, ntype="int_like", lims=[0, scount])
 
-    # just apply new trialdefinition and be done with it
-    spy.definetrial(data_obj, trialdefinition=trl)
-    return
-        
-    return new_cfg
+    # apply new trialdefinition and be done with it
+    spy.definetrial(ret_obj, trialdefinition=new_trldef)
 
-    # Check array holding trial specifications
-    if trl is not None:
+    # Attach potential older cfg's from the input
+    # to support chained frontend calls.
+    ret_obj.cfg.update(data_obj.cfg)
 
-        trl = np.array(trialdefinition, dtype="float")
+    # Attach frontend parameters for replay.
+    ret_obj.cfg.update({'redefinetrial': new_cfg})
 
+    return ret_obj
