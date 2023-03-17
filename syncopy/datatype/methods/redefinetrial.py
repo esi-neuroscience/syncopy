@@ -14,7 +14,6 @@ from syncopy.shared.kwarg_decorators import unwrap_cfg
 from syncopy.shared.parsers import data_parser, array_parser, scalar_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
-from syncopy.shared.input_processors import check_passed_kwargs
 
 __all__ = ["redefinetrial"]
 
@@ -73,8 +72,6 @@ def redefinetrial(data_obj, trials=None, minlength=None,
 
     defaults = get_defaults(redefinetrial)
     lcls = locals()
-    # check for ineffective additional kwargs
-    check_passed_kwargs(lcls, defaults, frontend_name="redefinetrial")
     new_cfg = get_frontend_cfg(defaults, lcls, kwargs={})
 
     # -- sort out mutually exclusive parameters --
@@ -106,6 +103,9 @@ def redefinetrial(data_obj, trials=None, minlength=None,
         ret_obj = spy.selectdata(ret_obj, latency=toilim)
 
     elif minlength is not None:
+
+        scalar_parser(minlength, varname='minlength', lims=[0, np.inf])
+
         min_samples = int(minlength * data_obj.samplerate)
         trl_sel = []
         for trl_idx, trial in enumerate(ret_obj.trials):
@@ -167,30 +167,34 @@ def redefinetrial(data_obj, trials=None, minlength=None,
         try:
             endsample = np.array(endsample, dtype=int)
         except ValueError:
-            raise SPYTypeError(endsample, 'endsample', "number or array")
+            raise SPYTypeError(endsample, 'endsample', "scalar or array")
 
         if np.any(begsample < 0):
             lgl = "integers > 0"
             act = "relative `begsample` < 0"
             raise SPYValueError(lgl, 'begsample', act)
 
-        if np.any(endsample > scount):
-            lgl = f"integers < {scount}"
-            act = "out of range `endsample`"
-            raise SPYValueError(lgl, 'endsample', act)
-
-        if np.any(endsample - begsample < 0):
-            raise SPYValueError("endsample > begsample", "begsample/endsample",
-                                "endsample < begsample")
+        if begsample.size != 1 and begsample.size != len(new_trldef):
+            raise SPYValueError(f"scalar or array of length {len(new_trldef)}", "begsample/endsample",
+                                "wrong sized `begsample")
 
         if begsample.size != endsample.size:
             raise SPYValueError("same sizes for `begsample/endsample`", '',
                                 "different sizes")
 
+        if np.any(new_trldef[:, 0] + endsample > scount):
+            lgl = f"integers < {int(scount - new_trldef[:, 0].max())}"
+            act = "out of range"
+            raise SPYValueError(lgl, 'endsample', act)
+
+        # this also catches negative endsample
+        if np.any(endsample - begsample < 0):
+            raise SPYValueError("endsample > begsample", "begsample/endsample",
+                                "endsample < begsample")
+
         # construct new trialdefinition
-        new_trldef = ret_obj.trialdefinition
+        new_trldef[:, 1] = new_trldef[:, 0] + endsample
         new_trldef[:, 0] += begsample
-        new_trldef[:, 1] -= endsample
 
     # -- manipulate offset --
 
@@ -206,7 +210,7 @@ def redefinetrial(data_obj, trials=None, minlength=None,
     elif offset is None:
         pass
     else:
-        raise SPYTypeError(offset, 'offset', "number, array or None")
+        raise SPYTypeError(offset, 'offset', "scalar, array or None")
 
     # -- apply (new) trialdefinition --
 
