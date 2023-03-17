@@ -4,9 +4,10 @@ All notable changes to this project will be documented in this file.
 ## Unreleased WIP
 
 ### NEW
-- add Jackknifing for coherence and Granger analysis
-- add logging functionality and respective developer documentation, #208
-- add waveform extra dataset to DiscreteData to store raw data, #238
+- Jackknifing for coherence and Granger analysis
+- logging functionality and respective developer documentation, #208
+- added `waveform` extra dataset to DiscreteData to store raw waveforms, #238
+- frontend `redefinetrial` to cut trials/move time axes
 
 ### CHANGED
 - support unequal trial sizes for `load_ft_raw`
