@@ -7,10 +7,8 @@ We recommend to install SynCoPy into a new conda environment:
 
 .. code-block:: bash
 
-   conda create -y --name syncopy python=3.8
+   conda create -y --name syncopy esi-syncopy
    conda activate syncopy
-   conda install -y -c conda-forge esi-syncopy
-
 
 If you're working on the ESI cluster installing Syncopy is only necessary if
 you create your own Conda environment.
@@ -20,7 +18,7 @@ you create your own Conda environment.
 Installing parallel processing engine ACME
 --------------------------------------------
 
-To harness the parallel processing capabilities of Syncopy
+To harness the parallel processing capabilities of Syncopy on the ESI cluster
 it is helpful to install `ACME <https://github.com/esi-neuroscience/acme>`_.
 
 Again either via conda
