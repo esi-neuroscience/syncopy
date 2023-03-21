@@ -262,7 +262,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
                 caller='connectivityanalysis')
         jackknife = False
 
-    # output seettings are only relevant for coherence
+    # output settings are only relevant for coherence
     if method != 'coh' and output != defaults['output']:
         msg = f"Setting `output` for method {method} has not effect!"
         SPYWarning(msg)
