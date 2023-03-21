@@ -357,7 +357,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         elif isinstance(data, SpectralData):
             # cross-spectra need complex input spectra
             if not np.issubdtype(data.data.dtype, np.complexfloating):
-                lgl = "complex valued spectra, set `output='fourier` in spy.freqanalysis!"
+                lgl = "complex valued spectra, set `output='fourier'` in spy.freqanalysis!"
                 act = "real valued spectral data"
                 raise SPYValueError(lgl, 'data', act)
 
