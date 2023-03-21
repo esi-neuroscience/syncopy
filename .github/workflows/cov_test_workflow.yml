@@ -24,7 +24,7 @@ jobs:
         python-version: "3.10"
     - name: Install poetry
       run: |
-        pip install poetry
+        pip install poetry==1.4.0
     - name: Install SyNCoPy
       run: |
         poetry cache clear . --all
