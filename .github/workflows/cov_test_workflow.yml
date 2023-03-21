@@ -27,6 +27,7 @@ jobs:
         pip install poetry
     - name: Install SyNCoPy
       run: |
+        poetry cache clear . --all
         poetry install
     - name: Lint with flake8
       run: |
