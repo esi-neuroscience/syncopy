@@ -406,6 +406,7 @@ def check_passed_kwargs(lcls, defaults, frontend_name):
 
 
 def _nextpow2(number):
+    """Find integer power of 2 greater than or equal to number."""
     n = 1
     while n < number:
         n *= 2

@@ -462,7 +462,7 @@ class BaseData(ABC):
         # first catch empty lists
         if len(inData) == 0:
             msg = ("Trying to set syncopy data with empty list, "
-                   f"settting `{propertyName}` dataset to `None`!")
+                   f"setting `{propertyName}` dataset to `None`!")
             SPYWarning(msg)
             self._set_dataset_property_with_none(None, propertyName, ndim)
             return
@@ -488,7 +488,7 @@ class BaseData(ABC):
 
             # this should not happen, as all derived classes hardcoded this in their setters
             if propertyName != 'data':
-                raise SPYError(f"Can't concatenate syncopy objects for dataset {propertyName}")
+                raise SPYError(f"Cannot concatenate syncopy objects for dataset {propertyName}")
 
             # if we landed here all is clear
             self._set_dataset_property_with_spy_list(inData, ndim)
@@ -570,7 +570,7 @@ class BaseData(ABC):
         Parameters
         ----------
         inData : list
-            Non empty list of syncopy data objects, e.g. :class:`~syncopy.AnalogData`
+            Non empty list of syncopy data objects, e.g. :class:`~syncopy.AnalogData`.
             Trials are stacked together to fill dataset.
         ndim : int
             Number of expected array dimensions.
@@ -690,10 +690,10 @@ class BaseData(ABC):
                                              shape=None):
         """
         Create a dataset from a generator yielding (single trial) numpy arrays.
-        If `shape` is not given fall back to hdf5 resizable datasets along
+        If `shape` is not given fall back to HDF5 resizable datasets along
         the stacking dimension.
 
-        Expects empty property - won't try to overwrite datasets with generators!
+        Expects empty property - will not try to overwrite datasets with generators!
 
         Parameters
         ----------
@@ -755,7 +755,6 @@ class BaseData(ABC):
         stack_idx = [np.s_[:] for _ in range(len(shape))]
 
         # -- write data --
-
         stack_count = 0
         trlSamples = []  # for constructing the trialdefinition
         with h5py.File(self.filename, "w") as h5f:
