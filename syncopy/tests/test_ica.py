@@ -38,7 +38,7 @@ class TestFastICA():
             _ = spy.runica(wrong_data, cfg)
 
 
-class TestSkleanFastICAAPI():
+class TestSklearnFastICAAPI():
     """
     Temporary test to evaluate the sklearn API.
     """
@@ -70,7 +70,7 @@ class TestSkleanFastICAAPI():
 
 if __name__ == '__main__':
     T1 = TestFastICA()
-    T2 = TestSkleanFastICAAPI()
+    T2 = TestSklearnFastICAAPI()
 
 
 
