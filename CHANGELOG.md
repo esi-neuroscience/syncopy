@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 ## Unreleased WIP
 
 ### NEW
+- frontend `redefinetrial` to cut trials/move time axes
 - add PPC connectivity measure
 - add Jackknifing for coherence and Granger analysis
 - add logging functionality and respective developer documentation, #208
