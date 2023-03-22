@@ -215,6 +215,8 @@ def itc(spec_data, **kwargs):
     # takes care of remaining checks
     res = _trial_statistics(spec_data, operation='itc')
     write_log(spec_data, res, kwargs, op_name='itc')
+    # attach cfg
+    res.cfg.update(spec_data.cfg)
     return res
 
 
@@ -318,6 +320,9 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
         spy_data.cfg.pop('selectdata')
         spy_data.selection = None
 
+    # re-attach config
+    out.cfg.update(spy_data.cfg)
+
     return out
 
 
@@ -338,8 +343,8 @@ def _trial_statistics(in_data, operation='mean'):
         in_data.selection._cleanup = True
 
     nTrials = len(in_data.selection.trials)
-    if nTrials <= 1:
-        lgl = "at least 2 trials"
+    if nTrials < 1:
+        lgl = "at least 1 trial"
         act = f"got {nTrials} trials"
         raise SPYValueError(lgl, 'in_data', act)
 
@@ -463,7 +468,7 @@ def _trial_var(in_data, out_arr):
 
 def _trial_circ_average(in_data, out_arr):
     """
-    Sequential complex average, can be used for
+    Sequential complex average on the unit circle, can be used for
     inter trial coherence (order parameter) or mean phase estimation.
     Shape checking and dealing with selections is done in `_trial_statistics`.
 
