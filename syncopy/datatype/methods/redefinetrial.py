@@ -37,14 +37,18 @@ def redefinetrial(data_obj, trials=None, minlength=None,
         Minimum length of trials in seconds, can be 'maxperlen'. Trials which
         are shorter get thrown out.
     toilim : [begin, end]
-        specify latency window in seconds
+        specify latency window in seconds, to cut out a time window of interest from each trial.
     offset : int or Mx1 ndarray
-        Expressed in samples relative to current t=0
+        Realign the time axes of all trials to a new reference time point (i.e. change the definition of t=0).
+        Expressed in samples relative to current t=0.
     begsample : int or Mx1 ndarray of ints
-        Expressed in samples relative to the start of the input trial
+        Specify the begin sample for each trial (see also `endsample`).
+        Expressed in samples relative to the start of the input trial.
     endsample : int or Mx1 ndarray of ints
-        Expressed in samples relative to the start of the input trial
+        Specify the end sample for each trial (see also `begsample`).
+        Expressed in samples relative to the start of the input trial.
     trl : Mx3 ndarray
+        New trial definition.
         [start, stop, trigger_offset] sample indices for `M` trials
 
     Returns
@@ -55,7 +59,7 @@ def redefinetrial(data_obj, trials=None, minlength=None,
     -----
     This is a compatibility function, mimicking ``ft_redefinetrial``. However,
     if selected sample ranges (via ``toilim`` or ``trl``) are (partially) outside
-    of the available data, an error is thrown. This is different to FieldTrips'implementation,
+    of the available data, an error is thrown. This is different to FieldTrips' implementation,
     where missing data is filled up with NaNs.
 
     See also
@@ -80,8 +84,7 @@ def redefinetrial(data_obj, trials=None, minlength=None,
     if vals.count(None) < 3:
         msg = "either `minlength` or `begsample`/`endsample` or `trl` or `toilim`"
         raise SPYError("Incompatible input arguments, " + msg)
-
-    # now we made sure only one of the 4 parameters above set
+    # now we made sure only one of the 4 parameters above is set.
 
     # total number of samples
     scount = data_obj.data.shape[data_obj._stackingDim]
@@ -170,13 +173,13 @@ def redefinetrial(data_obj, trials=None, minlength=None,
             raise SPYTypeError(endsample, 'endsample', "scalar or array")
 
         if np.any(begsample < 0):
-            lgl = "integers > 0"
+            lgl = "integers >= 0"
             act = "relative `begsample` < 0"
             raise SPYValueError(lgl, 'begsample', act)
 
         if begsample.size != 1 and begsample.size != len(new_trldef):
             raise SPYValueError(f"scalar or array of length {len(new_trldef)}", "begsample/endsample",
-                                "wrong sized `begsample")
+                                "wrong sized `begsample`")
 
         if begsample.size != endsample.size:
             raise SPYValueError("same sizes for `begsample/endsample`", '',
