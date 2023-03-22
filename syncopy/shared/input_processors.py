@@ -17,7 +17,6 @@ from syncopy.specest.mtmfft import _get_dpss_pars
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.const_def import availableTapers, generalParameters, availablePaddingOpt
-from syncopy.datatype.methods.padding import _nextpow2
 
 
 def process_padding(pad, lenTrials, samplerate):
@@ -404,3 +403,11 @@ def check_passed_kwargs(lcls, defaults, frontend_name):
         if name not in expected:
             msg = f"option `{name}` has no effect in `{frontend_name}`!"
             SPYWarning(msg, caller=__name__.split('.')[-1])
+
+
+def _nextpow2(number):
+    """Find integer power of 2 greater than or equal to number."""
+    n = 1
+    while n < number:
+        n *= 2
+    return n

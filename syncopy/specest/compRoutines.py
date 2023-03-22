@@ -808,7 +808,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
     trialdefinition : 2D :class:`numpy.ndarray`
         Provisional trialdefinition array either directly copied from the
         :class:`~syncopy.AnalogData` input object or computed by the
-        :class:`~syncopy.datatype.base_data.Selector` class.
+        :class:`~syncopy.datatype.selector.Selector` class.
     samplerate : float
         Original sampling rate of :class:`~syncopy.AnalogData` input object
 
