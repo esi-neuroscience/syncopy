@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 ## Unreleased WIP
 
 ### NEW
+- add PPC connectivity measure
 - add Jackknifing for coherence and Granger analysis
 - add logging functionality and respective developer documentation, #208
 - add waveform extra dataset to DiscreteData to store raw data, #238
