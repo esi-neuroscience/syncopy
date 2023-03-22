@@ -136,7 +136,7 @@ def _serialize_value(value):
         value = list(value)
 
     # unpack the list, if ppl mix types this will go wrong
-    if isinstance(value, list):
+    if isinstance(value, list) and len(value) != 0:
         if hasattr(value[0], 'is_integer'):
             value = [float(v) for v in value]
         # should only be the integers
