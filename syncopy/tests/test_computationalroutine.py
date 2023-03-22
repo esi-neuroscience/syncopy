@@ -15,7 +15,7 @@ import dask.distributed as dd
 
 # Local imports
 from syncopy.datatype import AnalogData
-from syncopy.datatype.base_data import Selector
+from syncopy.datatype.selector import Selector
 from syncopy.io import load
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import process_io, unwrap_cfg, unwrap_select

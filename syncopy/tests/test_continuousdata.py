@@ -9,16 +9,14 @@ import tempfile
 import time
 import pytest
 import random
-import numbers
 import numpy as np
 import h5py
 import dask.distributed as dd
 
 # Local imports
 import syncopy as spy
-from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, TimeLockData, padding
+from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData, TimeLockData
 from syncopy.io import save, load
-from syncopy.datatype.base_data import Selector
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import StructDict
@@ -186,7 +184,9 @@ class TestAnalogData():
                      np.ones((int(ns / 5), )) * np.pi]).T
     samplerate = 2.0
 
-    def test_empty(self):
+    def test_constructor(self):
+
+        # -- test empty --
         dummy = AnalogData()
         assert len(dummy.cfg) == 0
         for attr in ["channel", "data", "sampleinfo", "trialinfo"]:
@@ -194,7 +194,8 @@ class TestAnalogData():
         with pytest.raises(SPYTypeError):
             AnalogData({})
 
-    def test_nparray(self):
+        # -- test with single array--
+
         dummy = AnalogData(data=self.data)
         assert dummy.dimord == AnalogData._defaultDimord
         assert dummy.channel.size == self.nc
@@ -205,6 +206,83 @@ class TestAnalogData():
         # wrong shape for data-type
         with pytest.raises(SPYValueError):
             AnalogData(np.ones((3,)))
+
+        # -- test with list of arrays
+
+        # 5 trials of shape (10, 2)
+        nTrials = 3
+        nSamples = 10
+        data_list = [i * np.ones((nSamples, 2)) for i in range(nTrials)]
+
+        dummy = AnalogData(data_list, samplerate=1)
+        assert len(dummy.trials) == nTrials
+        assert np.all([dummy.trials[i][0, 0] == i for i in range(nTrials)])
+        # test for correct trial size
+        assert np.all([len(dummy.trials[i]) == nSamples for i in range(nTrials)])
+
+        with pytest.raises(SPYValueError, match="mismatching shapes"):
+            _ = AnalogData(data=[np.ones((2, 2)), np.ones((3, 2))])
+
+        # -- test with generator --
+
+        # can accomodate variable trial sizes
+        gen = (i * np.ones((i + 1, 2)) for i in range(nTrials))
+
+        dummy2 = AnalogData(gen, samplerate=1)
+        assert len(dummy2.trials) == nTrials
+        assert np.all([dummy2.trials[i][0, 0] == i for i in range(nTrials)])
+        # test for correct trial size
+        assert np.all([len(dummy2.trials[i]) == i + 1 for i in range(nTrials)])
+
+        # however dims which are not the stacking dim still have to match
+        with pytest.raises(SPYValueError, match="mismatching shapes"):
+            gen1 = (np.ones((2, i + 1)) for i in range(nTrials))
+            _ = AnalogData(data=gen1)
+
+        # if we change the dimord/stacking dim, this is fine
+        gen1 = (np.ones((2, i + 1)) for i in range(nTrials))
+        dummy3 = AnalogData(data=gen1, dimord=['channel', 'time'])
+        assert len(dummy3.trials) == nTrials
+
+        # -- test with list of syncopy objects --
+
+        concat = AnalogData([dummy2, dummy])
+        assert len(concat.trials) == len(dummy.trials) + len(dummy2.trials)
+        # check trial sizes kept consistent
+        assert np.all([len(concat.trials[i]) == i + 1 for i in range(nTrials)])
+        assert np.all([len(concat.trials[i]) == nSamples for i in range(nTrials, 2 * nTrials)])
+        # check values are there
+        assert np.all([concat.trials[i][0, 0] == i for i in range(nTrials)])
+        assert np.all([concat.trials[i][0, 0] == i - nTrials for i in range(nTrials, 2 * nTrials)])
+
+        # mismatching attributes are not allowed
+        dummy4 = AnalogData(data_list)
+
+        # samplerate is missing
+        with pytest.raises(SPYValueError, match="missing attribute"):
+            _ = AnalogData([dummy, dummy4])
+
+        dummy4.samplerate = 1
+        # channel labels are not the same
+        with pytest.raises(SPYValueError, match="different attribute"):
+            dummy4.channel = ['c1', 'c2']
+            _ = AnalogData([dummy, dummy4])
+
+        # mismatching shape
+        dummy5 = AnalogData([np.ones((2, 3))], samplerate=1)
+        with pytest.raises(SPYValueError, match="mismatching shapes"):
+            _ = AnalogData([dummy, dummy5])
+
+        # wrong stacking dim
+        with pytest.raises(SPYValueError, match="different stacking"):
+            _ = AnalogData([dummy, dummy3])
+
+        # test channel property propagation
+        dummy.channel = ['c1', 'c2']
+        dummy2.channel = ['c1', 'c2']
+
+        concat2 = AnalogData([dummy, dummy2])
+        assert np.all(concat2.channel == dummy.channel)
 
     def test_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
@@ -272,349 +350,6 @@ class TestAnalogData():
             # to take effect (thanks, Windows!)
             del dummy, dummy2
             time.sleep(0.1)
-
-    @skip_legacy
-    def test_relative_array_padding(self):
-        """
-        padding has no single use case in production, this test hence
-        serves no purpose atm. If in the future we would need padding again,
-        theses tests might be useful again.
-
-        Additionally, the unwrap_cfg frontend decorator expects `data` to be a Syncopy data object,
-        for some reason that did not fail before. But here `data` is just
-        a numpy array which gets put directly into padding, which now after the decorator
-        got decluttered does not work properly.
-        """
-
-        # no. of samples to pad
-        n_center = 5
-        n_pre = 2
-        n_post = 3
-        n_half = int(n_center / 2)
-
-        # dict for for calling `padding`
-        lockws = {"center": {"padlength": n_center},
-                  "pre": {"prepadlength": n_pre},
-                  "post": {"postpadlength": n_post},
-                  "prepost": {"prepadlength": n_pre, "postpadlength": 3}
-                  }
-
-        # expected results for padding technique (pre/post/center/prepost) and
-        # all available `padtype`'s
-        expected_vals = {
-            "center": {"zero": [0, 0],
-                       "nan": [np.nan, np.nan],
-                       "mean": [np.tile(self.data.mean(axis=0), (n_half, 1)),
-                                np.tile(self.data.mean(axis=0), (n_half, 1))],
-                       "localmean": [np.tile(self.data[:n_half, :].mean(axis=0), (n_half, 1)),
-                                     np.tile(self.data[-n_half:, :].mean(axis=0), (n_half, 1))],
-                       "edge": [np.tile(self.data[0, :], (n_half, 1)),
-                                np.tile(self.data[-1, :], (n_half, 1))],
-                       "mirror": [self.data[1:1 + n_half, :][::-1],
-                                  self.data[-1 - n_half:-1, :][::-1]]
-                       },
-            "pre": {"zero": [0],
-                    "nan": [np.nan],
-                    "mean": [np.tile(self.data.mean(axis=0), (n_pre, 1))],
-                    "localmean": [np.tile(self.data[:n_pre, :].mean(axis=0), (n_pre, 1))],
-                    "edge": [np.tile(self.data[0, :], (n_pre, 1))],
-                    "mirror": [self.data[1:1 + n_pre, :][::-1]]
-                    },
-            "post": {"zero": [0],
-                     "nan": [np.nan],
-                     "mean": [np.tile(self.data.mean(axis=0), (n_post, 1))],
-                     "localmean": [np.tile(self.data[-n_post:, :].mean(axis=0), (n_post, 1))],
-                     "edge": [np.tile(self.data[-1, :], (n_post, 1))],
-                     "mirror": [self.data[-1 - n_post:-1, :][::-1]]
-                     },
-            "prepost": {"zero": [0, 0],
-                        "nan": [np.nan, np.nan],
-                        "mean": [np.tile(self.data.mean(axis=0), (n_pre, 1)),
-                                 np.tile(self.data.mean(axis=0), (n_post, 1))],
-                        "localmean": [np.tile(self.data[:n_pre, :].mean(axis=0), (n_pre, 1)),
-                                      np.tile(self.data[-n_post:, :].mean(axis=0), (n_post, 1))],
-                        "edge": [np.tile(self.data[0, :], (n_pre, 1)),
-                                 np.tile(self.data[-1, :], (n_post, 1))],
-                        "mirror": [self.data[1:1 + n_pre, :][::-1],
-                                   self.data[-1 - n_post:-1, :][::-1]]
-                        }
-        }
-
-        # indices for slicing resulting array to extract padded values for validation
-        expected_idx = {"center": [slice(None, n_half), slice(-n_half, None)],
-                        "pre": [slice(None, n_pre)],
-                        "post": [slice(-n_post, None)],
-                        "prepost": [slice(None, n_pre), slice(-n_post, None)]}
-
-        # expected shape of resulting array
-        expected_shape = {"center": self.data.shape[0] + 2 * n_half,
-                          "pre": self.data.shape[0] + n_pre,
-                          "post": self.data.shape[0] + n_post,
-                          "prepost": self.data.shape[0] + n_pre + n_post}
-
-        # happy padding
-        for loc, kws in lockws.items():
-            for ptype in ["zero", "mean", "localmean", "edge", "mirror"]:
-                print(self.data, ptype, kws.keys())
-                arr = padding(self.data, ptype, pad="relative", **kws)
-                for k, idx in enumerate(expected_idx[loc]):
-                    assert np.all(arr[idx, :] == expected_vals[loc][ptype][k])
-                assert arr.shape[0] == expected_shape[loc]
-            arr = padding(self.data, "nan", pad="relative", **kws)
-            for idx in expected_idx[loc]:
-                assert np.all(np.isnan(arr[idx, :]))
-            assert arr.shape[0] == expected_shape[loc]
-
-        # overdetermined padding
-        with pytest.raises(SPYTypeError):
-            padding(self.data, "zero", pad="relative", padlength=5,
-                    prepadlength=2)
-        with pytest.raises(SPYTypeError):
-            padding(self.data, "zero", pad="relative", padlength=5,
-                    postpadlength=2)
-        with pytest.raises(SPYTypeError):
-            padding(self.data, "zero", pad="relative", padlength=5,
-                    prepadlength=2, postpadlength=2)
-
-        # float input for sample counts
-        with pytest.raises(SPYValueError):
-            padding(self.data, "zero", pad="relative", padlength=2.5)
-        with pytest.raises(SPYValueError):
-            padding(self.data, "zero", pad="relative", prepadlength=2.5)
-        with pytest.raises(SPYValueError):
-            padding(self.data, "zero", pad="relative", postpadlength=2.5)
-        with pytest.raises(SPYValueError):
-            padding(self.data, "zero", pad="relative", prepadlength=2.5,
-                    postpadlength=2.5)
-
-        # time-based padding w/array input
-        with pytest.raises(SPYValueError):
-            padding(self.data, "zero", pad="relative", padlength=2, unit="time")
-
-    @skip_legacy
-    def test_absolute_nextpow2_array_padding(self):
-        """
-        padding has no single use case in production, this test hence
-        serves no purpose atm. If in the future we would need padding again,
-        theses tests might be useful again.
-
-        Additionally, the unwrap_cfg frontend decorator expects `data` to be a Syncopy data object,
-        for some reason that did not fail before. But here `data` is just
-        a numpy array which gets put directly into padding, which now after the decorator
-        got decluttered does not work properly.
-        """
-
-        pad_count = {"absolute": self.ns + 20,
-                     "nextpow2": int(2**np.ceil(np.log2(self.ns)))}
-        kws = {"absolute": pad_count["absolute"],
-               "nextpow2": None}
-
-        for pad, n_total in pad_count.items():
-
-            n_fillin = n_total - self.ns
-            n_half = int(n_fillin / 2)
-
-            arr = padding(self.data, "zero", pad=pad, padlength=kws[pad])
-            assert np.all(arr[:n_half, :] == 0)
-            assert np.all(arr[-n_half:, :] == 0)
-            assert arr.shape[0] == n_total
-
-            arr = padding(self.data, "zero", pad=pad, padlength=kws[pad],
-                          prepadlength=True)
-            assert np.all(arr[:n_fillin, :] == 0)
-            assert arr.shape[0] == n_total
-
-            arr = padding(self.data, "zero", pad=pad, padlength=kws[pad],
-                          postpadlength=True)
-            assert np.all(arr[-n_fillin:, :] == 0)
-            assert arr.shape[0] == n_total
-
-            arr = padding(self.data, "zero", pad=pad, padlength=kws[pad],
-                          prepadlength=True, postpadlength=True)
-            assert np.all(arr[:n_half, :] == 0)
-            assert np.all(arr[-n_half:, :] == 0)
-            assert arr.shape[0] == n_total
-
-        # 'absolute'-specific errors: `padlength` too short, wrong type, wrong combo with `prepadlength`
-        with pytest.raises(SPYValueError):
-            padding(self.data, "zero", pad="absolute", padlength=self.ns - 1)
-        with pytest.raises(SPYTypeError):
-            padding(self.data, "zero", pad="absolute", prepadlength=self.ns)
-        with pytest.raises(SPYTypeError):
-            padding(self.data, "zero", pad="absolute", padlength=n_total, prepadlength=n_total)
-
-        # 'nextpow2'-specific errors: `padlength` wrong type, wrong combo with `prepadlength`
-        with pytest.raises(SPYTypeError):
-            padding(self.data, "zero", pad="nextpow2", padlength=self.ns)
-        with pytest.raises(SPYTypeError):
-            padding(self.data, "zero", pad="nextpow2", prepadlength=self.ns)
-        with pytest.raises(SPYTypeError):
-            padding(self.data, "zero", pad="nextpow2", padlength=n_total, prepadlength=True)
-
-    def test_object_padding(self):
-
-        # construct AnalogData object w/trials of unequal lengths
-        adata = generate_artificial_data(nTrials=7, nChannels=16,
-                                         equidistant=False, inmemory=False)
-        timeAxis = adata.dimord.index("time")
-        chanAxis = adata.dimord.index("channel")
-
-        # Define trial/channel selections for tests
-        trialSel = [0, 2, 1]
-        chanSel = range(4)
-
-        # test dictionary generation for `create_new = False`: ensure all trials
-        # have padded length of `total_time` seconds (1 sample tolerance)
-        total_time = 30
-        pad_list = padding(adata, "zero", pad="absolute", padlength=total_time,
-                           unit="time", create_new=False)
-        for tk, trl in enumerate(adata.trials):
-            assert "pad_width" in pad_list[tk].keys()
-            assert "constant_values" in pad_list[tk].keys()
-            trl_time = (pad_list[tk]["pad_width"][timeAxis, :].sum() + trl.shape[timeAxis]) / adata.samplerate
-            assert trl_time - total_time < 1 / adata.samplerate
-
-        # real thing: pad object with standing channel selection
-        res = padding(adata, "zero", pad="absolute", padlength=total_time, unit="time",
-                      create_new=True, select={"trials": trialSel, "channel": chanSel})
-        for tk, trl in enumerate(res.trials):
-            adataTrl = adata.trials[trialSel[tk]]
-            nSamples = pad_list[trialSel[tk]]["pad_width"][timeAxis, :].sum() + adataTrl.shape[timeAxis]
-            assert trl.shape[timeAxis] == nSamples
-            assert trl.shape[chanAxis] == len(list(chanSel))
-
-        # test correct update of trigger onset w/pre-padding
-        adataTimes = adata.time
-        prepadTime = 5
-        res = padding(adata, "zero", pad="relative", prepadlength=prepadTime,
-                      unit="time", create_new=True)
-        resTimes = res.time
-        adataTimes = adata.time
-        for tk, timeArr in enumerate(resTimes):
-            assert timeArr[0] == adataTimes[tk][0] - prepadTime
-            assert np.array_equal(timeArr[timeArr >= 0], adataTimes[tk][adataTimes[tk] >= 0])
-
-        # postpadding must not change trigger onset timing
-        postpadTime = 5
-        res = padding(adata, "zero", pad="relative", postpadlength=postpadTime,
-                      unit="time", create_new=True)
-        resTimes = res.time
-        for tk, timeArr in enumerate(resTimes):
-            assert timeArr[0] == adataTimes[tk][0]
-            assert np.array_equal(timeArr[timeArr <= 0], adataTimes[tk][adataTimes[tk] <= 0])
-
-        # jumble axes of `AnalogData` object and compute max. trial length
-        adata2 = generate_artificial_data(nTrials=7, nChannels=16,
-                                          equidistant=False, inmemory=False,
-                                          dimord=adata.dimord[::-1])
-        timeAxis2 = adata2.dimord.index("time")
-        chanAxis2 = adata2.dimord.index("channel")
-        maxtrllen = 0
-        for trl in adata2.trials:
-            maxtrllen = max(maxtrllen, trl.shape[timeAxis2])
-
-        # same as above, but this time w/swapped dimensions
-        res2 = padding(adata2, "zero", pad="absolute", padlength=total_time, unit="time",
-                       create_new=True, select={"trials": trialSel, "channel": chanSel})
-        pad_list2 = padding(adata2, "zero", pad="absolute", padlength=total_time,
-                            unit="time", create_new=False)
-        for tk, trl in enumerate(res2.trials):
-            adataTrl = adata2.trials[trialSel[tk]]
-            nSamples = pad_list2[trialSel[tk]]["pad_width"][timeAxis2, :].sum() + adataTrl.shape[timeAxis2]
-            assert trl.shape[timeAxis2] == nSamples
-            assert trl.shape[chanAxis2] == len(list(chanSel))
-
-        # symmetric `maxlen` padding: 1 sample tolerance
-        pad_list2 = padding(adata2, "zero", pad="maxlen", create_new=False)
-        for tk, trl in enumerate(adata2.trials):
-            trl_len = pad_list2[tk]["pad_width"][timeAxis2, :].sum() + trl.shape[timeAxis2]
-            assert (trl_len - maxtrllen) <= 1
-        pad_list2 = padding(adata2, "zero", pad="maxlen", prepadlength=True,
-                            postpadlength=True, create_new=False)
-        for tk, trl in enumerate(adata2.trials):
-            trl_len = pad_list2[tk]["pad_width"][timeAxis2, :].sum() + trl.shape[timeAxis2]
-            assert (trl_len - maxtrllen) <= 1
-
-        # pre- and post- `maxlen` padding: no tolerance
-        pad_list2 = padding(adata2, "zero", pad="maxlen", prepadlength=True,
-                            create_new=False)
-        for tk, trl in enumerate(adata2.trials):
-            trl_len = pad_list2[tk]["pad_width"][timeAxis2, :].sum() + trl.shape[timeAxis2]
-            assert trl_len == maxtrllen
-        pad_list2 = padding(adata2, "zero", pad="maxlen", postpadlength=True,
-                            create_new=False)
-        for tk, trl in enumerate(adata2.trials):
-            trl_len = pad_list2[tk]["pad_width"][timeAxis2, :].sum() + trl.shape[timeAxis2]
-            assert trl_len == maxtrllen
-
-        # make things maximally intersting: relative + time + non-equidistant +
-        # overlapping + selection + nonstandard dimord
-        adata3 = generate_artificial_data(nTrials=7, nChannels=16,
-                                          equidistant=False, overlapping=True,
-                                          inmemory=False, dimord=adata2.dimord)
-        res3 = padding(adata3, "zero", pad="absolute", padlength=total_time, unit="time",
-                       create_new=True, select={"trials": trialSel, "channel": chanSel})
-        pad_list3 = padding(adata3, "zero", pad="absolute", padlength=total_time,
-                            unit="time", create_new=False)
-        for tk, trl in enumerate(res3.trials):
-            adataTrl = adata3.trials[trialSel[tk]]
-            nSamples = pad_list3[trialSel[tk]]["pad_width"][timeAxis2, :].sum() + adataTrl.shape[timeAxis2]
-            assert trl.shape[timeAxis2] == nSamples
-            assert trl.shape[chanAxis2] == len(list(chanSel))
-
-        # `maxlen'-specific errors: `padlength` wrong type, wrong combo with `prepadlength`
-        with pytest.raises(SPYTypeError):
-            padding(adata, "zero", pad="maxlen", padlength=self.ns, create_new=False)
-        with pytest.raises(SPYTypeError):
-            padding(adata, "zero", pad="maxlen", prepadlength=self.ns, create_new=False)
-        with pytest.raises(SPYTypeError):
-            padding(adata, "zero", pad="maxlen", padlength=self.ns, prepadlength=True,
-                    create_new=False)
-
-    # test data-selection via class method
-    def test_dataselection(self):
-
-        # Create testing objects (regular and swapped dimords)
-        dummy = AnalogData(data=self.data,
-                           trialdefinition=self.trl,
-                           samplerate=self.samplerate)
-        ymmud = AnalogData(data=self.data.T,
-                           trialdefinition=self.trl,
-                           samplerate=self.samplerate,
-                           dimord=AnalogData._defaultDimord[::-1])
-
-        trialSels = [random.choice(trialSelections)]
-        chanSels = [random.choice(chanSelections)]
-        timeSels = [random.choice(timeSelections)]
-
-        for obj in [dummy, ymmud]:
-            idx = [slice(None)] * len(obj.dimord)
-            timeIdx = obj.dimord.index("time")
-            chanIdx = obj.dimord.index("channel")
-            for trialSel in trialSels:
-                for chanSel in chanSels:
-                    for timeSel in timeSels:
-                        kwdict = {}
-                        kwdict["trials"] = trialSel
-                        kwdict["channel"] = chanSel
-                        kwdict[timeSel[0]] = timeSel[1]
-                        cfg = StructDict(kwdict)
-                        # data selection via class-method + `Selector` instance for indexing
-                        selected = obj.selectdata(**kwdict)
-                        time.sleep(0.001)
-                        spy.selectdata(obj, kwdict, inplace=True)
-                        selector = obj.selection
-                        idx[chanIdx] = selector.channel
-                        for tk, trialno in enumerate(selector.trial_ids):
-                            idx[timeIdx] = selector.time[tk]
-                            assert np.array_equal(selected.trials[tk].squeeze(),
-                                                  obj.trials[trialno][idx[0], :][:, idx[1]].squeeze())
-                        cfg.data = obj
-                        # data selection via package function and `cfg`: ensure equality
-                        out = selectdata(cfg)
-                        assert np.array_equal(out.channel, selected.channel)
-                        assert np.array_equal(out.data, selected.data)
-                        time.sleep(0.001)
 
     # test arithmetic operations
     def test_ang_arithmetic(self):
@@ -705,6 +440,27 @@ class TestSpectralData():
         with pytest.raises(SPYValueError):
             SpectralData(data=np.ones((3,)))
 
+    def test_sd_concat(self):
+
+        # time x taper x freq x channel
+        nTrials = 3
+        gen = (i * np.ones((10, 2, 10, 3), dtype=np.complex64) for i in range(nTrials))
+        # use generator
+        dummy = SpectralData(data=gen, samplerate=11)
+        dummy.freq = dummy.freq * 1.239
+
+        # raw copy the array
+        dummy2 = SpectralData(dummy.data[()], samplerate=11)
+        dummy2.trialdefinition = dummy.trialdefinition
+        dummy2.freq = dummy.freq
+
+        concat = SpectralData([dummy, dummy2])
+        # check attributes
+        assert concat.samplerate == 11
+        assert np.all(concat.freq == dummy.freq)
+        # check trial sizes
+        assert len(concat.trials) == 2 * nTrials
+
     def test_sd_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
         dummy = SpectralData(self.data, trialdefinition=self.trl)
@@ -767,67 +523,6 @@ class TestSpectralData():
 
             # Delete all open references to file objects b4 closing tmp dir
             del dummy, dummy2
-
-    # test data-selection via class method
-    def test_sd_dataselection(self):
-
-        # Create testing objects (regular and swapped dimords)
-        dummy = SpectralData(data=self.data,
-                             trialdefinition=self.trl,
-                             samplerate=self.samplerate,
-                             taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)])
-        ymmud = SpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
-                             trialdefinition=self.trl,
-                             samplerate=self.samplerate,
-                             taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
-                             dimord=SpectralData._defaultDimord[::-1])
-
-        # Randomly pick one selection unless tests are run with `--full`
-        trialSels = [random.choice(trialSelections)]
-        chanSels = [random.choice(chanSelections)]
-        timeSels = [random.choice(timeSelections)]
-        freqSels = [random.choice(freqSelections)]
-        taperSels = [random.choice(taperSelections)]
-
-        for obj in [dummy, ymmud]:
-            idx = [slice(None)] * len(obj.dimord)
-            timeIdx = obj.dimord.index("time")
-            chanIdx = obj.dimord.index("channel")
-            freqIdx = obj.dimord.index("freq")
-            taperIdx = obj.dimord.index("taper")
-            for trialSel in trialSels:
-                for chanSel in chanSels:
-                    for timeSel in timeSels:
-                        for freqSel in freqSels:
-                            for taperSel in taperSels:
-                                kwdict = {}
-                                kwdict["trials"] = trialSel
-                                kwdict["channel"] = chanSel
-                                kwdict[timeSel[0]] = timeSel[1]
-                                kwdict[freqSel[0]] = freqSel[1]
-                                kwdict["taper"] = taperSel
-                                cfg = StructDict(kwdict)
-                                # data selection via class-method + `Selector` instance for indexing
-                                selected = obj.selectdata(**kwdict)
-                                time.sleep(0.001)
-                                spy.selectdata(obj, kwdict, inplace=True)
-                                selector = obj.selection
-                                idx[chanIdx] = selector.channel
-                                idx[freqIdx] = selector.freq
-                                idx[taperIdx] = selector.taper
-                                for tk, trialno in enumerate(selector.trial_ids):
-                                    idx[timeIdx] = selector.time[tk]
-                                    indexed = obj.trials[trialno][idx[0], ...][:, idx[1], ...][:, :, idx[2], :][..., idx[3]]
-                                    assert np.array_equal(selected.trials[tk].squeeze(),
-                                                          indexed.squeeze())
-                                cfg.data = obj
-                                # data selection via package function and `cfg`: ensure equality
-                                out = selectdata(cfg)
-                                assert np.array_equal(out.channel, selected.channel)
-                                assert np.array_equal(out.freq, selected.freq)
-                                assert np.array_equal(out.taper, selected.taper)
-                                assert np.array_equal(out.data, selected.data)
-                                time.sleep(0.001)
 
     # test arithmetic operations
     def test_sd_arithmetic(self):
@@ -931,6 +626,32 @@ class TestCrossSpectralData():
         with pytest.raises(SPYValueError):
             CrossSpectralData(data=np.ones((3,)))
 
+    def test_csd_concat(self):
+
+        # time x freq x channel x channel
+        nTrials = 3
+        gen = (i * np.ones((2, 2, 3, 3), dtype=np.complex64) for i in range(nTrials))
+        # use generator
+        dummy = CrossSpectralData(data=gen, samplerate=11)
+        dummy.freq = dummy.freq * 1.239
+
+        # raw copy the array
+        dummy2 = CrossSpectralData(dummy.data[()], samplerate=11)
+        dummy2.trialdefinition = dummy.trialdefinition
+        dummy2.freq = dummy.freq
+
+        concat = CrossSpectralData([dummy, dummy2])
+        # check attributes
+        assert concat.samplerate == 11
+        assert np.all(concat.freq == dummy.freq)
+        # check trial sizes
+        assert len(concat.trials) == 2 * nTrials
+
+        # try to concat SpectralData and CrossSpectralData
+        dummy3 = SpectralData(dummy.data[()], samplerate=11)
+        with pytest.raises(SPYValueError, match="different attribute values"):
+            concat2 = CrossSpectralData([dummy, dummy3])
+
     def test_csd_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
         dummy = CrossSpectralData(self.data)
@@ -993,66 +714,6 @@ class TestCrossSpectralData():
 
             # Delete all open references to file objects b4 closing tmp dir
             del dummy, dummy2
-
-    # test data-selection via class method
-    def test_csd_dataselection(self):
-
-        # Create testing objects (regular and swapped dimords)
-        dummy = CrossSpectralData(data=self.data,
-                                  samplerate=self.samplerate)
-        dummy.trialdefinition = self.trl
-        ymmud = CrossSpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
-                                  samplerate=self.samplerate,
-                                  dimord=CrossSpectralData._defaultDimord[::-1])
-        ymmud.trialdefinition = self.trl
-
-        # Randomly pick one selection unless tests are run with `--full`
-        trialSels = [random.choice(trialSelections)]
-        chanSels = [random.choice(chanSelections[2:])]
-        timeSels = [random.choice(timeSelections)]
-        freqSels = [random.choice(freqSelections)]
-
-        for obj in [dummy, ymmud]:
-            idx = [slice(None)] * len(obj.dimord)
-            timeIdx = obj.dimord.index("time")
-            chanIdx = obj.dimord.index("channel_i")
-            chanJdx = obj.dimord.index("channel_j")
-            freqIdx = obj.dimord.index("freq")
-            for trialSel in trialSels:
-                for chaniSel in chanSels:
-                    for chanjSel in chanSels:
-                        for timeSel in timeSels:
-                            for freqSel in freqSels:
-                                kwdict = {}
-                                kwdict["trials"] = trialSel
-                                kwdict["channel_i"] = chaniSel
-                                kwdict["channel_j"] = chanjSel
-                                kwdict[timeSel[0]] = timeSel[1]
-                                kwdict[freqSel[0]] = freqSel[1]
-                                cfg = StructDict(kwdict)
-                                # data selection via class-method + `Selector` instance for indexing
-                                selected = obj.selectdata(**kwdict)
-                                time.sleep(0.001)
-                                spy.selectdata(obj, kwdict, inplace=True)
-                                selector = obj.selection
-                                idx[chanIdx] = selector.channel_i
-                                idx[chanJdx] = selector.channel_j
-                                idx[freqIdx] = selector.freq
-                                jdx = [[elem] if np.issubdtype(type(elem), np.number) else elem for elem in idx]
-                                idx = jdx
-                                for tk, trialno in enumerate(selector.trial_ids):
-                                    idx[timeIdx] = selector.time[tk]
-                                    indexed = obj.trials[trialno][idx[0], ...][:, idx[1], ...][:, :, idx[2], :][..., idx[3]]
-                                    assert np.array_equal(selected.trials[tk].squeeze(),
-                                                          indexed.squeeze())
-                                cfg.data = obj
-                                # data selection via package function and `cfg`: ensure equality
-                                out = selectdata(cfg)
-                                assert np.array_equal(out.channel_i, selected.channel_i)
-                                assert np.array_equal(out.channel_j, selected.channel_j)
-                                assert np.array_equal(out.freq, selected.freq)
-                                assert np.array_equal(out.data, selected.data)
-                                time.sleep(0.001)
 
     # test arithmetic operations
     def test_csd_arithmetic(self):
