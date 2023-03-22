@@ -16,7 +16,7 @@ import dask.distributed as dd
 from syncopy.tests.misc import generate_artificial_data, flush_local_cluster
 from syncopy import freqanalysis, selectdata
 from syncopy.shared.errors import SPYValueError, SPYError
-from syncopy.datatype.base_data import Selector
+from syncopy.datatype.selector import Selector
 from syncopy.datatype import AnalogData, SpectralData
 from syncopy.shared.tools import StructDict, get_defaults
 

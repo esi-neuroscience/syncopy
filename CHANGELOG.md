@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file.
 - add Jackknifing for coherence and Granger analysis
 - add logging functionality and respective developer documentation, #208
 - add waveform extra dataset to DiscreteData to store raw data, #238
+- create syncopy data objects from Python generators (yeah!)
+- concatenation of syncopy data objects along trials
 
 ### CHANGED
 - support unequal trial sizes for `load_ft_raw`
