@@ -21,7 +21,7 @@ from scipy import signal
 
 
 def get_ica_testdata(n_samples=8000, duration_sec=8, add_noise=True):
-    """Create single channel ICA test data."""
+    """Create ICA test data."""
     time = np.linspace(0, duration_sec, n_samples)
 
     # Create 3 signals
@@ -30,7 +30,7 @@ def get_ica_testdata(n_samples=8000, duration_sec=8, add_noise=True):
     s3 = signal.sawtooth(2 * np.pi * time)  # saw tooth signal
 
     # Mix data
-    S = np.c_[s1, s2, s3]
+    S = np.c_[s1, s2, s3] # The sources
     if add_noise:
         S += 0.2 * np.random.normal(size=S.shape) # Add noise
     S /= S.std(axis=0)  # Normalize
