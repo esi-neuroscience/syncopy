@@ -205,7 +205,7 @@ class TestRedefinetrial:
             redefinetrial(self.reg_data, begsample=8)
 
         # sample numberes are relative to trial start, so negative values are invalid
-        with pytest.raises(SPYValueError, match='expected integers > 0'):
+        with pytest.raises(SPYValueError, match='expected integers >= 0'):
             redefinetrial(self.reg_data, begsample=-2, endsample=2)
 
         # end > begin
