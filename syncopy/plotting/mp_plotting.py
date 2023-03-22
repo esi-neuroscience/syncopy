@@ -13,7 +13,7 @@ from numbers import Number
 from syncopy import __plt__
 from syncopy.shared.errors import SPYWarning, SPYValueError
 from syncopy.plotting import _plotting
-from syncopy.plotting import _helpers as plot_helpers
+from syncopy.plotting import helpers as plot_helpers
 from syncopy.plotting.config import pltErrMsg, pltConfig
 
 
@@ -170,7 +170,7 @@ def plot_SpectralData(data, **show_kwargs):
 
         # get the data to plot
         data_x = plot_helpers.parse_foi(data, show_kwargs)
-        output = plot_helpers.get_output(data)
+        output = plot_helpers.get_output(data, 'freqanalysis')
 
         # only log10 the absolute squared spectra
         if output == 'pow':
@@ -240,8 +240,8 @@ def plot_CrossSpectralData(data, **show_kwargs):
     chi, chj = show_kwargs['channel_i'], show_kwargs['channel_j']
 
     # what data do we have?
-    method = plot_helpers.get_method(data)
-    output = plot_helpers.get_output(data)
+    method = plot_helpers.get_method(data, 'connectivityanalysis')
+    output = plot_helpers.get_output(data, 'connectivityanalysis')
 
     if method == 'granger':
         xlabel = 'frequency (Hz)'

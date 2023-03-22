@@ -309,8 +309,8 @@ class TestCoherence:
 
     def test_timedep_coh(self):
         """
-        stack together different phase diffusing signals
-        with increasing diffusion strength to emulate non-stationarity
+        Time dependent coherence of phase diffusing signals.
+        Starting from a common phase, they'll decorrelate over time.
         """
 
         # 20Hz band has strong diffusion so coherence
@@ -480,8 +480,8 @@ class TestCoherence:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_parallel(self):
-        check_parallel(TestCoherence())
+    def test_coh_parallel(self):
+        check_parallel(self)
 
     def test_coh_padding(self):
 
@@ -555,8 +555,8 @@ class TestCSD:
         assert cross_spec.data.shape != self.spec.data.shape
 
     @skip_low_mem
-    def test_parallel(self):
-        check_parallel(TestCSD())
+    def test_csd_parallel(self):
+        check_parallel(self)
 
     def test_csd_input(self):
         assert isinstance(self.spec, SpectralData)
@@ -717,12 +717,204 @@ class TestCorrelation:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_parallel(self):
-        check_parallel(TestCorrelation())
+    def test_corr_parallel(self):
+        check_parallel(self)
 
     def test_corr_polyremoval(self):
 
         call = lambda polyremoval: self.test_corr_solution(polyremoval=polyremoval)
+        helpers.run_polyremoval_test(call)
+
+
+class TestPPC:
+
+    nSamples = 1000
+    nChannels = 3
+    nTrials = 20
+    fs = 1000
+
+    # -- one harmonic with individual phase diffusion --
+
+    f1 = 20
+    # phase diffusion (1% per step) in the 20Hz band
+    s1 = synth_data.phase_diffusion(nTrials, freq=f1,
+                                    eps=.01,
+                                    nChannels=nChannels,
+                                    nSamples=nSamples,
+                                    seed=helpers.test_seed)
+    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples,
+                                seed=helpers.test_seed)
+
+    # superposition
+    data = s1 + wn
+    data.samplerate = fs
+    time_span = [-1, nSamples / fs - 1]   # -1s offset
+
+    # spectral analysis
+    cfg = spy.StructDict()
+    cfg.tapsmofrq = 1.5
+    cfg.foilim = [5, 60]
+
+    spec = spy.freqanalysis(data, cfg, output='fourier', keeptapers=True)
+
+    def test_timedep_ppc(self):
+        """
+        Time dependent PPC of phase diffusing signals.
+        Starting from a common phase, they'll decorrelate over time.
+        """
+
+        # 20Hz band has strong diffusion so coherence
+        # will go down noticably over the observation time
+        test_data = self.data
+        # check number of samples
+        assert test_data.time[0].size == self.nSamples
+
+        # get time-frequency spec for the non-stationary signal
+        spec_tf = spy.freqanalysis(test_data, method='mtmconvol',
+                                   t_ftimwin=0.3, foilim=[5, 100],
+                                   output='fourier')
+
+        # compute time dependent coherence
+        ppc = cafunc(data=spec_tf, method='ppc')
+
+        # check that we have still the same time axis
+        assert np.all(ppc.time[0] == test_data.time[0])
+
+        # not exactly beautiful but it makes the point
+        ppc.singlepanelplot(channel_i=0, channel_j=1, frequency=[7, 60])
+
+        # for visual comparison to the coherence which has more bias
+        coh = cafunc(data=spec_tf, method='coh')
+
+        # plot the coherence over time just along two different frequency bands
+        ppl.figure()
+        ppc_profile20 = ppc.show(frequency=self.f1, channel_i=0, channel_j=1)
+        ppl.plot(ppc_profile20, label='20Hz')
+        ppl.plot(coh.show(frequency=20, channel_i=0, channel_j=1), ls='--',
+                 label='20Hz coherence', c='k', alpha=0.4)
+
+        # here is nothing
+        ppc_profile50 = ppc.show(frequency=50, channel_i=0, channel_j=1)
+        ppl.plot(ppc_profile50, label='50Hz')
+
+        ppl.plot(coh.show(frequency=50, channel_i=0, channel_j=1),
+                 label='50Hz coherence', c='k', alpha=0.4)
+
+        ppl.title(f'PPC(t), nTrials={self.nTrials}')
+        ppl.xlabel('samples')
+        ppl.ylabel('PPC')
+        ppl.legend()
+
+        # check that the 20 Hz band has high PPC only in the beginning
+        assert ppc_profile20.max() > 0.9
+        assert ppc_profile20.argmax() < self.nSamples / 10
+        # side band never has high PPC
+        # note that we can go lower as compared to the coherence
+        # as PPC has less bias
+        assert ppc_profile50.max() < 0.2
+
+        # check that for the sideband noise (0 true coherence) we get lower values as
+        # for the classic coherence
+        assert np.all(coh.show(frequency=50, channel_i=0, channel_j=1) > ppc_profile50)
+
+    def test_ppc_solution(self, **kwargs):
+
+        # re-run spectral analysis
+        if len(kwargs) != 0:
+            spec = spy.freqanalysis(self.data, self.cfg, output='fourier',
+                                    keeptapers=True, **kwargs)
+        else:
+            spec = self.spec
+        # sanity check
+        assert isinstance(self.data, AnalogData)
+        assert isinstance(spec, SpectralData)
+
+        res_spec = cafunc(data=spec,
+                          method='ppc',
+                          **kwargs)
+
+        # needs same cfg for spectral analysis
+        res_ad = cafunc(data=self.data,
+                        method='ppc',
+                        cfg=self.cfg,
+                        **kwargs)
+
+        # same results on all channels and freqs
+        # irrespective of AnalogData or SpectralData input
+        assert np.allclose(res_spec.trials[0], res_ad.trials[0])
+
+        for res in [res_spec, res_ad]:
+            # coherence at the harmonic frequencies
+            idx_f1 = np.argmin(res.freq < self.f1)
+            peak_f1 = res.data[0, idx_f1, 0, 1]
+
+            assert peak_f1 > 0.25
+            # check that highest coherence is at the
+            # harmonic frequency
+            # assert res.show(channel_i=0, channel_j=1).argmax() == idx_f1
+
+            # check that 5Hz away from the harmonics there
+            # is low PPC
+            null_idx = (res.freq < self.f1 - 5) | (res.freq > self.f1 + 5)
+            assert np.all(res.data[0, null_idx, 0, 1] < 0.2)
+
+            if len(kwargs) == 0:
+                res.singlepanelplot(channel_i=0, channel_j=1)
+
+    def test_ppc_selections(self):
+
+        sel_dct = helpers.mk_selection_dicts(self.nTrials,
+                                             self.nChannels,
+                                             *self.time_span)[0]
+
+        result = cafunc(self.data, self.cfg, method='coh', select=sel_dct)
+
+        # re-run spectral analysis with selection
+        spec = spy.freqanalysis(self.data, self.cfg, output='fourier',
+                                keeptapers=True, select=sel_dct)
+
+        result_spec = cafunc(spec, method='coh')
+
+        # check here just for finiteness and positivity
+        assert np.all(np.isfinite(result.data))
+        assert np.all(result.data[0, ...] >= -1e-10)
+
+        # same results
+        assert np.allclose(result.trials[0], result_spec.trials[0], atol=1e-3)
+
+        # test one final selection into a result
+        # obtained via orignal SpectralData input
+        sel_dct.pop('latency')
+        result_ad = cafunc(self.data, self.cfg, method='ppc', select=sel_dct)
+        result_spec = cafunc(self.spec, method='ppc', select=sel_dct)
+        assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
+
+    def test_ppc_foi(self):
+
+        # make sure out-of-range foilim  are detected
+        with pytest.raises(SPYValueError, match='foilim'):
+            _ = cafunc(self.data, method='ppc', foilim=[-1, 70])
+
+        # make sure invalid foilim are detected
+        with pytest.raises(SPYValueError, match='foilim'):
+            _ = cafunc(self.data, method='ppc', foilim=[None, None])
+
+        with pytest.raises(SPYValueError, match='foilim'):
+            _ = cafunc(self.data, method='ppc', foilim='abc')
+
+    @skip_low_mem
+    def test_ppc_parallel(self):
+        check_parallel(self)
+
+    def test_ppc_padding(self):
+
+        pad_length = 2   # seconds
+        call = lambda pad: self.test_ppc_solution(pad=pad)
+        helpers.run_padding_test(call, pad_length)
+
+    def test_ppc_polyremoval(self):
+
+        call = lambda polyremoval: self.test_ppc_solution(polyremoval=polyremoval)
         helpers.run_polyremoval_test(call)
 
 
@@ -792,3 +984,4 @@ if __name__ == '__main__':
     T3 = TestCorrelation()
     T4 = TestSpectralInput()
     T5 = TestCSD()
+    T6 = TestPPC()
