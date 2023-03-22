@@ -13,7 +13,7 @@ from numbers import Number
 from syncopy import __plt__
 from syncopy.shared.errors import SPYWarning, SPYValueError
 from syncopy.plotting import _plotting
-from syncopy.plotting import _helpers as plot_helpers
+from syncopy.plotting import helpers as plot_helpers
 from syncopy.plotting.config import pltErrMsg, pltConfig
 
 
@@ -166,7 +166,7 @@ def plot_SpectralData(data, logscale=True, **show_kwargs):
             labels = channels
         # get the data to plot
         data_x = plot_helpers.parse_foi(data, show_kwargs)
-        output = plot_helpers.get_output(data)
+        output = plot_helpers.get_output(data, 'freqanalysis')
 
         # only log10 the absolute squared spectra
         if output == 'pow' and logscale:
@@ -249,8 +249,8 @@ def plot_CrossSpectralData(data, **show_kwargs):
         chj_label = chj
 
     # what data do we have?
-    method = plot_helpers.get_method(data)
-    output = plot_helpers.get_output(data)
+    method = plot_helpers.get_method(data, 'connectivityanalysis')
+    output = plot_helpers.get_output(data, 'connectivityanalysis')
 
     if method == 'granger':
         xlabel = 'frequency (Hz)'
@@ -260,6 +260,11 @@ def plot_CrossSpectralData(data, **show_kwargs):
     elif method == 'coh':
         xlabel = 'frequency (Hz)'
         ylabel = f'{output} coherence'
+        label = rf"{chi_label} - {chj_label}"
+        data_x = plot_helpers.parse_foi(data, show_kwargs)
+    elif method == 'ppc':
+        xlabel = 'frequency (Hz)'
+        ylabel = 'PPC'
         label = rf"{chi_label} - {chj_label}"
         data_x = plot_helpers.parse_foi(data, show_kwargs)
     elif method == 'corr':
@@ -274,7 +279,7 @@ def plot_CrossSpectralData(data, **show_kwargs):
     is_tf = plot_helpers.check_if_time_freq(data)
 
     # time dependent coherence
-    if method == 'coh' and is_tf:
+    if method in ['coh', 'ppc'] and is_tf:
         # here we always need a new axes
         fig, ax = _plotting.mk_img_figax()
 
