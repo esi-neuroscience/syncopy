@@ -20,9 +20,9 @@ import sklearn.decomposition as decomposition
 from scipy import signal
 
 
-def get_ica_testdata(n_samples=8000):
+def get_ica_testdata(n_samples=8000, duration_sec=8, add_noise=True):
     """Create single channel ICA test data."""
-    time = np.linspace(0, 8, n_samples)
+    time = np.linspace(0, duration_sec, n_samples)
 
     # Create 3 signals
     s1 = np.sin(2 * time)                   # sinusoidal
@@ -31,7 +31,8 @@ def get_ica_testdata(n_samples=8000):
 
     # Mix data
     S = np.c_[s1, s2, s3]
-    S += 0.2 * np.random.normal(size=S.shape) # Add noise
+    if add_noise:
+        S += 0.2 * np.random.normal(size=S.shape) # Add noise
     S /= S.std(axis=0)  # Normalize
     A = np.array([[1, 1, 1], [0.5, 2, 1.0], [1.5, 1.0, 2.0]])  # Mixing matrix
     X = np.dot(S, A.T)
