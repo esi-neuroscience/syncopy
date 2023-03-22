@@ -13,10 +13,31 @@ from syncopy.tests import synth_data as sd
 from syncopy.tests.helpers import test_seed
 
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.shared.tools import get_defaults, best_match
+from syncopy.shared.tools import get_defaults
 
 import syncopy as spy
 import sklearn.decomposition as decomposition
+from scipy import signal
+
+
+def get_ica_testdata(n_samples=8000):
+    """Create single channel ICA test data."""
+    time = np.linspace(0, 8, n_samples)
+
+    # Create 3 signals
+    s1 = np.sin(2 * time)                   # sinusoidal
+    s2 = np.sign(np.sin(3 * time))          # square signal
+    s3 = signal.sawtooth(2 * np.pi * time)  # saw tooth signal
+
+    # Mix data
+    S = np.c_[s1, s2, s3]
+    S += 0.2 * np.random.normal(size=S.shape) # Add noise
+    S /= S.std(axis=0)  # Normalize
+    A = np.array([[1, 1, 1], [0.5, 2, 1.0], [1.5, 1.0, 2.0]])  # Mixing matrix
+    X = np.dot(S, A.T)
+    X = X.T
+    return X
+
 
 
 class TestFastICA():
