@@ -477,6 +477,7 @@ class Selector:
                 tsel = self.time[tk]
                 if isinstance(tsel, slice):
                     start, stop, step = tsel.start, tsel.stop, tsel.step
+                    log(f"trialdefinition setter: tsel is a slice. initial values: start={start}, stop={stop}, step={step}", level="DEBUG")
                     if start is None:
                         start = 0
                     if stop is None:
@@ -494,13 +495,16 @@ class Selector:
                     endSample = stop + data._t0[trlno]
                     t0 = int(endSample - nSamples)
                 else:
+                    log(f"trialdefinition setter: tsel is NOT a slice", level="DEBUG")
                     nSamples = len(tsel)
                     if nSamples == 0:
                         t0 = 0
                     else:
                         t0 = data._t0[trlno]
+                log(f"trialdefinition setter: writing to trlDef, t0={t0}", level="DEBUG")
                 trlDef[tk, :3] = [counter, counter + nSamples, t0]
                 trlDef[tk, 3:] = trl[trlno, 3:]
+                log(f"trialdefinition setter: writing to trlDef done", level="DEBUG")
                 counter += nSamples
         self._trialdefinition = trlDef
 

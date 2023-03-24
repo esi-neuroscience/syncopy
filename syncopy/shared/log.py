@@ -64,6 +64,12 @@ def setup_logging(spydir=None, session=""):
     fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s - %(session)s: %(message)s',
                                           datefmt_file)
 
+    # Allow users to set env variable SPYLOGMSECS to have millisecond precision in logs. Useful for performance profiling.
+    if os.environ.get("SPYLOGMSECS"):
+        fmt_interactive = logging.Formatter('%(asctime)s.%(msecs)03d - %(levelname)s: %(message)s', datefmt_interactive)
+        fmt_with_hostname = logging.Formatter('%(asctime)s.%(msecs)03d - %(levelname)s - %(hostname)s - %(session)s: %(message)s',
+                                          datefmt_file)
+
     sh = logging.StreamHandler(sys.stdout)
     sh.setFormatter(fmt_interactive)
     spy_logger.addHandler(sh)
