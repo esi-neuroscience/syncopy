@@ -4,7 +4,7 @@ import numpy as np
 
 # syncopy imports
 from syncopy.shared.parsers import array_parser, data_parser
-from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError, log
 
 # local imports
 from .util import TrialIndexer
@@ -129,6 +129,8 @@ class Selector:
 
     def __init__(self, data, select):
 
+        log(f"Selector initializing for data of type {type(data)} with select: {select}", level="DEBUG")
+
         # Ensure input makes sense
         try:
             data_parser(data, varname="data", empty=False)
@@ -208,13 +210,20 @@ class Selector:
         for prop in self._allProps:
             setattr(self, prop, (data, select))
 
+
+        log(f"Selector calling _make_consistent", level="DEBUG")
+
         # Ensure correct indexing: harmonize selections for `DiscreteData`-children
         # or convert everything to lists for use w/`np.ix_` if we ended up w/more
         # than 2 list selectors for `ContinuousData`-offspring
         self._make_consistent(data)
 
+        log(f"Selector setting select", level="DEBUG")
+
         # store for later re-application/modification
         self.select = select
+
+        log(f"Selector calling create_get_trial", level="DEBUG")
 
         # create the Selector._get_trial helper
         self.create_get_trial(data)
@@ -847,6 +856,8 @@ class Selector:
         # indices, go through each trial and combine them
         if self._dataClass in ["SpikeData", "EventData"]:
 
+            log(f"_make_consistent: handling DiscreteData children.", level="DEBUG")
+
             # Get relevant selectors (e.g., `self.unit` is `None` for `EventData`)
             actualSelections = []
             for selection in ["time", "eventid", "unit"]:
@@ -914,6 +925,8 @@ class Selector:
 
             return
 
+        log(f"_make_consistent: handling non-DiscreteData children.", level="DEBUG")
+
         # Count how many lists we got
         listCount = 0
         for prop in self._dimProps:
@@ -931,12 +944,15 @@ class Selector:
 
         # If (on a by-trial basis) we have two or more lists, we need fancy indexing
         if listCount >= 2:
+            log(f"_make_consistent: using fancy indexing.", level="DEBUG")
             self._useFancy = True
 
         # Finally, prepare new `trialdefinition` array for objects with `time` dimensions
         if self.time is not None:
+            log(f"_make_consistent: setting trialdefinition from data.", level="DEBUG")
             self.trialdefinition = data
 
+        log(f"_make_consistent: done.", level="DEBUG")
         return
 
     # Legacy support

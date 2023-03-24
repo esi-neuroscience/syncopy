@@ -15,12 +15,12 @@ from abc import ABC
 from collections.abc import Iterator
 
 # Local imports
-from .base_data import BaseData, FauxTrial, _definetrial
-from .methods.definetrial import definetrial
+from .base_data import BaseData
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError, SPYWarning
+from syncopy.shared.errors import SPYValueError, log
 from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
+
 
 
 __all__ = ["AnalogData", "SpectralData", "CrossSpectralData", "TimeLockData"]
@@ -228,6 +228,8 @@ class ContinuousData(BaseData, ABC):
         start = int(self.sampleinfo[trialno, 0])
         shp[self._stackingDim] = stop - start
         idx[self._stackingDim] = slice(start, stop)
+
+        log(f"Creating FauxTrial object for trial {trialno} in _preview_trial.", level="DEBUG")
 
         # process existing data selections
         if self.selection is not None:

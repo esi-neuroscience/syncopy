@@ -11,7 +11,7 @@ import h5py
 import syncopy as spy
 from syncopy.shared.tools import get_frontend_cfg, get_defaults
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, log
 from syncopy.shared.kwarg_decorators import unwrap_cfg, process_io, detect_parallel_client
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.latency import get_analysis_window, create_trial_selection
@@ -244,6 +244,8 @@ def selectdata(data,
     :func:`syncopy.show` : Show (subsets) of Syncopy objects
     """
 
+    log(f"selectdata called for instance of {type(data)}", level="DEBUG", par=False)
+
     # Ensure our one mandatory input is usable
     data_parser(data, varname="data", empty=False)
 
@@ -302,8 +304,11 @@ def selectdata(data,
     # now just keep going with the selection keys relevant for that particular data type
     selectDict = {key: selectDict[key] for key in data._selectionKeyWords}
 
+    log(f"selectdata: parameters okay.", level="DEBUG")
+
     # First simplest case: determine whether we just need to clear an existing selection
     if clear:
+        log(f"selectdata: clearing selection.", level="DEBUG")
         if any(value is not None for value in selectDict.values()):
             lgl = "no data selectors if `clear = True`"
             raise SPYValueError(lgl, varname="select", actual=selectDict)
@@ -314,6 +319,8 @@ def selectdata(data,
             SPYInfo("In-place selection cleared")
         return
 
+    log(f"selectdata: not clearing selection.", level="DEBUG")
+
     # first do a selection without latency as a possible subselection
     # of trials needs to be applied before the latency digesting functions
     # can be called (if the user by himself throws out non-fitting trials)
@@ -321,11 +328,18 @@ def selectdata(data,
 
     # Pass provided selections on to `Selector` class which performs error checking
     # this is an in-place selection!
+
+    log(f"selectdata: setting selection to {selectDict}.", level="DEBUG")
+
     data.selection = selectDict
+
+    log(f"selectdata: setting selection done.", level="DEBUG")
 
     # -- sort out trials if latency is set --
 
     if latency is not None and latency != 'all':
+
+        log(f"selectdata: handling latency", level="DEBUG")
 
         # sanity check done here, converts str arguments
         # ('maxperiod' and so on) into time window [start, end] of analysis
@@ -342,12 +356,16 @@ def selectdata(data,
         # update inplace selection
         selectDict['latency'] = window
         data.selection = selectDict
+    else:
+        log(f"selectdata: not handling latency", level="DEBUG")
 
     # If an in-place selection was requested we're done.
     if inplace:
         # attach frontend parameters for replay
         data.cfg.update({'selectdata': new_cfg})
         return
+
+    log(f"selectdata: not an in-place selection.", level="DEBUG")
 
     # Inform the user what's about to happen
     selectionSize = _get_selection_size(data)

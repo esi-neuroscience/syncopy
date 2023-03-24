@@ -12,7 +12,6 @@ import syncopy
 import warnings
 import datetime
 import platform
-import getpass
 
 
 loggername = "syncopy"  # Since this is a library, we should not use the root logger (see Python logging docs).
