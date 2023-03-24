@@ -323,12 +323,12 @@ class ContinuousData(BaseData, ABC):
         """
         timing = []
         num_trials = len(trials)
-        log("_get_time: calling for {num_trials} trials.", level="DEBUG")
+        log(f"_get_time: calling for {num_trials} trials.", level="DEBUG")
         if toilim is not None:
             for trlno in trials:
-                log("_get_time: with toilim {toilim}, calling best_match for trial {trlno}.", level="DEBUG")
+                log(f"_get_time: with toilim {toilim}, calling best_match for trial {trlno}.", level="DEBUG")
                 _, selTime = best_match(self.time[trlno], toilim, span=True)
-                log("_get_time: with toilim {toilim}, best_match done.", level="DEBUG")
+                log(f"_get_time: with toilim {toilim}, best_match done.", level="DEBUG")
                 selTime = selTime.tolist()
                 if len(selTime) > 1:
                     timing.append(slice(selTime[0], selTime[-1] + 1, 1))
@@ -337,9 +337,9 @@ class ContinuousData(BaseData, ABC):
 
         elif toi is not None:
             for trlno in trials:
-                log("_get_time: with toi {toi}, calling best_match for trial {trlno}.", level="DEBUG")
+                log(f"_get_time: with toi {toi}, calling best_match for trial {trlno}.", level="DEBUG")
                 _, selTime = best_match(self.time[trlno], toi)
-                log("_get_time: with toi {toi}, calling best_match.", level="DEBUG")
+                log(f"_get_time: with toi {toi}, calling best_match.", level="DEBUG")
                 selTime = selTime.tolist()
                 if len(selTime) > 1:
                     timeSteps = np.diff(selTime)
