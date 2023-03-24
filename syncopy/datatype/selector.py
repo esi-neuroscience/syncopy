@@ -464,12 +464,16 @@ class Selector:
 
         # `DiscreteData`: simply copy relevant sample-count -> trial assignments,
         # for other classes build new trialdefinition array using `t0`-offsets
+        log(f"trialdefinition setter: setting for {self._dataClass}", level="DEBUG")
+
         if self._dataClass in ["SpikeData", "EventData"]:
             trlDef = trl[self.trial_ids, :]
         else:
             trlDef = np.zeros((len(self.trial_ids), trl.shape[1]))
             counter = 0
+            num_trials = len(self.trial_ids)
             for tk, trlno in enumerate(self.trial_ids):
+                log(f"trialdefinition setter: setting for trial {tk} of {num_trials}", level="DEBUG")
                 tsel = self.time[tk]
                 if isinstance(tsel, slice):
                     start, stop, step = tsel.start, tsel.stop, tsel.step
