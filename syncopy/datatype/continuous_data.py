@@ -15,6 +15,8 @@ from abc import ABC
 from collections.abc import Iterator
 
 # Local imports
+from .base_data import BaseData, FauxTrial, _definetrial
+from .methods.definetrial import definetrial
 from .base_data import BaseData
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, log
@@ -320,9 +322,13 @@ class ContinuousData(BaseData, ABC):
         syncopy.datatype.selector.Selector : Syncopy data selectors
         """
         timing = []
+        num_trials = len(trials)
+        log("_get_time: calling for {num_trials} trials.", level="DEBUG")
         if toilim is not None:
             for trlno in trials:
+                log("_get_time: with toilim {toilim}, calling best_match for trial {trlno}.", level="DEBUG")
                 _, selTime = best_match(self.time[trlno], toilim, span=True)
+                log("_get_time: with toilim {toilim}, best_match done.", level="DEBUG")
                 selTime = selTime.tolist()
                 if len(selTime) > 1:
                     timing.append(slice(selTime[0], selTime[-1] + 1, 1))
@@ -331,7 +337,9 @@ class ContinuousData(BaseData, ABC):
 
         elif toi is not None:
             for trlno in trials:
+                log("_get_time: with toi {toi}, calling best_match for trial {trlno}.", level="DEBUG")
                 _, selTime = best_match(self.time[trlno], toi)
+                log("_get_time: with toi {toi}, calling best_match.", level="DEBUG")
                 selTime = selTime.tolist()
                 if len(selTime) > 1:
                     timeSteps = np.diff(selTime)

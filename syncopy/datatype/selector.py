@@ -481,7 +481,9 @@ class Selector:
                     if start is None:
                         start = 0
                     if stop is None:
+                        log(f"trialdefinition setter: calling data._get_time", level="DEBUG")
                         trlTime = data._get_time([trlno], toilim=[-np.inf, np.inf])[0]
+                        log(f"trialdefinition setter: data._get_time returned", level="DEBUG")
                         if isinstance(trlTime, list):
                             stop = np.max(trlTime)
                             # Avoid creating empty arrays for "static" `SpectralData` objects
