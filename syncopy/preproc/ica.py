@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-# Syncopy independent component analysis (ICA) frontend
+# Syncopy 'Independent Component Analysis' (ICA) frontend.
+# Our implementation is based on the FastICA algorithm by Aapo Hyvärinen,
+# which is available in scikit-learn.
 #
 
 # Builtin/3rd party package imports
@@ -131,7 +133,8 @@ def runica(
     if method == "fastica":
         icaMethod = SpyFastICA(
             samplerate=data.samplerate,
-            timeAxis=timeAxis
+            timeAxis=timeAxis,
+            fit_params=fit_params
         )
 
     icaMethod.initialize(
@@ -142,7 +145,7 @@ def runica(
     )
 
     icaMethod.compute(
-        data, out, parallel=kwargs.get("parallel"), log_dict=log_dict, fit_params=fit_params
+        data, out, parallel=kwargs.get("parallel"), log_dict=log_dict
     )
 
     out.cfg.update(data.cfg)

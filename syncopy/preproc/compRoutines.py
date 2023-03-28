@@ -917,6 +917,8 @@ def fastica_cF(dat, timeAxis=0, noCompute=False, chunkShape=None, fit_params = {
 
     transformer = FastICA(**fit_params)
     estim_sources = transformer.fit_transform(dat)
+    lin_op = transformer.mixing_
+    feat_mean = getattr(transformer, 'mean_', None)
 
     return estim_sources
 
