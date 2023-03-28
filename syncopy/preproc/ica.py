@@ -32,7 +32,16 @@ available_methods = ("fastica",)
 @detect_parallel_client
 def runica(
     data,
-    method="fastica",
+    n_components=None,
+    algorithm='parallel',
+    whiten='unit-variance',
+    fun='logcosh',
+    fun_args=None,
+    max_iter=200,
+    tol=1e-4,
+    w_init=None,
+    whiten_solver='svd',
+    random_state=None,
     **kwargs,
 ):
     """
@@ -68,7 +77,25 @@ def runica(
     `The EEGLAB tutorial on ICA <https://eeglab.org/tutorials/06_RejectArtifacts/RunICA.html>`_
     sklearn.decomposition.FastICA : the FastICA implementation in `scikit-learn`
     """
+
+
+    method="fastica"  # Currently only one method is available.
+
+    fit_params = {
+        'n_components': n_components,
+        'algorithm': algorithm,
+        'whiten' : whiten,
+        'fun': fun,
+        'fun_args' : fun_args,
+        'max_iter' : max_iter,
+        'tol' : tol,
+        'w_init' : w_init,
+        'whiten_solver' : whiten_solver,
+        'random_state': random_state
+    }
+
     # Validate input
+
 
     # Make sure our one mandatory input object can be processed
     data_parser(data, varname="data", dataclass="AnalogData", writable=None, empty=False)
@@ -95,7 +122,8 @@ def runica(
 
     # Prepare keyword dict for logging history in data object.
     log_dict = {
-        "ica_method": method
+        "ica_method": method,
+        "ica_params": fit_params
     }
 
     out = AnalogData(dimord=data.dimord)
@@ -114,7 +142,7 @@ def runica(
     )
 
     icaMethod.compute(
-        data, out, parallel=kwargs.get("parallel"), log_dict=log_dict
+        data, out, parallel=kwargs.get("parallel"), log_dict=log_dict, fit_params=fit_params
     )
 
     out.cfg.update(data.cfg)
