@@ -861,8 +861,20 @@ def _resampling_trl_definition(orig_trl, factor):
 
 
 @process_io
-def fastica_cF(dat, timeAxis=0, noCompute=False, chunkShape=None, init_params = { 'n_components': None, 'random_state': 0, 'whiten': 'unit-variance'}):
+def fastica_cF(dat, timeAxis=0, noCompute=False, chunkShape=None, fit_params = {
+        'n_components': None,
+        'algorithm': 'parallel',
+        'whiten' : 'unit-variance',
+        'fun': 'logcosh',
+        'fun_args' : None,
+        'max_iter' : 200,
+        'tol' : 1e-4,
+        'w_init' : None,
+        'whiten_solver' : 'svd',
+        'random_state': None
+    }):
     """Compute function for independent component analysis (ICA).
+    This uses the FastICA algorithm from scikit-learn.
 
     Parameters
     ----------
@@ -903,7 +915,7 @@ def fastica_cF(dat, timeAxis=0, noCompute=False, chunkShape=None, init_params = 
     if noCompute:
         return outShape, np.float32
 
-    transformer = FastICA(**init_params)
+    transformer = FastICA(**fit_params)
     estim_sources = transformer.fit_transform(dat)
 
     return estim_sources

@@ -25,6 +25,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
     """
     Parameterization of neural power spectra using
     the FOOOF mothod by Donoghue et al: fitting oscillations & one over f.
+    This is the FOOOF backend function.
 
     Parameters
     ----------
