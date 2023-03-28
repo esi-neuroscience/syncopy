@@ -20,8 +20,18 @@ import sklearn.decomposition as decomposition
 from scipy import signal
 
 
-def get_ica_testdata(n_samples=8000, duration_sec=8, add_noise=True):
-    """Create ICA test data."""
+def get_ica_testdata(n_samples=8000, samplerate=1000, add_noise=True, as_ad=True):
+    """
+    Create ICA test data from different signals.
+
+    Parameters
+    ----------
+    n_samples : int, number of samples
+    samplerate : int, sampling rate
+    add_noise : bool, whether to add noise to the data
+    as_ad : bool, whether to return the data as AnalogData object
+    """
+    duration_sec = n_samples / samplerate
     time = np.linspace(0, duration_sec, n_samples)
 
     # Create 3 signals
@@ -37,6 +47,8 @@ def get_ica_testdata(n_samples=8000, duration_sec=8, add_noise=True):
     A = np.array([[1, 1, 1], [0.5, 2, 1.0], [1.5, 1.0, 2.0]])  # Mixing matrix
     X = np.dot(S, A.T)
     X = X.T
+    if as_ad:
+        X = spy.AnalogData(data=X, samplerate=samplerate)
     return X
 
 
