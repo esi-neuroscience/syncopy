@@ -917,8 +917,15 @@ def fastica_cF(dat, timeAxis=0, noCompute=False, chunkShape=None, fit_params = {
 
     transformer = FastICA(**fit_params)
     estim_sources = transformer.fit_transform(dat)
-    lin_op = transformer.mixing_
-    feat_mean = getattr(transformer, 'mean_', None)
+
+    # See sklearn documentation for details, https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.FastICA.html
+    comp = transformer.components_  # ndarray of shape (n_components, n_features). The linear operator to apply to the data to get the independent sources. This is equal to the unmixing matrix when whiten is False, and equal to np.dot(unmixing_matrix, self.whitening_) when whiten is True.
+    mixing = transformer.mixing_    # ndarray of shape (n_features, n_components). The pseudo-inverse of components_. It is the linear operator that maps independent sources to the data.
+    mean = getattr(transformer, 'mean_', None)   # The mean over features. Only set if self.whiten is True.
+    n_features_in = getattr(transformer, 'n_features_in_', None)        # Number of features seen during fit.
+    feature_names_in = getattr(transformer, 'feature_names_in_', None)  # Names of features seen during fit. Defined only when X has feature names that are all strings.
+    n_iter = getattr(transformer, 'n_iter_', None)  # If the algorithm is “deflation”, n_iter is the maximum number of iterations run across all components. Else they are just the number of iterations taken to converge.
+    whitening = getattr(transformer, 'whitening_', None)    # Only set if whiten is ‘True’. This is the pre-whitening matrix that projects data onto the first n_components principal components.
 
     return estim_sources
 
