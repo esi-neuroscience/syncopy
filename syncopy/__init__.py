@@ -36,13 +36,14 @@ except PackageNotFoundError:
 
 # --- Greeting ---
 
-def startup_print_once(message):
-    """Print message once: do not spam message n times during all n worker imports."""
+def startup_print_once(message, force=False):
+    """Print message once: do not spam message n times during all n worker imports.
+    """
     try:
         dd.get_client()
     except ValueError:
         silence_file = os.path.join(os.path.expanduser("~"), ".spy", "silentstartup")
-        if os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file):
+        if force or (os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file)):
             print(message)
 
 
@@ -141,8 +142,9 @@ from .statistics import *
 from .plotting import *
 from .preproc import *
 
-from .datatype.util import setup_storage
+from .datatype.util import setup_storage, get_dir_size
 storage_tmpdir_size_gb, storage_tmpdir_numfiles = setup_storage()  # Creates the storage dir if needed and computes size and number of files in there if any.
+spydir_size_gb, spydir_numfiles = get_dir_size(spydir)
 
 from .shared.log import setup_logging
 __logdir__ = None  # Gets set in setup_logging() call below.
@@ -158,7 +160,19 @@ if storage_tmpdir_size_gb > __storagelimit__:
         + "Consider running `spy.cleanup()` to free up disk space."
     )
     msg_formatted = msg.format(tmpdir=__storage__, nfs=storage_tmpdir_numfiles, sze=storage_tmpdir_size_gb)
-    startup_print_once(msg_formatted)
+    startup_print_once(msg_formatted, force=True)
+else:
+    # We also check the size of the Syncopy folder, as it may contain large files in there directly.
+    # They may originate from older Syncopy versions, which did not use the sub directory 'tmp_storage' as
+    #  the temporary storage folder, but placed files into ~/.spy directly.
+    if spydir_size_gb > __storagelimit__:
+        msg = (
+            "\nSyncopy <core> WARNING: Syncopy user config folder {tmpdir:s} "
+            + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk.\n"
+            + "Consider investigating and deleting files to free up disk space."
+        )
+        msg_formatted = msg.format(tmpdir=spydir, nfs=spydir_numfiles, sze=spydir_size_gb)
+        startup_print_once(msg_formatted, force=True)
 
 
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
