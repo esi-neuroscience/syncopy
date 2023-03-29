@@ -83,13 +83,17 @@ def setup_storage():
     with os.scandir(__storage__) as scan:
         storage_size = 0.0
         storage_num_files = 0
-        for fle in scan:
-            try:
-                storage_size += fle.stat().st_size / 1024 ** 3
-                storage_num_files += 1
-            # this catches a cleanup by another process
-            except FileNotFoundError:
-                continue
+
+        from pathlib import Path
+        root_directory = Path('.')
+        for f in root_directory.glob('**/*'):
+            if f.is_file():
+                try:
+                    storage_size += f.stat().st_size / 1024 ** 3
+                    storage_num_files += 1
+                # this catches a cleanup by another process
+                except FileNotFoundError:
+                    continue
 
     return storage_size, storage_num_files
 

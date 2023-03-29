@@ -149,14 +149,16 @@ __logdir__ = None  # Gets set in setup_logging() call below.
 setup_logging(spydir=spydir, session=__sessionid__)  # Sets __logdir__.
 startup_print_once(f"Logging to log directory '{__logdir__}'.\nTemporary storage directory set to '{__storage__}'.\n")
 
+print(f"Current data usage in temporary storage directory '{__storage__}': {storage_tmpdir_size_gb:4.2f} GB in {storage_tmpdir_numfiles} files.")
+
 if storage_tmpdir_size_gb > __storagelimit__:
-            msg = (
-                "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} "
-                + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
-                + "Consider running `spy.cleanup()` to free up disk space."
-            )
-            msg_formatted = msg.format(tmpdir=__storage__, nfs=storage_tmpdir_numfiles, sze=storage_tmpdir_size_gb)
-            startup_print_once(msg_formatted)
+    msg = (
+        "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} "
+        + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
+        + "Consider running `spy.cleanup()` to free up disk space."
+    )
+    msg_formatted = msg.format(tmpdir=__storage__, nfs=storage_tmpdir_numfiles, sze=storage_tmpdir_size_gb)
+    startup_print_once(msg_formatted)
 
 
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
