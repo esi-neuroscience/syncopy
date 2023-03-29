@@ -144,7 +144,7 @@ from .preproc import *
 
 from .datatype.util import setup_storage, get_dir_size
 storage_tmpdir_size_gb, storage_tmpdir_numfiles = setup_storage()  # Creates the storage dir if needed and computes size and number of files in there if any.
-spydir_size_gb, spydir_numfiles = get_dir_size(spydir)
+spydir_size_gb, spydir_numfiles, _ = get_dir_size(spydir)
 
 from .shared.log import setup_logging
 __logdir__ = None  # Gets set in setup_logging() call below.
