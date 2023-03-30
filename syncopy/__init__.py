@@ -176,9 +176,6 @@ else:
         msg_formatted = msg.format(tmpdir=spydir, nfs=spydir_numfiles, sze=spydir_size_gb)
         startup_print_once(msg_formatted, force=True)
 
-if uses_esi_cluster_path:
-    startup_print_once("Using ESI cluster path for temporary storage directory.")
-
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
 from .shared.errors import SPYExceptionHandler
 try:
