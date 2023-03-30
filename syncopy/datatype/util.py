@@ -58,7 +58,7 @@ class TrialIndexer:
         return "{} element iterable".format(self._len)
 
 
-def get_dir_size(start_path = '.'):
+def get_dir_size(start_path = '.', out="byte"):
     """
     Compute size of directory and all its subdirectories, in bytes.
     """
@@ -81,7 +81,14 @@ def get_dir_size(start_path = '.'):
 
     if num_err > 0:
         print("Warning: {} files could not be accessed when checking size of Syncopy temporary storage dir.".format(num_err))
-    return total_size_bytes, num_files, num_links
+
+    if out == "GB":
+        total_size = total_size_bytes / 1e9
+    elif out == "byte":
+        total_size = total_size_bytes
+    else:
+        raise ValueError("Invalid output unit: '{}', expected one of 'byte' or 'GB'".format(out))
+    return total_size, num_files, num_links
 
 
 def setup_storage(storage_dir=__storage__):
@@ -105,11 +112,7 @@ def setup_storage(storage_dir=__storage__):
             )
             raise IOError(err.format(storage_dir, str(exc)))
 
-    # Check for upper bound of temp directory size
-    total_size_bytes, num_files, _ = get_dir_size(storage_dir)
-    total_size_gb = total_size_bytes / 1e9
-
-    return total_size_gb, num_files
+    return get_dir_size(storage_dir, out="GB")
 
 
 

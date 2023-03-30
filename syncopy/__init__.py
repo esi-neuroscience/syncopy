@@ -97,6 +97,7 @@ except ImportError:
 
 # Set package-wide temp directory
 csHome = "/cs/home/{}".format(getpass.getuser())
+uses_esi_cluster_path = False
 if os.environ.get("SPYDIR"):
     spydir = os.path.abspath(os.path.expanduser(os.environ["SPYDIR"]))
     if not os.path.exists(spydir):
@@ -104,6 +105,7 @@ if os.environ.get("SPYDIR"):
 else:
     if os.path.exists(csHome): # ESI cluster.
         spydir = os.path.join(csHome, ".spy")
+        uses_esi_cluster_path = True
     else:
         spydir = os.path.abspath(os.path.join(os.path.expanduser("~"), ".spy"))
 
@@ -143,8 +145,8 @@ from .plotting import *
 from .preproc import *
 
 from .datatype.util import setup_storage, get_dir_size
-storage_tmpdir_size_gb, storage_tmpdir_numfiles = setup_storage()  # Creates the storage dir if needed and computes size and number of files in there if any.
-spydir_size_gb, spydir_numfiles, _ = get_dir_size(spydir)
+storage_tmpdir_size_gb, storage_tmpdir_numfiles, _ = setup_storage()  # Creates the storage dir if needed and computes size and number of files in there if any.
+spydir_size_gb, spydir_numfiles, _ = get_dir_size(spydir, out="GB")
 
 from .shared.log import setup_logging
 __logdir__ = None  # Gets set in setup_logging() call below.
@@ -162,7 +164,7 @@ if storage_tmpdir_size_gb > __storagelimit__:
     msg_formatted = msg.format(tmpdir=__storage__, nfs=storage_tmpdir_numfiles, sze=storage_tmpdir_size_gb)
     startup_print_once(msg_formatted, force=True)
 else:
-    # We also check the size of the Syncopy folder, as it may contain large files in there directly.
+    # We also check the size of the whole Syncopy cfg folder, as it may contain large files in there directly.
     # They may originate from older Syncopy versions, which did not use the sub directory 'tmp_storage' as
     #  the temporary storage folder, but placed files into ~/.spy directly.
     if spydir_size_gb > __storagelimit__:
@@ -174,6 +176,8 @@ else:
         msg_formatted = msg.format(tmpdir=spydir, nfs=spydir_numfiles, sze=spydir_size_gb)
         startup_print_once(msg_formatted, force=True)
 
+if uses_esi_cluster_path:
+    startup_print_once("Using ESI cluster path for temporary storage directory.")
 
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
 from .shared.errors import SPYExceptionHandler
