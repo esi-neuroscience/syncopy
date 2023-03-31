@@ -155,25 +155,20 @@ startup_print_once(f"Logging to log directory '{__logdir__}'.\nTemporary storage
 
 print(f"Current data usage in temporary storage directory '{__storage__}': {storage_tmpdir_size_gb:4.2f} GB in {storage_tmpdir_numfiles} files.")
 
-if storage_tmpdir_size_gb > __storagelimit__:
-    msg = (
-        "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} "
+storage_msg = (
+        "\nSyncopy <core> WARNING: {folder_desc}:s '{tmpdir:s}' "
         + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
-        + "Consider running `spy.cleanup()` to free up disk space."
+        + "Consider running `spy.cleanup()` and/or manually free up disk space."
     )
-    msg_formatted = msg.format(tmpdir=__storage__, nfs=storage_tmpdir_numfiles, sze=storage_tmpdir_size_gb)
+if storage_tmpdir_size_gb > __storagelimit__:
+    msg_formatted = storage_msg.format(folder_desc="Temporary storage folder", tmpdir=__storage__, nfs=storage_tmpdir_numfiles, sze=storage_tmpdir_size_gb)
     startup_print_once(msg_formatted, force=True)
 else:
     # We also check the size of the whole Syncopy cfg folder, as it may contain large files in there directly.
     # They may originate from older Syncopy versions, which did not use the sub directory 'tmp_storage' as
     #  the temporary storage folder, but placed files into ~/.spy directly.
     if spydir_size_gb > __storagelimit__:
-        msg = (
-            "\nSyncopy <core> WARNING: Syncopy user config folder {tmpdir:s} "
-            + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk.\n"
-            + "Consider investigating and deleting files to free up disk space."
-        )
-        msg_formatted = msg.format(tmpdir=spydir, nfs=spydir_numfiles, sze=spydir_size_gb)
+        msg_formatted = storage_msg.format(folder_desc="User config folder", tmpdir=spydir, nfs=spydir_numfiles, sze=spydir_size_gb)
         startup_print_once(msg_formatted, force=True)
 
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
