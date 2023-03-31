@@ -64,7 +64,6 @@ def get_dir_size(start_path = '.', out="byte"):
     """
     total_size_bytes = 0
     num_files = 0
-    num_links = 0
     num_err = 0
     for dirpath, _, filenames in os.walk(start_path):
         for f in filenames:
@@ -74,8 +73,6 @@ def get_dir_size(start_path = '.', out="byte"):
                 if not os.path.islink(fp):
                     total_size_bytes += os.path.getsize(fp)
                     num_files += 1
-                else:
-                    num_links += 1
             except Exception as ex:
                 num_err += 1
 
@@ -87,8 +84,8 @@ def get_dir_size(start_path = '.', out="byte"):
     elif out == "byte":
         total_size = total_size_bytes
     else:
-        raise ValueError("Invalid output unit: '{}', expected one of 'byte' or 'GB'".format(out))
-    return total_size, num_files, num_links
+        raise ValueError("Invalid 'out' unit: '{}', expected one of 'byte' or 'GB'".format(out))
+    return total_size, num_files
 
 
 def setup_storage(storage_dir=__storage__):

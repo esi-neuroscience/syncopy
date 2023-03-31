@@ -97,7 +97,6 @@ except ImportError:
 
 # Set package-wide temp directory
 csHome = "/cs/home/{}".format(getpass.getuser())
-uses_esi_cluster_path = False
 if os.environ.get("SPYDIR"):
     spydir = os.path.abspath(os.path.expanduser(os.environ["SPYDIR"]))
     if not os.path.exists(spydir):
@@ -105,7 +104,6 @@ if os.environ.get("SPYDIR"):
 else:
     if os.path.exists(csHome): # ESI cluster.
         spydir = os.path.join(csHome, ".spy")
-        uses_esi_cluster_path = True
     else:
         spydir = os.path.abspath(os.path.join(os.path.expanduser("~"), ".spy"))
 
@@ -145,28 +143,24 @@ from .plotting import *
 from .preproc import *
 
 from .datatype.util import setup_storage, get_dir_size
-storage_tmpdir_size_gb, storage_tmpdir_numfiles, _ = setup_storage()  # Creates the storage dir if needed and computes size and number of files in there if any.
-spydir_size_gb, spydir_numfiles, _ = get_dir_size(spydir, out="GB")
+storage_tmpdir_size_gb, storage_tmpdir_numfiles = setup_storage()  # Creates the storage dir if needed and computes size and number of files in there if any.
+spydir_size_gb, spydir_numfiles = get_dir_size(spydir, out="GB")
 
 from .shared.log import setup_logging
 __logdir__ = None  # Gets set in setup_logging() call below.
 setup_logging(spydir=spydir, session=__sessionid__)  # Sets __logdir__.
 startup_print_once(f"Logging to log directory '{__logdir__}'.\nTemporary storage directory set to '{__storage__}'.\n")
 
-print(f"Current data usage in temporary storage directory '{__storage__}': {storage_tmpdir_size_gb:4.2f} GB in {storage_tmpdir_numfiles} files.")
-
 storage_msg = (
         "\nSyncopy <core> WARNING: {folder_desc}:s '{tmpdir:s}' "
         + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
-        + "Consider running `spy.cleanup()` and/or manually free up disk space."
+        + "Please run `spy.cleanup()` and/or manually free up disk space."
     )
 if storage_tmpdir_size_gb > __storagelimit__:
     msg_formatted = storage_msg.format(folder_desc="Temporary storage folder", tmpdir=__storage__, nfs=storage_tmpdir_numfiles, sze=storage_tmpdir_size_gb)
     startup_print_once(msg_formatted, force=True)
 else:
-    # We also check the size of the whole Syncopy cfg folder, as it may contain large files in there directly.
-    # They may originate from older Syncopy versions, which did not use the sub directory 'tmp_storage' as
-    #  the temporary storage folder, but placed files into ~/.spy directly.
+    # We also check the size of the whole Syncopy cfg folder, as older Syncopy versions placed files directly into it.
     if spydir_size_gb > __storagelimit__:
         msg_formatted = storage_msg.format(folder_desc="User config folder", tmpdir=spydir, nfs=spydir_numfiles, sze=spydir_size_gb)
         startup_print_once(msg_formatted, force=True)

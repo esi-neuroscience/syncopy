@@ -1255,6 +1255,7 @@ class BaseData(ABC):
                     prop.file.close()
                 # can happen if the file was deleted elsewhere
                 # or we exit un-gracefully from some undefined state
+                #except (ValueError, ImportError, TypeError):
                 except (ValueError, ImportError):
                     pass
 
