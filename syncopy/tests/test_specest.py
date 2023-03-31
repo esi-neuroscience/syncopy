@@ -103,7 +103,7 @@ class TestMTMFFT():
     fband = np.linspace(1, fs/2, int(np.floor(fs/2)))
     freqs = [88.,  35., 278., 104., 405., 314., 271., 441., 343., 374., 428.,
              367., 75., 118., 289., 310., 510., 102., 123., 417., 273., 449.,
-             416.,  32., 438., 111., 140., 304., 327., 494.,  23., 493.]
+             416., 32., 438., 111., 140., 304., 327., 494., 23., 493.]
     freqs = freqs[:nChannels]
     # freqs = np.random.choice(fband[:-2], size=nChannels, replace=False)
     amp = np.pi
@@ -189,6 +189,87 @@ class TestMTMFFT():
 
             # ensure amplitude is consistent across all channels/trials
             assert np.all(np.diff(amps) < self.tols[sk])
+
+    def test_normalization(self):
+
+        nSamples = 1000
+        fsample = 500  # 2s long signal
+        Ampl = 4  # amplitude
+        # 50Hz harmonic --> amplitude is Ampl^2 / 2 = 8
+        signal = Ampl * np.cos(2 * np.pi * 50 * np.arange(nSamples) * 1 / fsample)
+
+        # single signal/channel is enough
+        ad = AnalogData([signal[:, None]], samplerate=fsample)
+
+        cfg = StructDict()
+        cfg.foilim = [40, 60]
+        cfg.output = 'pow'
+        cfg.taper = None
+
+        # -- syncopy's default, padding does NOT change power --
+
+        cfg.ft_compat = False
+        cfg.pad = 'maxperlen'  # that's the default -> no padding
+        spec = freqanalysis(ad, cfg)
+        peak_power = spec.show().max()
+        df_no_pad = np.diff(spec.freq)  # freq. resolution
+        assert np.allclose(peak_power, Ampl**2 / 2, atol=1e-5)
+
+        cfg.pad = 4  # in seconds, double the size
+        spec = freqanalysis(ad, cfg)
+        df_with_pad = np.diff(spec.freq)
+        # we double the spectral resolution
+        assert np.allclose(df_no_pad[0], 2 * df_with_pad[0])
+        # yet power stays the same
+        peak_power = spec.show().max()
+        assert np.allclose(peak_power, Ampl**2 / 2, atol=1e-5)
+
+        # -- FT compat mode, padding does dilute the power --
+
+        cfg.ft_compat = True
+        cfg.pad = 'maxperlen'  # that's the default
+        spec = freqanalysis(ad, cfg)
+        peak_power = spec.show().max()
+        df_no_pad = np.diff(spec.freq)
+        # default padding is no padding if all trials are equally sized,
+        # so here the results are the same
+        assert np.allclose(peak_power, Ampl**2 / 2, atol=1e-5)
+
+        cfg.pad = 4  # in seconds, double the size
+        spec = freqanalysis(ad, cfg)
+        df_with_pad = np.diff(spec.freq)
+        # we double the spectral resolution
+        assert np.allclose(df_no_pad[0], df_with_pad[0] * 2)
+        # here half the power is now lost!
+        peak_power = spec.show().max()
+        assert np.allclose(peak_power, Ampl**2 / 4, atol=1e-5)
+
+        # -- works the same with tapering --
+
+        cfg.ft_compat = False
+        cfg.pad = 'maxperlen'  # that's the default
+        cfg.taper = 'kaiser'
+        cfg.taper_opt = {'beta': 10}
+        spec = freqanalysis(ad, cfg)
+        peak_power_no_pad = spec.show().max()
+
+        cfg.pad = 4
+        spec = freqanalysis(ad, cfg)
+        peak_power_with_pad = spec.show().max()
+        assert np.allclose(peak_power_no_pad, peak_power_with_pad, atol=1e-5)
+
+        cfg.ft_compat = True
+        cfg.pad = 'maxperlen'  # that's the default
+        cfg.taper = 'kaiser'
+        cfg.taper_opt = {'beta': 10}
+        spec = freqanalysis(ad, cfg)
+        peak_power_no_pad = spec.show().max()
+
+        cfg.pad = 4
+        spec = freqanalysis(ad, cfg)
+        peak_power_with_pad = spec.show().max()
+        # again half the power is lost with FT compat
+        assert np.allclose(peak_power_no_pad, 2 * peak_power_with_pad, atol=1e-5)
 
     def test_foi(self):
         for select in self.sigdataSelections:
