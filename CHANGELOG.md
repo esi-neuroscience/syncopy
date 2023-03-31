@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - concatenation of syncopy data objects along trials
 
 ### CHANGED
+- spectral power for `mtmfft` now independent of padding as originally intended
 - support unequal trial sizes for `load_ft_raw`
 - major performance improvements for DiscreteData #403 #418, #424
 

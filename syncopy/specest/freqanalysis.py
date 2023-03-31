@@ -56,7 +56,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
                  taper_opt=None, tapsmofrq=None, nTaper=None, keeptapers=False,
                  toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
                  order_max=None, order_min=1, c_1=3, adaptive=False,
-                 out=None, fooof_opt=None, **kwargs):
+                 out=None, fooof_opt=None, ft_compat=False, **kwargs):
     """
     Perform (time-)frequency analysis of Syncopy :class:`~syncopy.AnalogData` objects
 
@@ -179,7 +179,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         For the default `maxperlen`, no padding is performed in case of equal
         length trials, while trials of varying lengths are padded to match the
         longest trial. If `pad` is a number all trials are padded so that `pad` indicates
-        the absolute length of all trials after padding (in seconds). For instance
+        the absolute length of all trials after padding in seconds. For instance
         ``pad = 2`` pads all trials to an absolute length of 2000 samples, if and
         only if the longest trial contains at maximum 2000 samples and the
         samplerate is 1kHz. If `pad` is `'nextpow2'` all trials are padded to the
@@ -284,6 +284,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
         `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
         for the meanings and the defaults.
         See the FOOOF reference [Donoghue2020]_ for details.
+    ft_compat : bool, optional
+        Set to `True` to use Field Trip's spectral normalization for FFT based methods
+        (``method='mtmfft'`` and ``method='mtmconvol'``). So spectral power is NOT
+        independent of the padding size!
 
     Returns
     -------
@@ -387,7 +391,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         raise SPYValueError(legal=lgl, varname="output", actual=output)
 
     # Parse all Boolean keyword arguments
-    for vname in ["keeptrials", "keeptapers", "demean_taper"]:
+    for vname in ["keeptrials", "keeptapers", "demean_taper", "ft_compat"]:
         if not isinstance(lcls[vname], bool):
             raise SPYTypeError(lcls[vname], varname=vname, expected="Bool")
 
@@ -605,7 +609,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
             'taper': taper,
             'taper_opt': taper_opt,
             'nSamples': minSampleNum,
-            'demean_taper': demean_taper
+            'demean_taper': demean_taper,
+            'ft_compat': ft_compat
         }
 
         # Set up compute-class
