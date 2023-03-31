@@ -1,7 +1,7 @@
 # Changelog of SyNCoPy
 All notable changes to this project will be documented in this file.
 
-## Unreleased WIP
+## [2023.03]
 
 ### NEW
 - frontend `redefinetrial` to cut trials/move time axes
