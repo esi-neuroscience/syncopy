@@ -21,6 +21,8 @@ All notable changes to this project will be documented in this file.
 - fix bug #394 'Copying a spy.StructDict returns a dict'.
 - serializable `.cfg` #392
 - single trial cross-corr bug #446
+- fix bug #457, Syncopy does not warn about temp storage dir size exceeding reporting threshold at startup
+
 
 ## [2022.12]
 
