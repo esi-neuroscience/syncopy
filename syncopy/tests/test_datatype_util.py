@@ -19,10 +19,11 @@ class TestDirSize():
             for file_idx in range(20):
                 tf = os.path.join(tdir, fname + str(file_idx))
                 with open(tf, "w") as f:
-                    f.write(f"This is dummy file {file_idx}.")
+                    f.write(f"This is a dummy file {file_idx}.")
             dir_size_byte, num_files = get_dir_size(tdir, out="byte")
             assert num_files == 20
-            assert dir_size_byte > 0
+            assert dir_size_byte > 200
+            assert dir_size_byte < 2000
             dir_size_gb, num_files = get_dir_size(tdir, out="GB")
             assert dir_size_gb < 1.0
 
