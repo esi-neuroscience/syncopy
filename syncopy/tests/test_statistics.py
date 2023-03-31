@@ -230,7 +230,8 @@ class TestSumStatistics:
         adata = sd.white_noise(100,
                                nSamples=1000,
                                nChannels=2,
-                               samplerate=500)
+                               samplerate=500,
+                               seed=42)
 
         # add simple 60Hz armonic
         adata += sd.harmonic(100,
