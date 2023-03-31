@@ -171,8 +171,8 @@ class TestWelch():
 
         Potential nice-to-have for later: investigate sweet spot for the overlap parameter as a function of signal length.
         """
-        wn_long = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=10000, samplerate=1000) # 10 seconds of signal
-        wn_short = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=1000, samplerate=1000) # 1  second of signal
+        wn_long = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=10000, samplerate=1000, seed=42)  # 10 seconds of signal
+        wn_short = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=1000, samplerate=1000, seed=42)  # 1  second of signal
 
         foilim = [5, 200]  # Shared between cases.
 
