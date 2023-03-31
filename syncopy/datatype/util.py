@@ -60,7 +60,7 @@ class TrialIndexer:
 
 def get_dir_size(start_path = '.', out="byte"):
     """
-    Compute size of directory and all its subdirectories, in bytes.
+    Compute size of all files in directory (and its subdirectories), in bytes or GB.
     """
     total_size_bytes = 0
     num_files = 0
