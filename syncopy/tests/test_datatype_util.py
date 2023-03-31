@@ -24,8 +24,9 @@ class TestDirSize():
             assert num_files == 20
             assert dir_size_byte > 200
             assert dir_size_byte < 2000
+            assert dir_size_byte == 470
             dir_size_gb, num_files = get_dir_size(tdir, out="GB")
-            assert dir_size_gb < 1.0
+            assert dir_size_gb < 1e-6
 
 
 
