@@ -195,7 +195,7 @@ class TestMTMFFT():
         nSamples = 1000
         fsample = 500  # 2s long signal
         Ampl = 4  # amplitude
-        # 50Hz harmonic --> amplitude is Ampl^2 / 2 = 8
+        # 50Hz harmonic, spectral power is given by: Ampl^2 / 2 = 8
         signal = Ampl * np.cos(2 * np.pi * 50 * np.arange(nSamples) * 1 / fsample)
 
         # single signal/channel is enough
