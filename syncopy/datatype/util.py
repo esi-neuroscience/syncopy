@@ -64,7 +64,6 @@ def get_dir_size(start_path = '.', out="byte"):
     """
     total_size_bytes = 0
     num_files = 0
-    num_err = 0
     for dirpath, _, filenames in os.walk(start_path):
         for f in filenames:
             fp = os.path.join(dirpath, f)
@@ -73,11 +72,8 @@ def get_dir_size(start_path = '.', out="byte"):
                 if not os.path.islink(fp):
                     total_size_bytes += os.path.getsize(fp)
                     num_files += 1
-            except Exception as ex:
-                num_err += 1
-
-    if num_err > 0:
-        print("Warning: {} files could not be accessed when checking size of Syncopy temporary storage dir.".format(num_err))
+            except Exception as ex:  # Ignore issues from several parallel cleanup processes.
+                pass
 
     if out == "GB":
         total_size = total_size_bytes / 1e9
