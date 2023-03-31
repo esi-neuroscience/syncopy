@@ -526,13 +526,15 @@ class TestCSD:
     s1 = synth_data.phase_diffusion(nTrials, freq=f1,
                                     eps=.01,
                                     nChannels=nChannels,
-                                    nSamples=nSamples)
+                                    nSamples=nSamples,
+                                    seed=42)
 
     # little diffusion in the 40Hz band
     s2 = synth_data.phase_diffusion(nTrials, freq=f2,
                                     eps=.001,
                                     nChannels=nChannels,
-                                    nSamples=nSamples)
+                                    nSamples=nSamples,
+                                    seed=42)
 
     wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples)
 
@@ -593,12 +595,14 @@ class TestCorrelation:
                                         eps=0,
                                         nChannels=nChannels,
                                         nSamples=nSamples,
+                                        seed=42,
                                         return_phase=True)
         # same frequency but more diffusion
         p2 = synth_data.phase_diffusion(freq=f1,
                                         eps=0.1,
                                         nChannels=1,
                                         nSamples=nSamples,
+                                        seed=42,
                                         return_phase=True)
 
         # set 2nd channel to higher phase diffusion

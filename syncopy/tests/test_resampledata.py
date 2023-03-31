@@ -33,7 +33,8 @@ class TestDownsampling:
     adata = synth_data.white_noise(nTrials,
                                    nChannels=nChannels,
                                    nSamples=nSamples,
-                                   samplerate=fs)
+                                   samplerate=fs,
+                                   seed=42)
 
     # original spectrum
     spec = freqanalysis(adata, tapsmofrq=1, keeptrials=False)
@@ -172,7 +173,8 @@ class TestResampling:
     adata = synth_data.white_noise(nTrials,
                                    nChannels=nChannels,
                                    nSamples=nSamples,
-                                   samplerate=fs)
+                                   samplerate=fs,
+                                   seed=42)
 
     # original spectrum
     spec = freqanalysis(adata, tapsmofrq=1, keeptrials=False)
