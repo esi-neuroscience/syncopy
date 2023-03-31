@@ -29,7 +29,7 @@ electrophysiology data-analysis in Python. We strive to achieve the following go
    makes use of available computing resources and is developed with built-in
    parallelism in mind.
 3. Syncopy is *compatible with FieldTrip*. Data and results can be loaded into
-   MATLAB and Python, parameter names and function call syntax are as similar as possible
+   MATLAB and Python, and parameter names and function call syntax are as similar as possible.
 
 Syncopy is developed at the
 `Ernst Strüngmann Institute (ESI) gGmbH for Neuroscience in Cooperation with Max Planck Society <https://www.esi-frankfurt.de/>`_

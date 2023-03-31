@@ -42,7 +42,9 @@ class ContinuousData(BaseData, ABC):
 
     @property
     def data(self):
-        """array-like object representing data without trials
+        """
+        HDF5 dataset property representing contiguous
+        data without trialdefinition.
 
         Trials are concatenated along the time axis.
         """
@@ -306,14 +308,14 @@ class ContinuousData(BaseData, ABC):
         Notes
         -----
         This class method is intended to be solely used by
-        :class:`syncopy.datatype.base_data.Selector` objects and thus has purely
+        :class:`syncopy.datatype.selector.Selector` objects and thus has purely
         auxiliary character. Therefore, all input sanitization and error checking
-        is left to :class:`syncopy.datatype.base_data.Selector` and not
+        is left to :class:`syncopy.datatype.selector.Selector` and not
         performed here.
 
         See also
         --------
-        syncopy.datatype.base_data.Selector : Syncopy data selectors
+        syncopy.datatype.selector.Selector : Syncopy data selectors
         """
         timing = []
         if toilim is not None:
@@ -352,7 +354,9 @@ class ContinuousData(BaseData, ABC):
         # Call initializer
         super().__init__(data=data, **kwargs)
 
-        self.channel = channel
+        # might be set from concatenation
+        if self.channel is None:
+            self.channel = channel
 
         if self.data is not None:
 
@@ -459,6 +463,8 @@ class SpectralData(ContinuousData):
     """
 
     _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
+    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
+        ("samplerate", "channel", "freq",)
     _defaultDimord = ["time", "taper", "freq", "channel"]
     _stackingDimLabel = "time"
     _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel', 'frequency', 'taper',)
@@ -510,13 +516,9 @@ class SpectralData(ContinuousData):
             print("Syncopy core - freq: Cannot assign `freq` without data. "+\
                   "Please assing data first")
             return
-        try:
 
-            array_parser(freq, varname="freq", hasnan=False, hasinf=False,
-                         dims=(self.data.shape[self.dimord.index("freq")],))
-        except Exception as exc:
-            raise exc
-
+        array_parser(freq, varname="freq", hasnan=False, hasinf=False,
+                     dims=(self.data.shape[self.dimord.index("freq")],))
         self._freq = np.array(freq)
 
     # Helper function that extracts frequency-related indices
@@ -568,29 +570,24 @@ class SpectralData(ContinuousData):
                          trialdefinition=trialdefinition,
                          samplerate=samplerate,
                          channel=channel,
-                         taper=taper,
-                         freq=freq,
                          dimord=dimord)
-
-        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
-        ("samplerate", "channel", "freq",)
 
         # If __init__ attached data, be careful
         if self.data is not None:
-
             # In case of manual data allocation (reading routine would leave a
             # mark in `cfg`), fill in missing info
             if len(self.cfg) == 0:
-                self.freq = freq
-                self.taper = taper
+                # concat operations will set this!
+                if self.freq is None:
+                    self.freq = freq
+                if self.taper is None:
+                    self.taper = taper
 
         # Dummy assignment: if we have no data but freq/taper labels,
         # assign bogus to trigger setter warnings
         else:
-            if freq is not None:
-                self.freq = [1]
-            if taper is not None:
-                self.taper = ['taper']
+            self.freq = freq
+            self.taper = taper
 
     # implement plotting
     def singlepanelplot(self, logscale=True, **show_kwargs):
@@ -614,6 +611,8 @@ class CrossSpectralData(ContinuousData):
 
     # Adapt `infoFileProperties` and `hdfFileAttributeProperties` from `ContinuousData`
     _infoFileProperties = BaseData._infoFileProperties +\
+        ("samplerate", "channel_i", "channel_j", "freq", )
+    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
         ("samplerate", "channel_i", "channel_j", "freq", )
     _defaultDimord = ["time", "freq", "channel_i", "channel_j"]
     _stackingDimLabel = "time"
@@ -709,21 +708,20 @@ class CrossSpectralData(ContinuousData):
                  freq=None,
                  dimord=None):
 
+        self._freq = None
         # Set dimensional labels
         self.dimord = dimord
-        # set frequencies
-        self.freq = freq
 
         # Call parent initializer
         super().__init__(data=data,
                          filename=filename,
                          samplerate=samplerate,
-                         freq=freq,
                          dimord=dimord)
 
-        # set as instance attribute to allow modification
-        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
-        ("samplerate", "channel_i", "channel_j", "freq", )
+        if freq is not None:
+            # set frequencies
+            self.freq = freq
+
 
     def singlepanelplot(self, **show_kwargs):
 

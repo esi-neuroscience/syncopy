@@ -36,13 +36,14 @@ except PackageNotFoundError:
 
 # --- Greeting ---
 
-def startup_print_once(message):
-    """Print message once: do not spam message n times during all n worker imports."""
+def startup_print_once(message, force=False):
+    """Print message once: do not spam message n times during all n worker imports.
+    """
     try:
         dd.get_client()
     except ValueError:
         silence_file = os.path.join(os.path.expanduser("~"), ".spy", "silentstartup")
-        if os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file):
+        if force or (os.getenv("SPYSILENTSTARTUP") is None and not os.path.isfile(silence_file)):
             print(message)
 
 
@@ -136,28 +137,33 @@ from .shared import *
 from .io import *
 from .datatype import *
 from .specest import *
-from .nwanalysis import *
+from .connectivity import *
 from .statistics import *
 from .plotting import *
 from .preproc import *
 
-from .datatype.util import setup_storage
+from .datatype.util import setup_storage, get_dir_size
 storage_tmpdir_size_gb, storage_tmpdir_numfiles = setup_storage()  # Creates the storage dir if needed and computes size and number of files in there if any.
+spydir_size_gb, spydir_numfiles = get_dir_size(spydir, out="GB")
 
 from .shared.log import setup_logging
 __logdir__ = None  # Gets set in setup_logging() call below.
 setup_logging(spydir=spydir, session=__sessionid__)  # Sets __logdir__.
 startup_print_once(f"Logging to log directory '{__logdir__}'.\nTemporary storage directory set to '{__storage__}'.\n")
 
+storage_msg = (
+        "\nSyncopy <core> WARNING: {folder_desc}:s '{tmpdir:s}' "
+        + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
+        + "Please run `spy.cleanup()` and/or manually free up disk space."
+    )
 if storage_tmpdir_size_gb > __storagelimit__:
-            msg = (
-                "\nSyncopy <core> WARNING: Temporary storage folder {tmpdir:s} "
-                + "contains {nfs:d} files taking up a total of {sze:4.2f} GB on disk. \n"
-                + "Consider running `spy.cleanup()` to free up disk space."
-            )
-            msg_formatted = msg.format(tmpdir=__storage__, nfs=storage_tmpdir_numfiles, sze=storage_tmpdir_size_gb)
-            startup_print_once(msg_formatted)
-
+    msg_formatted = storage_msg.format(folder_desc="Temporary storage folder", tmpdir=__storage__, nfs=storage_tmpdir_numfiles, sze=storage_tmpdir_size_gb)
+    startup_print_once(msg_formatted, force=True)
+else:
+    # We also check the size of the whole Syncopy cfg folder, as older Syncopy versions placed files directly into it.
+    if spydir_size_gb > __storagelimit__:
+        msg_formatted = storage_msg.format(folder_desc="User config folder", tmpdir=spydir, nfs=spydir_numfiles, sze=spydir_size_gb)
+        startup_print_once(msg_formatted, force=True)
 
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)
 from .shared.errors import SPYExceptionHandler
@@ -170,13 +176,15 @@ try:
 except:
     sys.excepthook = SPYExceptionHandler
 
+from .shared.errors import log
+
 # Manage user-exposed namespace imports
 __all__ = []
 __all__.extend(datatype.__all__)
 __all__.extend(io.__all__)
 __all__.extend(shared.__all__)
 __all__.extend(specest.__all__)
-__all__.extend(nwanalysis.__all__)
+__all__.extend(connectivity.__all__)
 __all__.extend(statistics.__all__)
 __all__.extend(plotting.__all__)
 __all__.extend(preproc.__all__)

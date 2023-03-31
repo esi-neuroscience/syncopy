@@ -11,7 +11,7 @@ import dask.distributed as dd
 
 
 # Local imports
-from syncopy.datatype.base_data import Selector
+from syncopy.datatype.selector import Selector
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests.misc import flush_local_cluster
 
@@ -361,12 +361,7 @@ class TestCrossSpectralSelections:
                 spy.selectdata(self.csd_data, sel_kw)
 
 
-class TestSpikeSelections:
-
-    nChannels = 10
-    nTrials = 5
-    samplerate = 1.0
-    nSpikes = 20
+def getSpikeData(nChannels = 10, nTrials = 5, samplerate = 1.0, nSpikes = 20):
     T_max = 2 * nSpikes   # in samples, not seconds!
     nSamples = T_max / nTrials
     rng = np.random.default_rng(42)
@@ -379,9 +374,15 @@ class TestSpikeSelections:
                         np.arange(0, T_max, nSamples) + nSamples,
                         np.ones(nTrials) * -2]).T
 
-    spike_data = spy.SpikeData(data=data,
-                               samplerate=samplerate,
-                               trialdefinition=trldef)
+    return(spy.SpikeData(data=data,
+                         samplerate=samplerate,
+                         trialdefinition=trldef))
+
+
+class TestSpikeSelections:
+
+
+    spike_data = getSpikeData()
 
     def test_spike_selection(self):
 

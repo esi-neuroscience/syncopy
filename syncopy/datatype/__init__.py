@@ -9,10 +9,10 @@ from .base_data import *
 from .continuous_data import *
 from .discrete_data import *
 from .methods.definetrial import *
-from .methods.padding import *
 from .methods.selectdata import *
 from .methods.show import *
 from .methods.copy import *
+from .methods.redefinetrial import *
 from .util import *
 
 # Populate local __all__ namespace
@@ -20,10 +20,9 @@ __all__ = []
 __all__.extend(base_data.__all__)
 __all__.extend(continuous_data.__all__)
 __all__.extend(discrete_data.__all__)
+__all__.extend(util.__all__)
 __all__.extend(methods.definetrial.__all__)
-# this is broken / has no current use case
-# __all__.extend(methods.padding.__all__)
 __all__.extend(methods.selectdata.__all__)
 __all__.extend(methods.show.__all__)
 __all__.extend(methods.copy.__all__)
-__all__.extend(util.__all__)
+__all__.extend(methods.redefinetrial.__all__)

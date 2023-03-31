@@ -5,8 +5,10 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+import h5py
 
 # Local imports
+import syncopy as spy
 from syncopy.shared.tools import get_frontend_cfg, get_defaults
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
@@ -243,16 +245,21 @@ def selectdata(data,
     """
 
     # Ensure our one mandatory input is usable
-    try:
-        data_parser(data, varname="data", empty=False)
-    except Exception as exc:
-        raise exc
+    data_parser(data, varname="data", empty=False)
 
     # Vet the only inputs not checked by `Selector`
     if not isinstance(inplace, bool):
         raise SPYTypeError(inplace, varname="inplace", expected="Boolean")
     if not isinstance(clear, bool):
         raise SPYTypeError(clear, varname="clear", expected="Boolean")
+
+    # there is no `@unwrap_select` decorator in place here,
+    # a `select` dictionary must therefore be directly passed via ** unpacking:
+    # select = {'channel': [0]}; spy.selectdata(data, **select)
+    if 'select' in kwargs:
+        lgl = "unpacked selection keywords directly, try `**select`"
+        act = "`select` as explicit parameter"
+        raise SPYValueError(legal=lgl, varname="selection kwargs", actual=act)
 
     # get input arguments into cfg dict
     new_cfg = get_frontend_cfg(get_defaults(selectdata), locals(), kwargs)
@@ -336,7 +343,7 @@ def selectdata(data,
         selectDict['latency'] = window
         data.selection = selectDict
 
-    # If an in-place selection was requested we're done
+    # If an in-place selection was requested we're done.
     if inplace:
         # attach frontend parameters for replay
         data.cfg.update({'selectdata': new_cfg})
@@ -362,6 +369,30 @@ def selectdata(data,
     selectMethod.initialize(data, out._stackingDim, chan_per_worker=kwargs.get("chan_per_worker"))
     selectMethod.compute(data, out, parallel=kwargs.get("parallel"),
                          log_dict=log_dct)
+
+    # Handle selection of waveform for SpikeData objects
+    if type(data) == spy.SpikeData and data.waveform is not None:
+        if inplace:
+            spy.log("Inplace selection of SpikeData with waveform not supported for the waveform.", level="WARNING")
+        else:
+            fauxTrials = [data._preview_trial(trlno) for trlno in data.selection.trial_ids]
+            spikes_by_trial = [f.idx[0] for f in fauxTrials]
+            spike_idx = np.concatenate([np.array(x).ravel() for x in spikes_by_trial])
+
+            # Copy the proper subset of the waveform dataset to `out`, the new `SpikeData` object.
+            hdf5_file_in = data._get_backing_hdf5_file_handle()
+            hdf5_file_out = out._get_backing_hdf5_file_handle()
+
+            # Copy the waveform dataset into the new file, trial by trial to prevent memory issues.
+            ds = hdf5_file_out.create_dataset('waveform', shape=(len(spike_idx), *data.waveform.shape[1:]), dtype=data.waveform.dtype)
+            cur_new_idx = 0
+            for tidx, old_trial_indices in enumerate(spikes_by_trial):
+                num_spikes_this_trial = len(old_trial_indices)
+                new_indices = np.s_[cur_new_idx:cur_new_idx + num_spikes_this_trial]
+                ds[new_indices, :, :] = hdf5_file_in['/waveform'][old_trial_indices, :, :]
+                cur_new_idx = new_indices.stop
+
+            out.waveform = ds
 
     # Wipe data-selection slot to not alter input object
     data.selection = None

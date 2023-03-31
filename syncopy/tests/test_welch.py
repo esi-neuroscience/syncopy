@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.const_def import spectralConversions
 import syncopy.tests.synth_data as synth_data
-from syncopy.tests.helpers import teardown
+from syncopy.tests.helpers import teardown, test_seed
 
 
 class TestWelch():
@@ -22,7 +22,8 @@ class TestWelch():
     """
 
     # White noise
-    adata = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=20000, samplerate=1000)
+    adata = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=20000, samplerate=1000,
+                                   seed=test_seed)
     do_plot = True
 
     @staticmethod
@@ -231,7 +232,7 @@ class TestWelch():
 
         for sigl_idx, sig_len in enumerate(sig_lengths):
             for overl_idx, overlap in enumerate(overlaps):
-                wn = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=sig_len, samplerate=1000)
+                wn = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=sig_len, samplerate=1000, seed=test_seed)
 
                 cfg = TestWelch.get_welch_cfg()  # Results in 100 windows of length 100.
                 cfg.toi = overlap

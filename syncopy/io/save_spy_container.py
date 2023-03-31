@@ -9,6 +9,7 @@ import json
 import h5py
 import numpy as np
 from collections import OrderedDict
+import syncopy as spy
 
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
@@ -192,7 +193,11 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
         # Save each member of `_hdfFileDatasetProperties` in target HDF file
         for datasetName in out._hdfFileDatasetProperties:
             dataset = getattr(out, "_" + datasetName)
-            dat = h5f.create_dataset(datasetName, data=dataset)
+            if dataset is not None:
+                spy.log(f"Writing dataset '{datasetName}' ({len(out._hdfFileDatasetProperties)} datasets total) to HDF5 file '{dataFile}'.", level="DEBUG")
+                dat = h5f.create_dataset(datasetName, data=dataset)
+            else:
+                spy.log(f"Not writing 'None 'dataset '{datasetName}' ({len(out._hdfFileDatasetProperties)} datasets total) to HDF5 file '{dataFile}'.", level="DEBUG")
 
     # Now write trial-related information
     trl_arr = np.array(out.trialdefinition)

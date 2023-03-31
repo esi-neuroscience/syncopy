@@ -24,7 +24,6 @@ import syncopy as spy
 
 def load_tdt(data_path, start_code=None, end_code=None,
              subtract_median=False):
-
     """
     Imports TDT time series data and meta-information
     into a single :class:`~syncopy.AnalogData` object.
@@ -304,7 +303,7 @@ class ESI_TDTinfo:
                 )
 
             # Looking for only Mark, PDi\ and PDio
-            looking_for = ["Mark", "PDio", "LFPs", "PDi\\"]  #
+            looking_for = ["Mark", "PDio", "LFPs", "LFP1", "PDi\\"]  #
             targets = StructDict()
             for chk, content in enumerate(store_codes):
                 if self.code_to_name(content["code"]) in looking_for:
@@ -682,7 +681,10 @@ class ESI_TDTinfo:
         del header
         Data = StructDict()
         Data.PDio = data.epocs.PDio
-        Data.LFPs = data.streams.LFPs
+        try:
+            Data.LFPs = data.streams.LFPs
+        except Exception:
+            Data.LFPs = data.streams.LFP1
         Data.Mark = data.scalars.Mark
         Data.info = data.info
         return Data
@@ -786,7 +788,6 @@ class ESI_TDTdata:
 # --- Helpers ---
 
 def _mk_trialdef(adata, start_code, end_code):
-
     """
     Create a basic trialdefinition from the trial
     start and end trigger codes
@@ -827,6 +828,7 @@ def _mk_trialdef(adata, start_code, end_code):
     trldef[:, 1] = trl_ends[:N]
 
     return trldef
+
 
 def _get_source_paths(directory, ext=".sev"):
     """
