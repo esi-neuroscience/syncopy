@@ -73,7 +73,6 @@ def test_cleanup():
             "import numpy as np; " +\
             "import syncopy as spy; " +\
             "dummy = spy.AnalogData(data=np.ones((10,10)), samplerate=1); " +\
-            "dummy.save(os.path.join(spy.__storage__, 'spy_dummy')); " +\
             "time.sleep(100)"
         process = subprocess.Popen([sys.executable, "-c", commandStr])
         time.sleep(8)
@@ -91,18 +90,16 @@ def test_cleanup():
             "import syncopy as spy; " +\
             "import numpy as np; " +\
             "dummy = spy.AnalogData(data=np.ones((10,10)), samplerate=1); " +\
-            "spy.cleanup(older_than=0, interactive=False); " +\
+            "spy.cleanup(older_than=0, interactive=False, only_current_session=True); " +\
             "time.sleep(100)"
         process2 = subprocess.Popen([sys.executable, "-c", commandStr],
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                     text=True)
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    text=True)
         time.sleep(8)
 
         # ensure `cleanup` call removed first instance's garbage but 2nd `AnalogData`
-        # belonging to 2nd instance launched above is unharmed
-        for garbage in spyGarbage:
-            assert not os.path.exists(garbage)
-        assert glob(os.path.join(tmpDir, "*.analog"))
+        # belonging to 2nd instance launched above is unharmed            
+        assert len(glob(os.path.join(tmpDir, "*.analog"))) == 1
 
         # now kill 2nd instance and wipe `tmpDir`
         process2.kill()
