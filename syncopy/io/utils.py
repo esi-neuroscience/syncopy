@@ -20,8 +20,9 @@ if sys.platform == "win32":
     colorama.init(strip=False)
 
 # Local imports
-from syncopy import __storage__, __sessionid__, __checksum_algorithm__
+from syncopy import __storage__, __sessionid__, __checksum_algorithm__, __spydir__
 from syncopy.datatype.base_data import BaseData
+from syncopy.datatype.util import get_dir_size
 from syncopy.shared.parsers import scalar_parser
 from syncopy.shared.errors import SPYTypeError
 from syncopy.shared.queries import user_yesno, user_input
@@ -83,9 +84,10 @@ def cleanup(older_than=24, interactive=True):
 
     # For clarification: show location of storage folder that is scanned here
     funcName = "Syncopy <{}>".format(inspect.currentframe().f_code.co_name)
+    storage_size_gb, storage_num_files = get_dir_size(__storage__, out="GB")
     dirInfo = \
-        "\n{name:s} Analyzing temporary storage folder {dir:s}...\n"
-    print(dirInfo.format(name=funcName, dir=__storage__))
+        "\n{name:s} Analyzing temporary storage folder '{dir:s}' containing {numf:d} files with total size {sizegb:.2f} GB...\n"
+    print(dirInfo.format(name=funcName, dir=__storage__, numf=storage_num_files, sizegb=storage_size_gb))
 
     # Parse "hidden" interactive keyword: if `False`, don't ask, just delete
     if not isinstance(interactive, bool):
@@ -141,6 +143,8 @@ def cleanup(older_than=24, interactive=True):
         "Did not find any dangling data or Syncopy session remains " +\
         "older than {age:d} hours."
         print(ext.format(name=funcName, age=older_than))
+        spydir_size_gb, spydir_num_files = get_dir_size(__spydir__, out="GB")
+        print(f"Note: {spydir_num_files} files with total size of {spydir_size_gb:.2f} GB left in spy dir '{__spydir__}'.")
         return
 
     # Prepare session-related info prompt
@@ -251,8 +255,13 @@ def cleanup(older_than=24, interactive=True):
 
     # Don't do anything for now, continue w/dangling data
     else:
-        print("Aborting...")
+        print(f"Aborting...")
 
+    # Report on remaining data
+    storage_size_gb, storage_num_files = get_dir_size(__storage__, out="GB")
+    print(f"{storage_num_files} files with total size of {storage_size_gb:.2f} GB left in storage dir '{__storage__}'.")
+    spydir_size_gb, spydir_num_files = get_dir_size(__spydir__, out="GB")
+    print(f"{spydir_num_files} files with total size of {spydir_size_gb:.2f} GB left in spy dir '{__spydir__}'.")
     return
 
 
