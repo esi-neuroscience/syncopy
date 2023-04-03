@@ -395,7 +395,11 @@ class TestMetadataUsingFooof():
         spec_dt = freqanalysis(cfg, multi_chan_data, fooof_opt=fooof_opt, chan_per_worker=chan_per_worker)
 
         # How many more calls we expect due to channel parallelization.
-        calls_per_trial = int(math.ceil(num_channels / chan_per_worker))
+        used_parallel = 'used_parallel = True' in spec_dt._log
+        if used_parallel:
+            calls_per_trial = int(math.ceil(num_channels / chan_per_worker))
+        else:
+            calls_per_trial = 1
         data_size = 100
 
         # check frequency axis
@@ -420,7 +424,9 @@ class TestMetadataUsingFooof():
 
         spec_dt_metadata_unnested = metadata_unnest(spec_dt.metadata)
         assert num_metadata_attrs == self.num_expected_metadata_keys
-        assert len(spec_dt_metadata_unnested.keys()) == self.num_expected_metadata_keys * num_trials_fooof * calls_per_trial
+
+        num_calls_expected = self.num_expected_metadata_keys * num_trials_fooof * calls_per_trial
+        assert len(spec_dt_metadata_unnested.keys()) == num_calls_expected
         for kv in keys_unique:
             assert kv in spec_dt_metadata_unnested.keys()
             assert isinstance(spec_dt_metadata_unnested.get(kv), (list, np.ndarray))
