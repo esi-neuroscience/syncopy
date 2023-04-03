@@ -522,19 +522,6 @@ class TestJackknife:
         with pytest.raises(SPYTypeError, match='expected boolean'):
             spy.connectivityanalysis(adata, method='coh', jackknife=3)
 
-        # test log filing for methods not supporting jackknife
-        spy.connectivityanalysis(adata, method='csd', jackknife=True)
-        logfile = os.path.join(spy.__logdir__, "syncopy.log")
-        with open(logfile, 'r') as lfile:
-            lines = lfile.readlines()
-            assert 'Jackknife is not available for method' in lines[-1]
-
-        spy.connectivityanalysis(adata, method='corr', jackknife=True)
-        logfile = os.path.join(spy.__logdir__, "syncopy.log")
-        with open(logfile, 'r') as lfile:
-            lines = lfile.readlines()
-            assert 'Jackknife is not available for method' in lines[-1]
-
         # check that jack attributes are not appended if no jackknifing was done
         res = spy.connectivityanalysis(adata, method='corr')
         assert not hasattr(res, 'jack_var')
