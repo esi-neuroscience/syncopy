@@ -420,8 +420,9 @@ class TestSpikeSelections:
         bm = bm & ((time_vec >= -1) & (time_vec <= 4))
 
         # finally compare to selection result
-        print(f"bm={bm}")
-        print(f"dat_arr[bm].shape={dat_arr[bm].shape}, res.data shape={res.data[()].shape}")
+        print(f"tag12345 bm.shape={bm.shape} : {bm}")
+        print(f"res.data shape={res.data[()].shape}")
+        print(f"dat_arr[bm].shape={dat_arr[bm].shape}")
         assert np.all(dat_arr[bm] == res.data[()])
 
     def test_spike_valid(self):
