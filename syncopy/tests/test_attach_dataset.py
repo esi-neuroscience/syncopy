@@ -316,7 +316,6 @@ class TestAttachDataset:
 
 
         tfile0 = tempfile.NamedTemporaryFile(suffix=".spike", delete=True)
-        print(f"tfile0 is: {tfile0.name}")
         tfile0.close()
         # Test save and load.
         tmp_spy_filename = tfile0.name
@@ -329,16 +328,13 @@ class TestAttachDataset:
         spkd2._unregister_dataset("dset_mean")
         assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
         tfile0.close()
-        #os.unlink(tfile0.name)
 
         spkd = get_spike_data()
 
         # repeat with hdf5 datasets
         tfile1 = tempfile.NamedTemporaryFile(suffix=".spike", delete=False)
-        print(f"tfile1 is: {tfile1.name}")
         tfile1.close()
         tfile2 = tempfile.NamedTemporaryFile(suffix=".spike", delete=True)
-        print(f"tfile2 is: {tfile2.name}")
         tfile2.close()
 
         file1 = h5py.File(tfile1.name, 'w')
@@ -358,10 +354,6 @@ class TestAttachDataset:
         spkd2._unregister_dataset("dset_mean")
         tfile2.close()
         assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
-
-        #tfile1.close()
-        #tfile2.close()
-
 
 
 if __name__ == '__main__':
