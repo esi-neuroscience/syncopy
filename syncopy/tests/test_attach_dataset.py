@@ -202,16 +202,6 @@ class TestAttachDataset:
         assert 'adt' not in locals()
 
         # repeat with hdf5 datasets
-        #with tempfile.TemporaryDirectory() as tdir:
-        #    file1 = h5py.File(os.path.join(tdir, "dummy1.h5"), 'w')
-        #    extra_ds1 = file1.create_dataset("d1", extra_data1.shape)
-        #    extra_ds1[()] = extra_data1
-
-        #    file2 = h5py.File(os.path.join(tdir, "dummy2.h5"), 'w')
-        #    extra_ds2 = file2.create_dataset("d2", extra_data2.shape)
-        #    extra_ds2[()] = extra_data2
-
-        # repeat with hdf5 datasets
         tfile1 = tempfile.NamedTemporaryFile(suffix=".h5", delete=False)
         tfile1.close()
         tfile2 = tempfile.NamedTemporaryFile(suffix=".h5", delete=False)
@@ -226,6 +216,11 @@ class TestAttachDataset:
 
                 some_local_func(extra_ds1, extra_ds2)
                 assert 'adt' not in locals()
+
+        tfile1.close()
+        os.unlink(tfile1.name)
+        tfile2.close()
+        os.unlink(tfile2.name)
 
     def test_attach_None_to_analog_data(self):
         """
