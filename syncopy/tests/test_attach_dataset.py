@@ -202,17 +202,30 @@ class TestAttachDataset:
         assert 'adt' not in locals()
 
         # repeat with hdf5 datasets
-        with tempfile.TemporaryDirectory() as tdir:
-            file1 = h5py.File(os.path.join(tdir, "dummy1.h5"), 'w')
+        #with tempfile.TemporaryDirectory() as tdir:
+        #    file1 = h5py.File(os.path.join(tdir, "dummy1.h5"), 'w')
+        #    extra_ds1 = file1.create_dataset("d1", extra_data1.shape)
+        #    extra_ds1[()] = extra_data1
+
+        #    file2 = h5py.File(os.path.join(tdir, "dummy2.h5"), 'w')
+        #    extra_ds2 = file2.create_dataset("d2", extra_data2.shape)
+        #    extra_ds2[()] = extra_data2
+
+        # repeat with hdf5 datasets
+        tfile1 = tempfile.NamedTemporaryFile(suffix=".h5", delete=False)
+        tfile1.close()
+        tfile2 = tempfile.NamedTemporaryFile(suffix=".h5", delete=False)
+        tfile2.close()
+        with h5py.File(tfile1.name, 'w') as file1:
             extra_ds1 = file1.create_dataset("d1", extra_data1.shape)
             extra_ds1[()] = extra_data1
 
-            file2 = h5py.File(os.path.join(tdir, "dummy2.h5"), 'w')
-            extra_ds2 = file2.create_dataset("d2", extra_data2.shape)
-            extra_ds2[()] = extra_data2
+            with h5py.File(tfile2.name, 'w') as file2:
+                extra_ds2 = file2.create_dataset("d2", extra_data2.shape)
+                extra_ds2[()] = extra_data2
 
-            some_local_func(extra_ds1, extra_ds2)
-            assert 'adt' not in locals()
+                some_local_func(extra_ds1, extra_ds2)
+                assert 'adt' not in locals()
 
     def test_attach_None_to_analog_data(self):
         """
