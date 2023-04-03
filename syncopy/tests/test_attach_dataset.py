@@ -202,17 +202,25 @@ class TestAttachDataset:
         assert 'adt' not in locals()
 
         # repeat with hdf5 datasets
-        with tempfile.TemporaryDirectory() as tdir:
-            file1 = h5py.File(os.path.join(tdir, "dummy1.h5"), 'w')
+        tfile1 = tempfile.NamedTemporaryFile(suffix=".h5", delete=False)
+        tfile1.close()
+        tfile2 = tempfile.NamedTemporaryFile(suffix=".h5", delete=False)
+        tfile2.close()
+        with h5py.File(tfile1.name, 'w') as file1:
             extra_ds1 = file1.create_dataset("d1", extra_data1.shape)
             extra_ds1[()] = extra_data1
 
-            file2 = h5py.File(os.path.join(tdir, "dummy2.h5"), 'w')
-            extra_ds2 = file2.create_dataset("d2", extra_data2.shape)
-            extra_ds2[()] = extra_data2
+            with h5py.File(tfile2.name, 'w') as file2:
+                extra_ds2 = file2.create_dataset("d2", extra_data2.shape)
+                extra_ds2[()] = extra_data2
 
-            some_local_func(extra_ds1, extra_ds2)
-            assert 'adt' not in locals()
+                some_local_func(extra_ds1, extra_ds2)
+                assert 'adt' not in locals()
+
+        tfile1.close()
+        os.unlink(tfile1.name)
+        tfile2.close()
+        os.unlink(tfile2.name)
 
     def test_attach_None_to_analog_data(self):
         """
@@ -306,40 +314,46 @@ class TestAttachDataset:
         extra_data = np.zeros((3, 3), dtype=np.float64)
         spkd._register_dataset("dset_mean", extra_data)
 
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            # Test save and load.
-            tmp_spy_filename = os.path.join(tmpdirname, "myfile.spike")
-            spy.save(spkd, filename=tmp_spy_filename)
-            spkd2 = spy.load(filename=tmp_spy_filename)
-            assert isinstance(spkd2._dset_mean, h5py.Dataset)
-            assert np.array_equal(spkd._dset_mean[()], spkd2._dset_mean[()])
 
-            # Test delete/unregister.
-            spkd2._unregister_dataset("dset_mean")
-            assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
+        tfile0 = tempfile.NamedTemporaryFile(suffix=".spike", delete=True)
+        tfile0.close()
+        # Test save and load.
+        tmp_spy_filename = tfile0.name
+        spy.save(spkd, filename=tmp_spy_filename)
+        spkd2 = spy.load(filename=tmp_spy_filename)
+        assert isinstance(spkd2._dset_mean, h5py.Dataset)
+        assert np.array_equal(spkd._dset_mean[()], spkd2._dset_mean[()])
+
+        # Test delete/unregister.
+        spkd2._unregister_dataset("dset_mean")
+        assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
+        tfile0.close()
 
         spkd = get_spike_data()
 
         # repeat with hdf5 datasets
-        with tempfile.TemporaryDirectory() as tdir:
+        tfile1 = tempfile.NamedTemporaryFile(suffix=".spike", delete=False)
+        tfile1.close()
+        tfile2 = tempfile.NamedTemporaryFile(suffix=".spike", delete=True)
+        tfile2.close()
 
-            file1 = h5py.File(os.path.join(tdir, "dummy.h5"), 'w')
-            extra_dset = file1.create_dataset("d1", extra_data.shape)
-            extra_dset[()] = extra_data
+        file1 = h5py.File(tfile1.name, 'w')
+        extra_dset = file1.create_dataset("d1", extra_data.shape)
+        extra_dset[()] = extra_data
 
-            spkd._register_dataset("dset_mean", extra_dset)
+        spkd._register_dataset("dset_mean", extra_dset)
 
-            # Test save and load.
-            tmp_spy_filename = os.path.join(tmpdirname, "myfile2.spike")
-            spy.save(spkd, filename=tmp_spy_filename)
-            spkd2 = spy.load(filename=tmp_spy_filename)
-            assert isinstance(spkd2._dset_mean, h5py.Dataset)
-            assert np.array_equal(spkd._dset_mean[()], spkd2._dset_mean[()])
+        # Test save and load.
+        tmp_spy_filename = tfile2.name
+        spy.save(spkd, filename=tmp_spy_filename)
+        spkd2 = spy.load(filename=tmp_spy_filename)
+        assert isinstance(spkd2._dset_mean, h5py.Dataset)
+        assert np.array_equal(spkd._dset_mean[()], spkd2._dset_mean[()])
 
-            # Test delete/unregister.
-            spkd2._unregister_dataset("dset_mean")
-            assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
-
+        # Test delete/unregister.
+        spkd2._unregister_dataset("dset_mean")
+        tfile2.close()
+        assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
 
 
 if __name__ == '__main__':

@@ -544,21 +544,24 @@ class TestWaveform():
         spiked = getSpikeData(nSpikes = numSpikes)
         spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
 
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            tmp_spy_filename = os.path.join(tmpdirname, "mywffile.spike")
-            save(spiked, filename=tmp_spy_filename)
-            assert "waveform" in h5py.File(tmp_spy_filename, mode="r").keys()
-            spkd2 = load(filename=tmp_spy_filename)
-            assert isinstance(spkd2.waveform, h5py.Dataset), f"Expected h5py.Dataset, got {type(spkd2.waveform)}"
-            assert np.array_equal(spiked.waveform[()], spkd2.waveform[()])
+        tfile1 = tempfile.NamedTemporaryFile(suffix=".spike", delete=True)
+        tfile1.close()
+        tmp_spy_filename = tfile1.name
+        save(spiked, filename=tmp_spy_filename)
+        assert "waveform" in h5py.File(tmp_spy_filename, mode="r").keys()
+        spkd2 = load(filename=tmp_spy_filename)
+        assert isinstance(spkd2.waveform, h5py.Dataset), f"Expected h5py.Dataset, got {type(spkd2.waveform)}"
+        assert np.array_equal(spiked.waveform[()], spkd2.waveform[()])
 
-            # Test delete/unregister when setting to None.
-            spkd2.waveform = None
-            assert spkd2.waveform is None
-            assert "waveform" not in h5py.File(tmp_spy_filename, mode="r").keys()
+        # Test delete/unregister when setting to None.
+        spkd2.waveform = None
+        assert spkd2.waveform is None
+        assert "waveform" not in h5py.File(tmp_spy_filename, mode="r").keys()
 
-            # Test that we can set waveform again after deleting it.
-            spkd2.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
+        # Test that we can set waveform again after deleting it.
+        spkd2.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
+
+        tfile1.close()
 
     def test_psth_with_waveform(self):
         """Test that the waveform does not break frontend functions, like PSTH.
