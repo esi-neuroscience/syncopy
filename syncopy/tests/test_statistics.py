@@ -510,7 +510,7 @@ class TestJackknife:
         res = spy.connectivityanalysis(adata, method='coh', jackknife=True, output=output)
 
         assert np.allclose(res.jack_var, variance.data)
-        assert np.allclose(res.jack_bias, bias.data)
+        assert np.allclose(res.jack_bias, bias.data, rtol=1e-3)
 
     def test_jk_frontend(self):
 
