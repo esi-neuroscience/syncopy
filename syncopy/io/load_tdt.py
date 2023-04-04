@@ -729,6 +729,7 @@ class ESI_TDTdata:
     def data_aranging(self, Files, DataInfo_loaded):
         AData = spy.AnalogData(dimord=['time', 'channel'])
         hdf_out_path = AData.filename
+        LenOfData = self.read_data(Files[0]).shape[0]  # Lenght of the data is always set to the length of the first channel
         with h5py.File(hdf_out_path, "w") as combined_data_file:
             idxStartStop = [
                 np.clip(np.array((jj, jj + self.chan_in_chunks)), a_min=None, a_max=len(Files))
@@ -740,7 +741,7 @@ class ESI_TDTdata:
                 )
             )
             for (start, stop) in tqdm(iterable=idxStartStop, desc="chunk", unit="chunk", disable=None):
-                data = [self.read_data(Files[jj]) for jj in range(start, stop)]
+                data = [self.read_data(Files[jj])[:LenOfData] for jj in range(start, stop)]
                 data = np.vstack(data).T
                 if start == 0:
                     # this is the actual dataset for the AnalogData
