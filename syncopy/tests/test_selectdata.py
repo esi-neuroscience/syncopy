@@ -421,7 +421,8 @@ class TestSpikeSelections:
 
         # finally compare to selection result
         print(f"tag12345 bm.shape={bm.shape} : {bm}")
-        print(f"res.data shape={res.data[()].shape}")
+        print(f"res.data[()].shape={res.data[()].shape}")
+        print(f"dat_arr.shape={dat_arr.shape}")
         print(f"dat_arr[bm].shape={dat_arr[bm].shape}")
         assert np.all(dat_arr[bm] == res.data[()])
 
