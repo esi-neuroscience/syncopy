@@ -394,14 +394,15 @@ class TestSpikeSelections:
                      'channel': [6, 2],
                      'unit': [0, 3],
                      'latency': [-1, 4]}
-        res = self.spike_data.selectdata(selection)
+        spkd = getSpikeData()
+        res = spkd.selectdata(selection)
 
         # hand pick selection from the arrays
-        dat_arr = self.spike_data.data
+        dat_arr = spkd.data
 
         # these are trial intervals in sample indices!
-        trial2 = self.spike_data.trialdefinition[2, :2]
-        trial4 = self.spike_data.trialdefinition[4, :2]
+        trial2 = spkd.trialdefinition[2, :2]
+        trial4 = spkd.trialdefinition[4, :2]
 
         # create boolean mask for trials [2, 4]
         bm = (dat_arr[:, 0] >= trial2[0]) & (dat_arr[:, 0] <= trial2[1])
@@ -415,10 +416,13 @@ class TestSpikeSelections:
 
         # latency [-1, 4]
         # to index all trials at once
-        time_vec = np.concatenate([t for t in self.spike_data.time])
+        time_vec = np.concatenate([t for t in spkd.time])
         bm = bm & ((time_vec >= -1) & (time_vec <= 4))
 
         # finally compare to selection result
+        print(f"tag12345 bm.shape={bm.shape} : {bm}")
+        print(f"res.data shape={res.data[()].shape}")
+        print(f"dat_arr[bm].shape={dat_arr[bm].shape}")
         assert np.all(dat_arr[bm] == res.data[()])
 
     def test_spike_valid(self):
