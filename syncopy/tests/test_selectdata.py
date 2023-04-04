@@ -146,7 +146,7 @@ class TestAnalogSelections:
             with pytest.raises(error, match=err_str):
                 spy.selectdata(self.adata, sel_kw)
 
-    def test_ad_parallel(self, testcluster=None):
+    def test_ad_parallel(self, testcluster):
 
         # collect all tests of current class and repeat them in parallel
         client = dd.Client(testcluster)

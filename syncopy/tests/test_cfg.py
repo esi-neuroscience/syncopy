@@ -146,7 +146,7 @@ class TestCfg:
         assert np.allclose(res.data[:], res2.data[:])
         assert res.cfg == res2.cfg
 
-    def test_parallel(self, testcluster=None):
+    def test_parallel(self, testcluster):
 
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()

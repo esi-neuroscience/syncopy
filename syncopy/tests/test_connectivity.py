@@ -243,7 +243,7 @@ class TestGranger:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_gr_parallel(self, testcluster=None):
+    def test_gr_parallel(self, testcluster):
 
         ppl.ioff()
         client = dd.Client(testcluster)
@@ -922,7 +922,7 @@ class TestPPC:
         helpers.run_polyremoval_test(call)
 
 
-def check_parallel(TestClass, testcluster=None):
+def check_parallel(TestClass, testcluster):
     ppl.ioff()
     client = dd.Client(testcluster)
     all_tests = [attr for attr in TestClass.__dir__()

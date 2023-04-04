@@ -218,7 +218,7 @@ class TestSumStatistics:
             spy.mean(adata_cpy, dim='trials')
         assert "found trials of different shape" in str(err.value)
 
-    def test_stat_parallel(self, testcluster=None):
+    def test_stat_parallel(self, testcluster):
         client = dd.Client(testcluster)
         self.test_selections()
         # should have no effect here

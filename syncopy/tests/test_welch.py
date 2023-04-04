@@ -316,7 +316,7 @@ class TestWelch():
         assert res.data.shape[res.dimord.index('taper')] == 1  # Averaging over tapers expected.
         assert res.data.shape[res.dimord.index('channel')] == 3  # Nothing special expected here.
 
-    def test_parallel(self, testcluster=None):
+    def test_parallel(self, testcluster):
         plt.ioff()
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()

@@ -432,7 +432,7 @@ class TestMetadataUsingFooof():
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
-    def test_metadata_parallel(self, testcluster=None):
+    def test_metadata_parallel(self, testcluster):
 
         plt.ioff()
         client = dd.Client(testcluster)
