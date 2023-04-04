@@ -480,8 +480,8 @@ class TestCoherence:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_coh_parallel(self):
-        check_parallel(self)
+    def test_coh_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_coh_padding(self):
 
@@ -557,8 +557,8 @@ class TestCSD:
         assert cross_spec.data.shape != self.spec.data.shape
 
     @skip_low_mem
-    def test_csd_parallel(self):
-        check_parallel(self)
+    def test_csd_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_csd_input(self):
         assert isinstance(self.spec, SpectralData)
@@ -721,8 +721,8 @@ class TestCorrelation:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_corr_parallel(self):
-        check_parallel(self)
+    def test_corr_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_corr_polyremoval(self):
 
@@ -907,8 +907,8 @@ class TestPPC:
             _ = cafunc(self.data, method='ppc', foilim='abc')
 
     @skip_low_mem
-    def test_ppc_parallel(self):
-        check_parallel(self)
+    def test_ppc_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_ppc_padding(self):
 
