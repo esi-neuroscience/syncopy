@@ -398,7 +398,7 @@ class TestSpikeSelections:
         res = spkd.selectdata(selection)
 
         # hand pick selection from the arrays
-        dat_arr = spkd.data
+        dat_arr = spkd.data[()] # convert h5py to np.ndarray, see https://github.com/h5py/h5py/issues/474
 
         # these are trial intervals in sample indices!
         trial2 = spkd.trialdefinition[2, :2]
