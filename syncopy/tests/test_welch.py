@@ -26,6 +26,9 @@ class TestWelch():
                                    seed=test_seed)
     do_plot = True
 
+    def setup_class(cls):
+        plt.close('all')    # Close plots that are still open.
+
     @staticmethod
     def get_welch_cfg():
         """
