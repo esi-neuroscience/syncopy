@@ -475,12 +475,7 @@ class TestSpikeSelections:
                 spy.selectdata(self.spike_data, sel_kw)
 
 
-class TestEventSelections:
-
-    """
-    This data type probably needs some adjustments..
-    """
-
+def _getEventData():
     nSamples = 4
     nTrials = 5
     samplerate = 1.0
@@ -494,21 +489,27 @@ class TestEventSelections:
     # Use a triple-trigger pattern to simulate EventData w/non-uniform trials
     data = np.vstack([np.arange(0, nSamples * nTrials, 1),
                       rng.choice(eIDs, size=nSamples * nTrials)]).T
-
     edata = spy.EventData(data=data, samplerate=samplerate, trialdefinition=trldef)
+    return edata
+
+class TestEventSelections:
+
+    edata = _getEventData()
 
     def test_event_selection(self):
 
+        edata = _getEventData()
+
         # eIDs[1] = 111, a bit funny that here we need an index actually...
         selection = {'eventid': 1, 'latency': [0, 1], 'trials': [0, 3]}
-        res = spy.selectdata(self.edata, selection)
+        res = spy.selectdata(edata, selection)
 
         # hand pick selection from the arrays
-        dat_arr = self.edata.data
+        dat_arr = edata.data[()]
 
         # these are trial intervals in sample indices!
-        trial0 = self.edata.trialdefinition[0, :2]
-        trial3 = self.edata.trialdefinition[3, :2]
+        trial0 = edata.trialdefinition[0, :2]
+        trial3 = edata.trialdefinition[3, :2]
 
         # create boolean mask for trials [0, 3]
         bm = (dat_arr[:, 0] >= trial0[0]) & (dat_arr[:, 0] <= trial0[1])
