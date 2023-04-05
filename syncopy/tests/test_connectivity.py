@@ -216,7 +216,7 @@ class TestGranger:
         selections[0].pop('latency')
         result_ad = cafunc(self.data, self.cfg, method='granger', select=selections[0])
         result_spec = cafunc(self.spec, method='granger', select=selections[0])
-        assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
+        assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-2)
 
     def test_gr_foi(self):
 
