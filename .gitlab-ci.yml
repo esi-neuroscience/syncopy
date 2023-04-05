@@ -181,7 +181,10 @@ pypideploy:
     - rm -rf dist/
     - source $HOME/miniconda/etc/profile.d/conda.sh
     # get poetry with python 3.10
+    - conda create --yes --name syncopy-deploy python=3.10 poetry=1.4.0
     - conda activate syncopy-deploy
     - poetry build
-    # needs config pypi credentials on runner
+    # needs pypi credentials stored as env var PYPI_SECRET in the Gitlab CI web interface.
+    - poetry config repositories.pypi https://test.pypi.org/legacy/
+    - poetry config pypi-token.pypi "$PYPI_SECRET"
     - poetry publish -r pypi
