@@ -98,22 +98,22 @@ except ImportError:
 # Set package-wide temp directory
 csHome = "/cs/home/{}".format(getpass.getuser())
 if os.environ.get("SPYDIR"):
-    spydir = os.path.abspath(os.path.expanduser(os.environ["SPYDIR"]))
-    if not os.path.exists(spydir):
-        raise ValueError(f"Environment variable SPYDIR set to non-existent or unreadable directory '{spydir}'. Please unset SPYDIR or create the directory.")
+    __spydir__ = os.path.abspath(os.path.expanduser(os.environ["SPYDIR"]))
+    if not os.path.exists(__spydir__):
+        raise ValueError(f"Environment variable SPYDIR set to non-existent or unreadable directory '{__spydir__}'. Please unset SPYDIR or create the directory.")
 else:
     if os.path.exists(csHome): # ESI cluster.
-        spydir = os.path.join(csHome, ".spy")
+        __spydir__ = os.path.join(csHome, ".spy")
     else:
-        spydir = os.path.abspath(os.path.join(os.path.expanduser("~"), ".spy"))
+        __spydir__ = os.path.abspath(os.path.join(os.path.expanduser("~"), ".spy"))
 
 if os.environ.get("SPYTMPDIR"):
     __storage__ = os.path.abspath(os.path.expanduser(os.environ["SPYTMPDIR"]))
 else:
-    __storage__ = os.path.join(spydir, "tmp_storage")
+    __storage__ = os.path.join(__spydir__, "tmp_storage")
 
-if not os.path.exists(spydir):
-        os.makedirs(spydir, exist_ok=True)
+if not os.path.exists(__spydir__):
+        os.makedirs(__spydir__, exist_ok=True)
 
 # Set upper bound for temp directory size (in GB)
 __storagelimit__ = 10
@@ -144,11 +144,11 @@ from .preproc import *
 
 from .datatype.util import setup_storage, get_dir_size
 storage_tmpdir_size_gb, storage_tmpdir_numfiles = setup_storage()  # Creates the storage dir if needed and computes size and number of files in there if any.
-spydir_size_gb, spydir_numfiles = get_dir_size(spydir, out="GB")
+spydir_size_gb, spydir_numfiles = get_dir_size(__spydir__, out="GB")
 
 from .shared.log import setup_logging
 __logdir__ = None  # Gets set in setup_logging() call below.
-setup_logging(spydir=spydir, session=__sessionid__)  # Sets __logdir__.
+setup_logging(spydir=__spydir__, session=__sessionid__)  # Sets __logdir__.
 startup_print_once(f"Logging to log directory '{__logdir__}'.\nTemporary storage directory set to '{__storage__}'.\n")
 
 storage_msg = (
@@ -162,7 +162,7 @@ if storage_tmpdir_size_gb > __storagelimit__:
 else:
     # We also check the size of the whole Syncopy cfg folder, as older Syncopy versions placed files directly into it.
     if spydir_size_gb > __storagelimit__:
-        msg_formatted = storage_msg.format(folder_desc="User config folder", tmpdir=spydir, nfs=spydir_numfiles, sze=spydir_size_gb)
+        msg_formatted = storage_msg.format(folder_desc="User config folder", tmpdir=__spydir__, nfs=spydir_numfiles, sze=spydir_size_gb)
         startup_print_once(msg_formatted, force=True)
 
 # Override default traceback (differentiate b/w Jupyter/iPython and regular Python)

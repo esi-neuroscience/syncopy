@@ -579,7 +579,7 @@ class TestSpectralData():
     def test_sd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_sd_dataselection", "test_sd_arithmetic"]
+        par_tests = ["test_sd_arithmetic", "test_sd_concat"]
         for test in par_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)
@@ -765,7 +765,7 @@ class TestCrossSpectralData():
     def test_csd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_csd_dataselection", "test_csd_arithmetic"]
+        par_tests = ["test_csd_arithmetic", "test_csd_concat"]
         for test in par_tests:
             getattr(self, test)
             flush_local_cluster(testcluster)

@@ -216,7 +216,7 @@ class TestFooofSpy():
 
         assert spec_dt.data.ndim == 4
 
-    def test_parallel(self, testcluster=None):
+    def test_parallel(self, testcluster):
 
         plt.ioff()
         client = dd.Client(testcluster)

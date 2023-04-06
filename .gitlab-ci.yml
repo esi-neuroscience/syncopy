@@ -151,9 +151,12 @@ pypitest:
     - rm -rf dist/
     - source $HOME/miniconda/etc/profile.d/conda.sh
     # get poetry with python 3.10
+    - conda create --yes --name syncopy-deploy python=3.10 poetry=1.4.0
     - conda activate syncopy-deploy
     - poetry build
-    # needs config pypi credentials on runner
+    # needs pypi token as env variable in GitLab CI config
+    - poetry config repositories.testpypi https://test.pypi.org/legacy/
+    - poetry config pypi-token.testpypi $TESTPYPI_SECRET
     - poetry publish -r testpypi
     - sleep 300
     # create clean new env and install the pypitest package

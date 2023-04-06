@@ -360,7 +360,7 @@ class TestPSTH:
                                   pruned_counts2.show(trials=4, channel=chan),
                                   equal_nan=True)
 
-    def test_parallel_selection(self, testcluster=None):
+    def test_parallel_selection(self, testcluster):
 
         cfg = spy.StructDict()
         cfg.latency = 'minperiod'

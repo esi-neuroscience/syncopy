@@ -187,7 +187,7 @@ class TestButterworth:
         # check here just for finiteness
         assert np.all(np.isfinite(result.data))
 
-    def test_but_parallel(self, testcluster=None):
+    def test_but_parallel(self, testcluster):
 
         ppl.ioff()
         client = dd.Client(testcluster)
@@ -394,7 +394,7 @@ class TestFIRWS:
         # check here just for finiteness
         assert np.all(np.isfinite(result.data))
 
-    def test_firws_parallel(self, testcluster=None):
+    def test_firws_parallel(self, testcluster):
 
         ppl.ioff()
         client = dd.Client(testcluster)
@@ -495,7 +495,7 @@ class TestDetrending:
         with pytest.raises(SPYValueError, match='expected value to be greater'):
             ppfunc(self.AData, filter_class=None, polyremoval=2)
 
-    def test_detr_parallel(self, testcluster=None):
+    def test_detr_parallel(self, testcluster):
 
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
@@ -562,7 +562,7 @@ class TestStandardize:
         with pytest.raises(SPYValueError, match='expected either `True` or `False`'):
             ppfunc(self.AData, filter_class=None, zscore=2)
 
-    def test_zscore_parallel(self, testcluster=None):
+    def test_zscore_parallel(self, testcluster):
 
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()

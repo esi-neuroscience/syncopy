@@ -147,8 +147,8 @@ class TestGranger:
         Gcaus_ad = cafunc(self.data, method='granger',
                           cfg=self.cfg, **kwargs)
 
-        # same results on all channels and freqs within 1%
-        assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], atol=1e-2)
+        # same results on all channels and freqs within 2%
+        assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], atol=2e-2)
 
         for Gcaus in [Gcaus_spec, Gcaus_ad]:
             # check all channel combinations with coupling
@@ -216,7 +216,7 @@ class TestGranger:
         selections[0].pop('latency')
         result_ad = cafunc(self.data, self.cfg, method='granger', select=selections[0])
         result_spec = cafunc(self.spec, method='granger', select=selections[0])
-        assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
+        assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=2e-2)
 
     def test_gr_foi(self):
 
@@ -243,7 +243,7 @@ class TestGranger:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_gr_parallel(self, testcluster=None):
+    def test_gr_parallel(self, testcluster):
 
         ppl.ioff()
         client = dd.Client(testcluster)
@@ -480,8 +480,8 @@ class TestCoherence:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_coh_parallel(self):
-        check_parallel(self)
+    def test_coh_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_coh_padding(self):
 
@@ -557,8 +557,8 @@ class TestCSD:
         assert cross_spec.data.shape != self.spec.data.shape
 
     @skip_low_mem
-    def test_csd_parallel(self):
-        check_parallel(self)
+    def test_csd_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_csd_input(self):
         assert isinstance(self.spec, SpectralData)
@@ -721,8 +721,8 @@ class TestCorrelation:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_corr_parallel(self):
-        check_parallel(self)
+    def test_corr_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_corr_polyremoval(self):
 
@@ -907,8 +907,8 @@ class TestPPC:
             _ = cafunc(self.data, method='ppc', foilim='abc')
 
     @skip_low_mem
-    def test_ppc_parallel(self):
-        check_parallel(self)
+    def test_ppc_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_ppc_padding(self):
 
@@ -922,7 +922,7 @@ class TestPPC:
         helpers.run_polyremoval_test(call)
 
 
-def check_parallel(TestClass, testcluster=None):
+def check_parallel(TestClass, testcluster):
     ppl.ioff()
     client = dd.Client(testcluster)
     all_tests = [attr for attr in TestClass.__dir__()

@@ -26,6 +26,9 @@ class TestWelch():
                                    seed=test_seed)
     do_plot = True
 
+    def setup_class(cls):
+        plt.close('all')    # Close plots that are still open.
+
     @staticmethod
     def get_welch_cfg():
         """
@@ -316,8 +319,9 @@ class TestWelch():
         assert res.data.shape[res.dimord.index('taper')] == 1  # Averaging over tapers expected.
         assert res.data.shape[res.dimord.index('channel')] == 3  # Nothing special expected here.
 
-    def test_parallel(self, testcluster=None):
+    def test_parallel(self, testcluster):
         plt.ioff()
+        self.do_plot = False
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
                      if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr and attr.startswith('test'))]
@@ -326,6 +330,7 @@ class TestWelch():
             test_method = getattr(self, test)
             test_method()
         client.close()
+        self.do_plot = True
         plt.ion()
 
 
