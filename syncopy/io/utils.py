@@ -20,7 +20,7 @@ if sys.platform == "win32":
     colorama.init(strip=False)
 
 # Local imports
-from syncopy import __storage__, __sessionid__, __checksum_algorithm__, __spydir__
+from syncopy import __storage__, __sessionid__, __checksum_algorithm__, __spydir__, log
 from syncopy.datatype.base_data import BaseData
 from syncopy.datatype.util import get_dir_size
 from syncopy.shared.parsers import scalar_parser
@@ -90,7 +90,8 @@ def cleanup(older_than=24, interactive=True, only_current_session=False):
     storage_size_gb, storage_num_files = get_dir_size(__storage__, out="GB")
     dirInfo = \
         "\n{name:s} Analyzing temporary storage folder '{dir:s}' containing {numf:d} files with total size {sizegb:.2f} GB...\n"
-    print(dirInfo.format(name=funcName, dir=__storage__, numf=storage_num_files, sizegb=storage_size_gb))
+    log(dirInfo.format(name=funcName, dir=__storage__, numf=storage_num_files, sizegb=storage_size_gb),
+        caller='cleanup')
 
     # Parse interactive keyword: if `False`, don't ask, just delete
     if not isinstance(interactive, bool):
@@ -111,9 +112,10 @@ def cleanup(older_than=24, interactive=True, only_current_session=False):
         ext = \
         "Did not find any dangling data or Syncopy session remains " +\
         "older than {age:d} hours."
-        print(ext.format(name=funcName, age=older_than))
+        log(ext.format(name=funcName, age=older_than), caller=cleanup)
         spydir_size_gb, spydir_num_files = get_dir_size(__spydir__, out="GB")
-        print(f"Note: {spydir_num_files} files with total size of {spydir_size_gb:.2f} GB left in spy dir '{__spydir__}'.")
+        log(f"Note: {spydir_num_files} files with total size of {spydir_size_gb:.2f} GB left in spy dir '{__spydir__}'.",
+            caller=cleanup)
         return
 
     # Prepare info prompt for dangling files
@@ -135,7 +137,7 @@ def cleanup(older_than=24, interactive=True, only_current_session=False):
                     numdang += 1
 
             except OSError as ex:
-                print(f"Dangling file {file} no longer exists: {ex}. (Maybe already deleted.)")
+                log(f"Dangling file {file} no longer exists: {ex}. (Maybe already deleted.)", caller=cleanup)
         dangInfo = dangInfo.format(numdang=numdang, szdang=szdang)
 
         dangOptions = \
@@ -184,9 +186,11 @@ def cleanup(older_than=24, interactive=True, only_current_session=False):
 
     # Report on remaining data
     storage_size_gb, storage_num_files = get_dir_size(__storage__, out="GB")
-    print(f"{storage_num_files} files with total size of {storage_size_gb:.2f} GB left in storage dir '{__storage__}'.")
+    log(f"{storage_num_files} files with total size of {storage_size_gb:.2f} GB left in storage dir '{__storage__}'.",
+        caller='cleanup')
     spydir_size_gb, spydir_num_files = get_dir_size(__spydir__, out="GB")
-    print(f"{spydir_num_files} files with total size of {spydir_size_gb:.2f} GB left in spy dir '{__spydir__}'.")
+    log(f"{spydir_num_files} files with total size of {spydir_size_gb:.2f} GB left in spy dir '{__spydir__}'.",
+        caller='cleanup')
 
 
 def clear():
