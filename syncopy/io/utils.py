@@ -20,12 +20,13 @@ if sys.platform == "win32":
     colorama.init(strip=False)
 
 # Local imports
-from syncopy import __storage__, __sessionid__, __checksum_algorithm__, __spydir__, log
+from syncopy import __storage__, __sessionid__, __checksum_algorithm__, __spydir__
 from syncopy.datatype.base_data import BaseData
 from syncopy.datatype.util import get_dir_size
 from syncopy.shared.parsers import scalar_parser
 from syncopy.shared.errors import SPYTypeError
-from syncopy.shared.queries import user_yesno, user_input
+from syncopy.shared.queries import user_input
+from syncopy.shared.log import get_logger
 
 __all__ = ["cleanup", "clear"]
 
@@ -79,6 +80,8 @@ def cleanup(older_than=24, interactive=True, only_current_session=False):
     --------
     >>> spy.cleanup()
     """
+
+    log = get_logger()
 
     # Make sure age-cutoff is valid
     scalar_parser(older_than, varname="older_than", ntype="int_like",
