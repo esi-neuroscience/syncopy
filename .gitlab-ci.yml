@@ -188,6 +188,5 @@ pypideploy:
     - conda activate syncopy-deploy
     - poetry build
     # needs pypi credentials stored as env var PYPI_SECRET in the Gitlab CI web interface.
-    - poetry config repositories.pypi https://test.pypi.org/legacy/
     - poetry config pypi-token.pypi "$PYPI_SECRET"
-    - poetry publish -r pypi
+    - poetry publish
