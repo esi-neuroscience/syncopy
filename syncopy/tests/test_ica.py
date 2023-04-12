@@ -39,6 +39,14 @@ def get_ica_testdata(n_samples=8000, samplerate=1000, add_noise=True, as_ad=True
     s2 = np.sign(np.sin(3 * time))          # square signal
     s3 = signal.sawtooth(2 * np.pi * time)  # saw tooth signal
 
+    # simulate eye blic
+    eyeblink_start_times = np.arange(0.5, duration_sec, 1.5)
+    eyeblink_duration = 0.1
+    for t in eyeblink_start_times:
+        s1[int(t * samplerate):int((t + eyeblink_duration) * samplerate)] *= 5
+        s2[int(t * samplerate):int((t + eyeblink_duration) * samplerate)] *= 5
+        s3[int(t * samplerate):int((t + eyeblink_duration) * samplerate)] *= 5
+
     # Mix data
     S = np.c_[s1, s2, s3] # The sources
     if add_noise:
