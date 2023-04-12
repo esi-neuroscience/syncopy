@@ -607,6 +607,9 @@ class ComputationalRoutine(ABC):
         # Create HDF5 dataset of appropriate dimension
         self.preallocate_output(out, parallel_store=parallel_store)
 
+        log_dict = {} if log_dict is None else log_dict
+        log_dict["used_parallel"] = str(parallel)
+
         if parallel:
 
             # Construct list of dicts that will be passed on to workers: in the

@@ -212,7 +212,7 @@ class TestTimelockanalysis:
         # exception runs above
         self.adata.selection = None
 
-    def test_parallel_selection(self, testcluster=None):
+    def test_parallel_selection(self, testcluster):
 
         cfg = spy.StructDict()
         cfg.latency = 'minperiod'

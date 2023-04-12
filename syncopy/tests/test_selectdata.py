@@ -146,7 +146,7 @@ class TestAnalogSelections:
             with pytest.raises(error, match=err_str):
                 spy.selectdata(self.adata, sel_kw)
 
-    def test_ad_parallel(self, testcluster=None):
+    def test_ad_parallel(self, testcluster):
 
         # collect all tests of current class and repeat them in parallel
         client = dd.Client(testcluster)
@@ -394,14 +394,15 @@ class TestSpikeSelections:
                      'channel': [6, 2],
                      'unit': [0, 3],
                      'latency': [-1, 4]}
-        res = self.spike_data.selectdata(selection)
+        spkd = getSpikeData()
+        res = spkd.selectdata(selection)
 
         # hand pick selection from the arrays
-        dat_arr = self.spike_data.data
+        dat_arr = spkd.data[()] # convert h5py to np.ndarray, see https://github.com/h5py/h5py/issues/474
 
         # these are trial intervals in sample indices!
-        trial2 = self.spike_data.trialdefinition[2, :2]
-        trial4 = self.spike_data.trialdefinition[4, :2]
+        trial2 = spkd.trialdefinition[2, :2]
+        trial4 = spkd.trialdefinition[4, :2]
 
         # create boolean mask for trials [2, 4]
         bm = (dat_arr[:, 0] >= trial2[0]) & (dat_arr[:, 0] <= trial2[1])
@@ -415,7 +416,7 @@ class TestSpikeSelections:
 
         # latency [-1, 4]
         # to index all trials at once
-        time_vec = np.concatenate([t for t in self.spike_data.time])
+        time_vec = np.concatenate([t for t in spkd.time])
         bm = bm & ((time_vec >= -1) & (time_vec <= 4))
 
         # finally compare to selection result
@@ -470,12 +471,7 @@ class TestSpikeSelections:
                 spy.selectdata(self.spike_data, sel_kw)
 
 
-class TestEventSelections:
-
-    """
-    This data type probably needs some adjustments..
-    """
-
+def _getEventData():
     nSamples = 4
     nTrials = 5
     samplerate = 1.0
@@ -489,21 +485,27 @@ class TestEventSelections:
     # Use a triple-trigger pattern to simulate EventData w/non-uniform trials
     data = np.vstack([np.arange(0, nSamples * nTrials, 1),
                       rng.choice(eIDs, size=nSamples * nTrials)]).T
-
     edata = spy.EventData(data=data, samplerate=samplerate, trialdefinition=trldef)
+    return edata
+
+class TestEventSelections:
+
+    edata = _getEventData()
 
     def test_event_selection(self):
 
+        edata = _getEventData()
+
         # eIDs[1] = 111, a bit funny that here we need an index actually...
         selection = {'eventid': 1, 'latency': [0, 1], 'trials': [0, 3]}
-        res = spy.selectdata(self.edata, selection)
+        res = spy.selectdata(edata, selection)
 
         # hand pick selection from the arrays
-        dat_arr = self.edata.data
+        dat_arr = edata.data[()]
 
         # these are trial intervals in sample indices!
-        trial0 = self.edata.trialdefinition[0, :2]
-        trial3 = self.edata.trialdefinition[3, :2]
+        trial0 = edata.trialdefinition[0, :2]
+        trial3 = edata.trialdefinition[3, :2]
 
         # create boolean mask for trials [0, 3]
         bm = (dat_arr[:, 0] >= trial0[0]) & (dat_arr[:, 0] <= trial0[1])

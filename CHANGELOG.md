@@ -1,7 +1,7 @@
 # Changelog of SyNCoPy
 All notable changes to this project will be documented in this file.
 
-## Unreleased WIP
+## [2023.03]
 
 ### NEW
 - frontend `redefinetrial` to cut trials/move time axes
@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - concatenation of syncopy data objects along trials
 
 ### CHANGED
+- spectral power for `mtmfft` now independent of padding as originally intended
 - support unequal trial sizes for `load_ft_raw`
 - major performance improvements for DiscreteData #403 #418, #424
 
@@ -20,6 +21,8 @@ All notable changes to this project will be documented in this file.
 - fix bug #394 'Copying a spy.StructDict returns a dict'.
 - serializable `.cfg` #392
 - single trial cross-corr bug #446
+- fix bug #457, Syncopy does not warn about temp storage dir size exceeding reporting threshold at startup
+
 
 ## [2022.12]
 

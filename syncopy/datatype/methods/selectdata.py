@@ -325,23 +325,23 @@ def selectdata(data,
 
     # -- sort out trials if latency is set --
 
-    if latency is not None and latency != 'all':
+    if latency is not None:
+        if not isinstance(latency, str) or latency != 'all':
+            # sanity check done here, converts str arguments
+            # ('maxperiod' and so on) into time window [start, end] of analysis
+            window = get_analysis_window(data, latency)
 
-        # sanity check done here, converts str arguments
-        # ('maxperiod' and so on) into time window [start, end] of analysis
-        window = get_analysis_window(data, latency)
+            # this respects active inplace selections and
+            # might update the trial selection to exclude non-fitting trials
+            selectDict, numDiscard = create_trial_selection(data, window)
 
-        # this respects active inplace selections and
-        # might update the trial selection to exclude non-fitting trials
-        selectDict, numDiscard = create_trial_selection(data, window)
+            if numDiscard > 0:
+                msg = f"Discarded {numDiscard} trial(s) which did not fit into latency window"
+                SPYInfo(msg)
 
-        if numDiscard > 0:
-            msg = f"Discarded {numDiscard} trial(s) which did not fit into latency window"
-            SPYInfo(msg)
-
-        # update inplace selection
-        selectDict['latency'] = window
-        data.selection = selectDict
+            # update inplace selection
+            selectDict['latency'] = window
+            data.selection = selectDict
 
     # If an in-place selection was requested we're done.
     if inplace:

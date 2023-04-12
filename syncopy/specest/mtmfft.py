@@ -18,7 +18,8 @@ def mtmfft(data_arr,
            nSamples=None,
            taper="hann",
            taper_opt=None,
-           demean_taper=False):
+           demean_taper=False,
+           ft_compat=False):
     """
     (Multi-)tapered fast Fourier transform. Returns
     full complex Fourier transform for each taper.
@@ -45,6 +46,9 @@ def mtmfft(data_arr,
         `SciPy docs <https://docs.scipy.org/doc/scipy/reference/signal.windows.html>`_
     demean_taper : bool
         Set to `True` to perform de-meaning after tapering
+    ft_compat : bool
+        Set to `True` to use Field Trip's normalization,
+        which is NOT independent of the padding size
 
     Returns
     -------
@@ -107,8 +111,13 @@ def mtmfft(data_arr,
         if demean_taper:
             win -= win.mean(axis=0)
         ftr[taperIdx] = np.fft.rfft(win, n=nSamples, axis=0)
-        # FT uses potentially padded length `nSamples`
-        ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
+        # FT uses potentially padded length `nSamples`, which dilutes the power
+        if ft_compat:            
+            ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
+        # here the normalization adapts such that padding is NOT changing power
+        else:
+            ftr[taperIdx] = _norm_spec(ftr[taperIdx], signal_length * np.sqrt(nSamples / signal_length), samplerate)
+
     return ftr, freqs
 
 
