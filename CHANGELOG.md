@@ -1,6 +1,12 @@
 # Changelog of SyNCoPy
 All notable changes to this project will be documented in this file.
 
+## [unpublished]
+
+### Changed
+- created dedicated `syncopy.synthdata` module
+- synthetic data routines use generators instead of lists
+
 ## [2023.03]
 
 ### NEW
