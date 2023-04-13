@@ -141,6 +141,7 @@ from .connectivity import *
 from .statistics import *
 from .plotting import *
 from .preproc import *
+from .synthdata import *
 
 from .datatype.util import setup_storage, get_dir_size
 storage_tmpdir_size_gb, storage_tmpdir_numfiles = setup_storage()  # Creates the storage dir if needed and computes size and number of files in there if any.

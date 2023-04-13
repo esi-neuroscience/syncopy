@@ -251,12 +251,13 @@ def unwrap_cfg(func):
                 else:
                     posargs.append(arg)
 
-        # if there was no Syncopy data found at this point, we have to give up
+        # if there was no Syncopy data found at this point,
+        # we call the wrapped function without it
         if data is None:
-            raise SPYError("Found no Syncopy data object as input")
-
-        # Call function with unfolded `data` + modified positional/keyword args
-        return func(data, *posargs, **cfg)
+            return func(*posargs, **cfg)
+        else:
+            # Call function with unfolded `data` + modified positional/keyword args
+            return func(data, *posargs, **cfg)
 
     # Append two-liner to docstring header mentioning the use of `cfg`
     introEntry = \

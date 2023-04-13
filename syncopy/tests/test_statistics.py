@@ -16,7 +16,7 @@ import syncopy as spy
 from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests import helpers
-from syncopy.tests import synth_data as sd
+from syncopy import synthdata as sd
 from syncopy.statistics import jackknifing as jk
 from syncopy.connectivity.AV_compRoutines import NormalizeCrossSpectra
 
