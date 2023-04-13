@@ -6,6 +6,7 @@
 # Builtin/3rd party package imports
 import numpy as np
 # syncopy imports
+from syncopy import SpikeData
 from .utils import collect_trials
 
 
