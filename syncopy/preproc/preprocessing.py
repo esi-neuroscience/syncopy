@@ -10,7 +10,8 @@ import numpy as np
 from syncopy import AnalogData
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
-from syncopy.shared.errors import SPYValueError, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYInfo, SPYWarning
+from syncopy.shared.metadata import metadata_from_hdf5_file
 from syncopy.shared.kwarg_decorators import (
     unwrap_cfg,
     unwrap_select,
@@ -343,6 +344,7 @@ def preprocessing(
     # only zscoring
     else:
         filterMethod = None
+
     # -------------------------------------------
     # Call the chosen filter ComputationalRoutine
     # -------------------------------------------
@@ -362,6 +364,21 @@ def preprocessing(
         filterMethod.compute(
             data, filtered, parallel=kwargs.get("parallel"), log_dict=log_dict
         )
+
+        # give warnings if NaNs were present
+        nan_trials = []
+        for key, value in metadata_from_hdf5_file(filtered.filename).items():
+            if 'has_nan' in key and value:
+                # try to also record the trial numbers
+                trl_num = key.split('__')[-1].split('_')[0]
+                nan_trials.append(int(trl_num))
+
+        if len(nan_trials) != 0:
+            msg = "Data contains NaNs! See `.info['nan_trials']` for the offending trials"
+            if filter_class == 'but':
+                msg += "\n\t\t try using a 'onepass' FIR filter of low order.."
+            SPYWarning(msg)
+        filtered.info['nan_trials'] = nan_trials
 
     # -- check for post-processing flags --
 

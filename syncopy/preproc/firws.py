@@ -7,10 +7,10 @@
 # Builtin/3rd party package imports
 import numpy as np
 import scipy.signal.windows as sci_win
-from scipy.signal import fftconvolve
+from scipy.signal import convolve
 
 
-def apply_fir(data, fkernel):
+def apply_fir(data, fkernel, method='fft'):
 
     """
     Convolution of the input `data` with a FIR filter.
@@ -24,6 +24,9 @@ def apply_fir(data, fkernel):
         columns represent individual channels.
     fkernel : (N,) :class:`numpy.ndarray`
         The time domain representation of the FIR filter
+    method : ('direct', 'fft')
+        Direct convolution in the time-domain or fft based
+        convolution
 
     Returns
     -------
@@ -36,7 +39,7 @@ def apply_fir(data, fkernel):
     slices[0] = slice(None)
     slices = tuple(slices)
 
-    filtered = fftconvolve(data, fkernel[slices], mode="same")
+    filtered = convolve(data, fkernel[slices], mode="same", method=method)
     return filtered
 
 
