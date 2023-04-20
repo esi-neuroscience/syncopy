@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - created dedicated `syncopy.synthdata` module
 - synthetic data routines use generators instead of lists
+- FIR filters work around NaNs in the input via slower direct convolutions
 
 ## [2023.03]
 
