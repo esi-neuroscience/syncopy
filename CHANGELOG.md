@@ -1,6 +1,11 @@
 # Changelog of SyNCoPy
 All notable changes to this project will be documented in this file.
 
+## [unpublished]
+
+### Changed
+- FIR filters work around NaNs in the input via slower direct convolutions
+
 ## [2023.03]
 
 ### NEW
