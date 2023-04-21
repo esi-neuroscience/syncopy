@@ -17,7 +17,7 @@ import syncopy as spy
 from syncopy import AnalogData, SpectralData
 from syncopy.connectivity.connectivity_analysis import connectivity_outputs
 from syncopy import connectivityanalysis as cafunc
-import syncopy.tests.synth_data as synth_data
+from syncopy import synthdata
 import syncopy.tests.helpers as helpers
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults
@@ -107,11 +107,11 @@ class TestGranger:
     cpl_idx = np.where(AdjMat)
     nocpl_idx = np.where(AdjMat == 0)
 
-    data = synth_data.AR2_network(nTrials,
-                                  AdjMat=AdjMat,
-                                  nSamples=nSamples,
-                                  samplerate=fs,
-                                  seed=42)
+    data = synthdata.AR2_network(nTrials,
+                                 AdjMat=AdjMat,
+                                 nSamples=nSamples,
+                                 samplerate=fs,
+                                 seed=42)
 
     time_span = [-1, nSamples / fs - 1]   # -1s offset
 
@@ -279,21 +279,21 @@ class TestCoherence:
 
     f1, f2 = 20, 40
     # a lot of phase diffusion (1% per step) in the 20Hz band
-    s1 = synth_data.phase_diffusion(nTrials, freq=f1,
-                                    eps=.03,
-                                    nChannels=nChannels,
-                                    nSamples=nSamples,
-                                    seed=helpers.test_seed)
+    s1 = synthdata.phase_diffusion(nTrials, freq=f1,
+                                   eps=.03,
+                                   nChannels=nChannels,
+                                   nSamples=nSamples,
+                                   seed=helpers.test_seed)
 
     # little diffusion in the 40Hz band
-    s2 = synth_data.phase_diffusion(nTrials, freq=f2,
-                                    eps=.001,
-                                    nChannels=nChannels,
-                                    nSamples=nSamples,
-                                    seed=helpers.test_seed)
+    s2 = synthdata.phase_diffusion(nTrials, freq=f2,
+                                   eps=.001,
+                                   nChannels=nChannels,
+                                   nSamples=nSamples,
+                                   seed=helpers.test_seed)
 
-    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples,
-                                seed=helpers.test_seed)
+    wn = synthdata.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples,
+                               seed=helpers.test_seed)
 
     # superposition
     data = s1 + s2 + wn
@@ -523,20 +523,20 @@ class TestCSD:
 
     f1, f2 = 20, 40
     # a lot of phase diffusion (1% per step) in the 20Hz band
-    s1 = synth_data.phase_diffusion(nTrials, freq=f1,
-                                    eps=.01,
-                                    nChannels=nChannels,
-                                    nSamples=nSamples,
-                                    seed=42)
+    s1 = synthdata.phase_diffusion(nTrials, freq=f1,
+                                   eps=.01,
+                                   nChannels=nChannels,
+                                   nSamples=nSamples,
+                                   seed=42)
 
     # little diffusion in the 40Hz band
-    s2 = synth_data.phase_diffusion(nTrials, freq=f2,
-                                    eps=.001,
-                                    nChannels=nChannels,
-                                    nSamples=nSamples,
-                                    seed=42)
+    s2 = synthdata.phase_diffusion(nTrials, freq=f2,
+                                   eps=.001,
+                                   nChannels=nChannels,
+                                   nSamples=nSamples,
+                                   seed=42)
 
-    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples)
+    wn = synthdata.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples)
 
     # superposition
     data = s1 + s2 + wn
@@ -591,19 +591,19 @@ class TestCorrelation:
     for _ in range(nTrials):
 
         # no phase diffusion
-        p1 = synth_data.phase_diffusion(freq=f1,
-                                        eps=0,
-                                        nChannels=nChannels,
-                                        nSamples=nSamples,
-                                        seed=42,
-                                        return_phase=True)
+        p1 = synthdata.phase_diffusion(freq=f1,
+                                       eps=0,
+                                       nChannels=nChannels,
+                                       nSamples=nSamples,
+                                       seed=42,
+                                       return_phase=True)
         # same frequency but more diffusion
-        p2 = synth_data.phase_diffusion(freq=f1,
-                                        eps=0.1,
-                                        nChannels=1,
-                                        nSamples=nSamples,
-                                        seed=42,
-                                        return_phase=True)
+        p2 = synthdata.phase_diffusion(freq=f1,
+                                       eps=0.1,
+                                       nChannels=1,
+                                       nSamples=nSamples,
+                                       seed=42,
+                                       return_phase=True)
 
         # set 2nd channel to higher phase diffusion
         p1[:, 1] = p2[:, 0]
@@ -741,13 +741,13 @@ class TestPPC:
 
     f1 = 20
     # phase diffusion (1% per step) in the 20Hz band
-    s1 = synth_data.phase_diffusion(nTrials, freq=f1,
-                                    eps=.01,
-                                    nChannels=nChannels,
-                                    nSamples=nSamples,
-                                    seed=helpers.test_seed)
-    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples,
-                                seed=helpers.test_seed)
+    s1 = synthdata.phase_diffusion(nTrials, freq=f1,
+                                   eps=.01,
+                                   nChannels=nChannels,
+                                   nSamples=nSamples,
+                                   seed=helpers.test_seed)
+    wn = synthdata.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples,
+                               seed=helpers.test_seed)
 
     # superposition
     data = s1 + wn
