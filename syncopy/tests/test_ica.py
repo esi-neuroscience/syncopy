@@ -9,10 +9,10 @@ import numpy as np
 
 # Local imports
 import dask.distributed as dd
-from syncopy.tests import synth_data as sd
+from syncopy.synthdata import white_noise
 from syncopy.tests.helpers import test_seed
 
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYTypeError
 from syncopy.shared.tools import get_defaults
 
 import syncopy as spy
@@ -64,7 +64,7 @@ def get_ica_testdata(n_samples=8000, samplerate=1000, add_noise=True, as_ad=True
 class TestFastICA():
     n_trials = 2
     n_samples = 5000
-    adata = 100 * sd.white_noise(n_trials, nSamples=n_samples) + 5
+    adata = 100 * white_noise(n_trials, nSamples=n_samples) + 5
 
     def test_preproc_ica(self):
         cfg = get_defaults(spy.runica)
