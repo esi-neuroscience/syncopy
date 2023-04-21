@@ -7,7 +7,6 @@
 import numpy as np
 # syncopy imports
 from syncopy import SpikeData
-from .utils import collect_trials
 
 
 # ---- Synthetic SpikeData ----
