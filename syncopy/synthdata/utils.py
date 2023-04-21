@@ -82,17 +82,3 @@ def collect_trials(trial_func):
         return data
 
     return wrapper_synth
-
-
-from syncopy.shared.tools import StructDict
-
-
-cfg = StructDict()
-cfg.nTrials = 10
-cfg.samplerate = 12
-cfg.nChannels = 3
-cfg.nSamples = 10
-
-@collect_trials
-def ones(nChannels, nSamples):
-    return np.ones((nSamples, nChannels))
