@@ -12,7 +12,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.const_def import spectralConversions
-import syncopy.tests.synth_data as synth_data
+from syncopy import synthdata
 from syncopy.tests.helpers import teardown, test_seed
 
 
@@ -22,8 +22,8 @@ class TestWelch():
     """
 
     # White noise
-    adata = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=20000, samplerate=1000,
-                                   seed=test_seed)
+    adata = synthdata.white_noise(nTrials=2, nChannels=3, nSamples=20000, samplerate=1000,
+                                  seed=test_seed)
     do_plot = True
 
     def setup_class(cls):
@@ -130,7 +130,7 @@ class TestWelch():
 
         nSamples = 30000
         samplerate = 1000
-        wn = synth_data.white_noise(nTrials=1, nChannels=3, nSamples=nSamples, samplerate=samplerate)
+        wn = synthdata.white_noise(nTrials=1, nChannels=3, nSamples=nSamples, samplerate=samplerate)
 
         spec_short_windows = spy.freqanalysis(cfg_no_overlap, wn)
         spec_long_windows = spy.freqanalysis(cfg_with_overlap, wn)
@@ -174,8 +174,8 @@ class TestWelch():
 
         Potential nice-to-have for later: investigate sweet spot for the overlap parameter as a function of signal length.
         """
-        wn_long = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=10000, samplerate=1000, seed=42)  # 10 seconds of signal
-        wn_short = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=1000, samplerate=1000, seed=42)  # 1  second of signal
+        wn_long = synthdata.white_noise(nTrials=20, nChannels=1, nSamples=10000, samplerate=1000, seed=42)  # 10 seconds of signal
+        wn_short = synthdata.white_noise(nTrials=20, nChannels=1, nSamples=1000, samplerate=1000, seed=42)  # 1  second of signal
 
         foilim = [5, 200]  # Shared between cases.
 
@@ -235,7 +235,7 @@ class TestWelch():
 
         for sigl_idx, sig_len in enumerate(sig_lengths):
             for overl_idx, overlap in enumerate(overlaps):
-                wn = synth_data.white_noise(nTrials=20, nChannels=1, nSamples=sig_len, samplerate=1000, seed=test_seed)
+                wn = synthdata.white_noise(nTrials=20, nChannels=1, nSamples=sig_len, samplerate=1000, seed=test_seed)
 
                 cfg = TestWelch.get_welch_cfg()  # Results in 100 windows of length 100.
                 cfg.toi = overlap

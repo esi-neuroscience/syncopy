@@ -11,7 +11,7 @@ import dask.distributed as dd
 # syncopy imports
 import syncopy as spy
 from syncopy.shared.errors import SPYValueError
-from syncopy.tests import synth_data as sd
+from syncopy import synthdata as sd
 from syncopy.statistics.spike_psth import available_outputs
 
 

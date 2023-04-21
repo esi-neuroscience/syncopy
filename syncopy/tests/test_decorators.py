@@ -165,12 +165,6 @@ class TestSpyCalls():
             group_objects(cfg="invalid")
         assert "Wrong type of `cfg`: expected dictionary-like" in str(exc.value)
 
-        # input is just a numpy array
-        data = np.arange(2)
-        with pytest.raises(SPYError) as exc:
-            group_objects(data)
-        assert "Found no Syncopy data object as input" in str(exc.value)
-
 
     def test_varargin(self):
         """

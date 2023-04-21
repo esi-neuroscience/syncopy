@@ -17,7 +17,7 @@ from syncopy import preprocessing as ppfunc
 from syncopy import AnalogData, freqanalysis
 import syncopy.preproc as preproc  # submodule
 import syncopy.tests.helpers as helpers
-from syncopy.tests import synth_data as sd
+from syncopy import synthdata as sd
 
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults, best_match

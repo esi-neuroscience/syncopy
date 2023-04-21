@@ -8,7 +8,7 @@ import pytest
 
 from syncopy.specest.fooofspy import fooofspy
 from syncopy.tests.backend.test_resampling import trl_av_power
-from syncopy.tests import synth_data as sd
+from syncopy import synthdata as sd
 from fooof.sim.gen import gen_power_spectrum
 
 import matplotlib.pyplot as plt

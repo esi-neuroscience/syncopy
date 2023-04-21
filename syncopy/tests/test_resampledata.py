@@ -13,7 +13,7 @@ import matplotlib.pyplot as ppl
 import dask.distributed as dd
 
 from syncopy import resampledata, freqanalysis
-import syncopy.tests.synth_data as synth_data
+from syncopy import synthdata
 import syncopy.tests.helpers as helpers
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults
@@ -30,11 +30,11 @@ class TestDownsampling:
     fNy = fs / 2
 
     # -- use flat white noise as test data --
-    adata = synth_data.white_noise(nTrials,
-                                   nChannels=nChannels,
-                                   nSamples=nSamples,
-                                   samplerate=fs,
-                                   seed=42)
+    adata = synthdata.white_noise(nTrials,
+                                  nChannels=nChannels,
+                                  nSamples=nSamples,
+                                  samplerate=fs,
+                                  seed=42)
 
     # original spectrum
     spec = freqanalysis(adata, tapsmofrq=1, keeptrials=False)
@@ -170,11 +170,11 @@ class TestResampling:
     fNy = fs / 2
 
     # -- use flat white noise as test data --
-    adata = synth_data.white_noise(nTrials,
-                                   nChannels=nChannels,
-                                   nSamples=nSamples,
-                                   samplerate=fs,
-                                   seed=42)
+    adata = synthdata.white_noise(nTrials,
+                                  nChannels=nChannels,
+                                  nSamples=nSamples,
+                                  samplerate=fs,
+                                  seed=42)
 
     # original spectrum
     spec = freqanalysis(adata, tapsmofrq=1, keeptrials=False)
