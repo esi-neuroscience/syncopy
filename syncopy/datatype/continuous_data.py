@@ -354,8 +354,12 @@ class ContinuousData(BaseData, ABC):
         # Call initializer
         super().__init__(data=data, **kwargs)
 
-        # might be set from concatenation
-        if self.channel is None:
+        # catches channel propagation
+        # from concatenation of syncopy data objects
+        if self._channel is None:
+            self.channel = channel
+        # overwrites channels from concatenation if desired
+        elif channel is not None:
             self.channel = channel
 
         if self.data is not None:

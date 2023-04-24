@@ -12,7 +12,7 @@ import h5py
 # syncopy imports
 import syncopy as spy
 from syncopy.shared.errors import SPYValueError, SPYTypeError
-from syncopy.tests import synth_data
+from syncopy import synthdata
 
 
 class TestTimelockanalysis:
@@ -24,10 +24,10 @@ class TestTimelockanalysis:
 
     # create simple white noise
     # "real" data gets created for semantic test
-    adata = synth_data.white_noise(nTrials, samplerate=fs,
-                                   nSamples=nSamples,
-                                   nChannels=nChannels,
-                                   seed=42)
+    adata = synthdata.white_noise(nTrials, samplerate=fs,
+                                  nSamples=nSamples,
+                                  nChannels=nChannels,
+                                  seed=42)
 
     # change trial sizes, original interval is [-1, 1.495] seconds
     trldef = adata.trialdefinition
@@ -44,14 +44,14 @@ class TestTimelockanalysis:
 
         # create bigger dataset for statistics only here
         # moderate phase diffusion, same initial phase/value!
-        adata = synth_data.phase_diffusion(nTrials=300,
-                                           rand_ini=False,
-                                           samplerate=self.fs,
-                                           nSamples=self.nSamples,
-                                           nChannels=self.nChannels,
-                                           freq=40,
-                                           eps=0.01,
-                                           seed=42)
+        adata = synthdata.phase_diffusion(nTrials=300,
+                                          rand_ini=False,
+                                          samplerate=self.fs,
+                                          nSamples=self.nSamples,
+                                          nChannels=self.nChannels,
+                                          freq=40,
+                                          eps=0.01,
+                                          seed=42)
 
         # change trial sizes, original interval is [-1, 1.495] seconds
         trldef = adata.trialdefinition
