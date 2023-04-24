@@ -2,7 +2,7 @@
 
 We are very happy to accept [pull requests](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request), provided you are fine with publishing your work under the [license of this project](./LICENSE).
 
-If your contribution is not a bug fix but a new feature that changes or adds lots of code, please get in touch by [opening an issue](https://github.com/esi-neuroscience/syncopy/issues) *before* starting the project so we can discuss it first, coordinate and avoid wasted efforts.
+If your contribution is not a bug fix but a new feature that changes or adds lots of code, please get in touch by [opening an issue](https://github.com/esi-neuroscience/syncopy/issues) *before* starting to code so we can discuss and coordinate.
 
 Development happens on the *dev* branch. Please note that we do not accept PRs against other branches.
 
@@ -50,10 +50,10 @@ python -m pytest syncopy/tests/test_preproc.py
 We recommend running all unit tests once now to be sure that everything works. This also ensures that if you get errors on the tests later after you changed some code, you can be sure that these errors are actually related to your code, as opposed to issues with your Syncopy installation. To run all tests:
 
 ```shell
-python -m pytest
+python -m pytest -k "not parallel"
 ```
 
-This should take roughly 5 minutes and will open some plot windows. Please be patient.
+This should take roughly 5 minutes and will open some plot windows. Please be patient. Testing parallel processing on a local machine usually is not necessary. In case you still want to run also the full parallel tests, just leave out `-k "not parallel"` in the command above.
 
 
 - Now you have a verified installation and you are ready to make changes. Create a new branch off *develop* and name it after your feature, e.g., `add_cool_new_feature` or `fix_issue_17`:
@@ -67,7 +67,7 @@ git checkout -b fix_issue_17
 - Make sure the unit tests run locally on your machine:
 
 ```shell
-python -m pytest
+python -m pytest -k "not parallel"
 ```
 
 
