@@ -53,7 +53,7 @@ We recommend running all unit tests once now to be sure that everything works. T
 python -m pytest
 ```
 
-This should take less than 10 minutes.
+This should take roughly 5 minutes and will open some plot windows. Please be patient.
 
 
 - Now you have a verified installation and you are ready to make changes. Create a new branch off *develop* and name it after your feature, e.g., `add_cool_new_feature` or `fix_issue_17`:
@@ -64,7 +64,19 @@ git checkout -b fix_issue_17
 ```
 
 - Make changes to the Syncopy code and commit them into your branch. Repeat as needed. Add some tests.
-- Make sure the unit tests run locally on your machine (see above).
+- Make sure the unit tests run locally on your machine:
+
+```shell
+python -m pytest
+```
+
+
 - When you are happy with your changes, push your branch to your forked repo on Github.
-- Then create a pull request on the GitHub website by visiting your copy of the repo. Make sure to request to merge your branch into the *dev* branch of the official Syncopy repo. You can verify that the branch is correct by clicking on the `Files changed` tab of the PR. It should list exactly your changes.
+
+```shell
+git push --set-upstream origin fix_issue_17    # If your branch is named 'fix_isssue_17'.
+```
+
+
+- Then create a pull request on the GitHub website by visiting your copy of the repo. Make sure to request to merge your branch into the *dev* branch of the official Syncopy repo (the default is `master`, which is not what you want). You can verify that the branch is correct by clicking on the `Files changed` tab of the PR. It should list exactly your changes. If this is not the case, edit the PR and change the base to `dev`.
 
