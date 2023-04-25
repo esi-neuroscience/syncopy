@@ -27,6 +27,7 @@ dask = {version=">=2022.6", extras=["distributed"]}
 dask-jobqueue = ">=0.8"
 numpy = ">=1.10"
 scipy = ">=1.5"
+scikit-learn = ">=1.2"
 matplotlib = ">=3.5"
 tqdm = ">=4.31"
 natsort = "^8.1.0"
