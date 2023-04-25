@@ -70,10 +70,24 @@ Please visit our `online documentation <http://syncopy.org>`_.
 Developer Installation
 -----------------------
 
-To get the latest development version, please clone our GitHub repository:
+To get the latest development version, please clone our GitHub repository and change to the `dev` branch. We highly recommend to install into a new conda virtual environment, so that this development version does not interfere with your existing installation.
 
 .. code-block:: bash
 
    git clone https://github.com/esi-neuroscience/syncopy.git
    cd syncopy/
+   conda env create --name syncopy-dev --file syncopy.yml
+   conda activate syncopy-dev
    pip install -e .
+
+
+We recommend to verify your development installation by running the unit tests. You can skip the parallel tests to save some time, the tests should run in about 5 minutes then:
+
+
+.. code-block:: bash
+
+   python -m pytest -k "not parallel"
+
+
+You now have a verified developer installation of Syncopy. Please refert to our [contributing guide](./CONTRRIBUTING.md) if you want to contribute to Syncopy.
+
