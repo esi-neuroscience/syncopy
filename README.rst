@@ -89,5 +89,5 @@ We recommend to verify your development installation by running the unit tests. 
    python -m pytest -k "not parallel"
 
 
-You now have a verified developer installation of Syncopy. Please refert to our [contributing guide](./CONTRRIBUTING.md) if you want to contribute to Syncopy.
+You now have a verified developer installation of Syncopy. Please refert to our `contributing guide <https://github.com/esi-neuroscience/syncopy/blob/master/CONTRIBUTING.md>`_ if you want to contribute to Syncopy.
 
