@@ -478,14 +478,14 @@ class Selector:
                     if step is None:
                         step = 1
                     nSamples = (stop - start) / step
-                    endSample = stop + data._t0[trlno]
+                    endSample = stop + data._trialdefinition[trlno, 2]
                     t0 = int(endSample - nSamples)
                 else:
                     nSamples = len(tsel)
                     if nSamples == 0:
                         t0 = 0
                     else:
-                        t0 = data._t0[trlno]
+                        t0 = data._trialdefinition[trlno, 2]
                 trlDef[tk, :3] = [counter, counter + nSamples, t0]
                 trlDef[tk, 3:] = trl[trlno, 3:]
                 counter += nSamples

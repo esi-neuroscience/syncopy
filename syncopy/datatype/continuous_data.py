@@ -86,7 +86,7 @@ class ContinuousData(BaseData, ABC):
         for attr in ppattrs:
             value = getattr(self, attr)
             if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
-                tlen = np.unique([sinfo[1] - sinfo[0] for sinfo in self.sampleinfo])
+                tlen = np.unique(np.diff(self.sampleinfo))
                 if tlen.size == 1:
                     trlstr = "of length {} ".format(str(tlen[0]))
                 else:
