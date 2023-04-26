@@ -13,7 +13,7 @@ import matplotlib.pyplot as ppl
 import dask.distributed as dd
 
 from syncopy import resampledata, freqanalysis
-import syncopy.tests.synth_data as synth_data
+from syncopy import synthdata
 import syncopy.tests.helpers as helpers
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults
@@ -30,10 +30,11 @@ class TestDownsampling:
     fNy = fs / 2
 
     # -- use flat white noise as test data --
-    adata = synth_data.white_noise(nTrials,
-                                   nChannels=nChannels,
-                                   nSamples=nSamples,
-                                   samplerate=fs)
+    adata = synthdata.white_noise(nTrials,
+                                  nChannels=nChannels,
+                                  nSamples=nSamples,
+                                  samplerate=fs,
+                                  seed=42)
 
     # original spectrum
     spec = freqanalysis(adata, tapsmofrq=1, keeptrials=False)
@@ -146,7 +147,7 @@ class TestDownsampling:
         # with aa filter power does not change
         assert np.allclose(self.pow_orig, pow_ds, rtol=.5e-1)
 
-    def test_ds_parallel(self, testcluster=None):
+    def test_ds_parallel(self, testcluster):
 
         ppl.ioff()
         client = dd.Client(testcluster)
@@ -169,10 +170,11 @@ class TestResampling:
     fNy = fs / 2
 
     # -- use flat white noise as test data --
-    adata = synth_data.white_noise(nTrials,
-                                   nChannels=nChannels,
-                                   nSamples=nSamples,
-                                   samplerate=fs)
+    adata = synthdata.white_noise(nTrials,
+                                  nChannels=nChannels,
+                                  nSamples=nSamples,
+                                  samplerate=fs,
+                                  seed=42)
 
     # original spectrum
     spec = freqanalysis(adata, tapsmofrq=1, keeptrials=False)
@@ -246,7 +248,7 @@ class TestResampling:
             assert np.all(np.isfinite(spec_rs.data))
             assert pow_rs >= 0.9 * self.pow_orig
 
-    def test_rs_parallel(self, testcluster=None):
+    def test_rs_parallel(self, testcluster):
 
         ppl.ioff()
         client = dd.Client(testcluster)

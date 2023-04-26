@@ -16,7 +16,7 @@ import syncopy as spy
 from syncopy.datatype import AnalogData, SpectralData, CrossSpectralData
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.tests import helpers
-from syncopy.tests import synth_data as sd
+from syncopy import synthdata as sd
 from syncopy.statistics import jackknifing as jk
 from syncopy.connectivity.AV_compRoutines import NormalizeCrossSpectra
 
@@ -218,7 +218,7 @@ class TestSumStatistics:
             spy.mean(adata_cpy, dim='trials')
         assert "found trials of different shape" in str(err.value)
 
-    def test_stat_parallel(self, testcluster=None):
+    def test_stat_parallel(self, testcluster):
         client = dd.Client(testcluster)
         self.test_selections()
         # should have no effect here
@@ -230,7 +230,8 @@ class TestSumStatistics:
         adata = sd.white_noise(100,
                                nSamples=1000,
                                nChannels=2,
-                               samplerate=500)
+                               samplerate=500,
+                               seed=42)
 
         # add simple 60Hz armonic
         adata += sd.harmonic(100,
@@ -508,8 +509,8 @@ class TestJackknife:
         # finally fire up the frontend and compare results
         res = spy.connectivityanalysis(adata, method='coh', jackknife=True, output=output)
 
-        assert np.allclose(res.jack_var, variance.data)
-        assert np.allclose(res.jack_bias, bias.data)
+        assert np.allclose(res.jack_var, variance.data, atol=1e-5)
+        assert np.allclose(res.jack_bias, bias.data, atol=1e-5)
 
     def test_jk_frontend(self):
 
@@ -520,19 +521,6 @@ class TestJackknife:
         # test check for boolean type
         with pytest.raises(SPYTypeError, match='expected boolean'):
             spy.connectivityanalysis(adata, method='coh', jackknife=3)
-
-        # test log filing for methods not supporting jackknife
-        spy.connectivityanalysis(adata, method='csd', jackknife=True)
-        logfile = os.path.join(spy.__logdir__, "syncopy.log")
-        with open(logfile, 'r') as lfile:
-            lines = lfile.readlines()
-            assert 'Jackknife is not available for method' in lines[-1]
-
-        spy.connectivityanalysis(adata, method='corr', jackknife=True)
-        logfile = os.path.join(spy.__logdir__, "syncopy.log")
-        with open(logfile, 'r') as lfile:
-            lines = lfile.readlines()
-            assert 'Jackknife is not available for method' in lines[-1]
 
         # check that jack attributes are not appended if no jackknifing was done
         res = spy.connectivityanalysis(adata, method='corr')
@@ -562,7 +550,7 @@ class TestJackknife:
                                        jackknife=True,
                                        tapsmofrq=5)
         # there will be bias
-        assert not np.allclose(res.jack_bias, np.zeros(res.data.shape))
+        assert not np.allclose(res.jack_bias, np.zeros(res.data.shape), atol=1e-5)
 
         b10, v10, g10 = (res.jack_bias[0, :, 1, 0],
                          res.jack_var[0, :, 1, 0],

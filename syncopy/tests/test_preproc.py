@@ -17,7 +17,7 @@ from syncopy import preprocessing as ppfunc
 from syncopy import AnalogData, freqanalysis
 import syncopy.preproc as preproc  # submodule
 import syncopy.tests.helpers as helpers
-from syncopy.tests import synth_data as sd
+from syncopy import synthdata as sd
 
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults, best_match
@@ -187,7 +187,7 @@ class TestButterworth:
         # check here just for finiteness
         assert np.all(np.isfinite(result.data))
 
-    def test_but_parallel(self, testcluster=None):
+    def test_but_parallel(self, testcluster):
 
         ppl.ioff()
         client = dd.Client(testcluster)
@@ -242,6 +242,29 @@ class TestButterworth:
         with pytest.raises(SPYValueError) as err:
             call(hilbert='absnot')
         assert "one of {'" in str(err)
+
+    def test_but_NaN(self):
+
+        nSamples = 20
+        nTrials = 5
+        nChannels = 3
+
+        # create test data with NaNs in 2 trials
+        arr = [(i + 1) * np.ones((nSamples, nChannels)) for i in range(nTrials)]
+        # add NaNs in 2nd and last trial
+        arr[1][5, 1] = np.nan
+        arr[-1][10:15, 2] = np.nan
+        adata = AnalogData(data=arr, samplerate=50)
+        res = ppfunc(adata,
+                     freq=20,
+                     filter_class='but')
+
+        # IIR filters can't work around NaNs
+        assert np.sum(np.isnan(res.trials[0])) == 0
+        assert np.sum(np.isnan(res.trials[1])) == nSamples
+        assert np.sum(np.isnan(res.trials[4])) == nSamples
+        # check that metadata got propagated
+        assert res.info['nan_trials'] == [1, 4]
 
 
 class TestFIRWS:
@@ -394,7 +417,7 @@ class TestFIRWS:
         # check here just for finiteness
         assert np.all(np.isfinite(result.data))
 
-    def test_firws_parallel(self, testcluster=None):
+    def test_firws_parallel(self, testcluster):
 
         ppl.ioff()
         client = dd.Client(testcluster)
@@ -449,6 +472,41 @@ class TestFIRWS:
             call(hilbert='absnot')
         assert "one of {'" in str(err)
 
+    def test_firws_NaN(self):
+
+        nSamples = 20
+        nTrials = 5
+        nChannels = 3
+        order = 6  # length of the fir filter
+
+        # create test data with NaNs in 2 trials
+        arr = [(i + 1) * np.ones((nSamples, nChannels)) for i in range(nTrials)]
+        # add NaNs in 2nd and last trial
+        arr[1][5, 1] = np.nan
+        arr[-1][10:15, 2] = np.nan  # "NaN island"
+        adata = AnalogData(data=arr, samplerate=50)
+        res = ppfunc(adata,
+                     freq=20,
+                     filter_class='firws',
+                     order=order,
+                     direction='onepass')
+
+        # no NaNs in 1st trial
+        assert np.sum(np.isnan(res.trials[0])) == 0
+        # we "want" only NaNs in the result, where the filter
+        # support covers/touches the NaN sample(s) in the input
+        # for an isolated NaN this happens exactly for order (filter length) samples
+        assert np.sum(np.isnan(res.trials[1])) == 1 + order
+        # for an island of NaNs, the NaN region
+        # grows in total also by the filter order
+        number_NaN = np.sum(np.isnan(adata.trials[4]))
+        assert np.sum(np.isnan(res.trials[4])) == number_NaN + order
+        # final sanity check
+        assert np.sum(np.isnan(res.trials[4])) < nSamples
+
+        # finally check that the metadata got propagated
+        assert res.info['nan_trials'] == [1, 4]
+
 
 class TestDetrending:
 
@@ -495,7 +553,7 @@ class TestDetrending:
         with pytest.raises(SPYValueError, match='expected value to be greater'):
             ppfunc(self.AData, filter_class=None, polyremoval=2)
 
-    def test_detr_parallel(self, testcluster=None):
+    def test_detr_parallel(self, testcluster):
 
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()
@@ -505,6 +563,43 @@ class TestDetrending:
             test_method = getattr(self, test_name)
             test_method()
         client.close()
+
+    def test_detr_NaN(self):
+
+        nSamples = 20
+        nTrials = 5
+        nChannels = 3
+
+        # create test data with NaNs in 2 trials
+        arr = [(i + 1) * np.ones((nSamples, nChannels)) for i in range(nTrials)]
+        # add NaNs in 2nd and last trial
+        arr[1][5, 1] = np.nan
+        arr[-1][10:15, 2] = np.nan
+        adata = AnalogData(data=arr, samplerate=50)
+
+        # -- demeaning --
+        res = ppfunc(adata,
+                     filter_class=None,
+                     polyremoval=0)
+
+        # detrending can't work around NaNs
+        assert np.sum(np.isnan(res.trials[0])) == 0
+        assert np.sum(np.isnan(res.trials[1])) == nSamples
+        assert np.sum(np.isnan(res.trials[4])) == nSamples
+        # check that metadata got propagated
+        assert res.info['nan_trials'] == [1, 4]
+
+        # -- linear detrending --
+        res = ppfunc(adata,
+                     filter_class=None,
+                     polyremoval=1)
+
+        # detrending can't work around NaNs
+        assert np.sum(np.isnan(res.trials[0])) == 0
+        assert np.sum(np.isnan(res.trials[1])) == nSamples
+        assert np.sum(np.isnan(res.trials[4])) == nSamples
+        # check that metadata got propagated
+        assert res.info['nan_trials'] == [1, 4]
 
 
 class TestStandardize:
@@ -562,7 +657,7 @@ class TestStandardize:
         with pytest.raises(SPYValueError, match='expected either `True` or `False`'):
             ppfunc(self.AData, filter_class=None, zscore=2)
 
-    def test_zscore_parallel(self, testcluster=None):
+    def test_zscore_parallel(self, testcluster):
 
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()

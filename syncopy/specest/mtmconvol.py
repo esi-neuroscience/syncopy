@@ -15,7 +15,7 @@ from ._norm_spec import _norm_taper
 
 
 def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
-              taper_opt={}, boundary='zeros', padded=True, detrend=False):
+              taper_opt=None, boundary='zeros', padded=True, detrend=False):
 
     """
     (Multi-)tapered short time fast Fourier transform. Returns
@@ -37,7 +37,7 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     taper : str or None
         Taper function to use, one of `scipy.signal.windows`
         Set to `None` for no tapering.
-    taper_opt : dict
+    taper_opt : dict or None
         Additional keyword arguments passed to the `taper` function.
         For multi-tapering with ``taper='dpss'`` set the keys
         `'Kmax'` and `'NW'`.
@@ -90,6 +90,9 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
         taper = 'boxcar'
 
     taper_func = getattr(signal.windows, taper)
+
+    if taper_opt is None:
+        taper_opt = {}
 
     # this parameter mitigates the sum-to-zero problem for the odd slepians
     # as signal.stft has hardcoded scaling='spectrum'

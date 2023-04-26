@@ -11,7 +11,7 @@ import dask.distributed as dd
 # syncopy imports
 import syncopy as spy
 from syncopy.shared.errors import SPYValueError
-from syncopy.tests import synth_data as sd
+from syncopy import synthdata as sd
 from syncopy.statistics.spike_psth import available_outputs
 
 
@@ -360,7 +360,7 @@ class TestPSTH:
                                   pruned_counts2.show(trials=4, channel=chan),
                                   equal_nan=True)
 
-    def test_parallel_selection(self, testcluster=None):
+    def test_parallel_selection(self, testcluster):
 
         cfg = spy.StructDict()
         cfg.latency = 'minperiod'

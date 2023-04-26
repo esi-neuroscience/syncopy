@@ -7,13 +7,49 @@
 import numpy as np
 import pytest
 
-from syncopy.tests.synth_data import white_noise, AR2_network
+from syncopy import AnalogData
+from syncopy.shared.tools import StructDict
+from syncopy.synthdata import collect_trials
+from syncopy.synthdata import white_noise, AR2_network
 from syncopy.shared.errors import SPYValueError
-import syncopy as spy
+
+
+def test_trial_collection():
+    """
+    tests the decorator to construct
+    multi-trial AnalogData from single trial functions
+    """
+
+    # a trivial single trial (np.ndarray) producing function
+    @collect_trials
+    def ones(nChannels, nSamples):
+        return np.ones((nSamples, nChannels))
+
+    cfg = StructDict()
+    cfg.nTrials = 10
+    cfg.samplerate = 12
+    cfg.nChannels = 3
+    cfg.nSamples = 10
+
+    adata = ones(cfg)
+
+    assert isinstance(adata, AnalogData)
+    assert len(adata.trials) == cfg.nTrials
+    assert len(adata.channel) == cfg.nChannels
+    assert len(adata.time[0]) == cfg.nSamples
+    assert adata.samplerate == cfg.samplerate
+
+    # without nTrials, the decorator gets bypassed
+    # and returns the single trial array
+    cfg.pop('nTrials')
+    arr = ones(cfg)
+    assert isinstance(arr, np.ndarray)
+    assert arr.shape == (cfg.nSamples, cfg.nChannels)
+
 
 class TestSynthData:
 
-    nTrials=100
+    nTrials = 100
     nChannels = 1
     nSamples = 1000
     samplerate = 1000
@@ -46,7 +82,7 @@ class TestSynthData:
         # Trials must differ within an object if seed_per_trial is left at default (true):
         seed = 42
         wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, nTrials=self.nTrials, seed=seed)
-        assert isinstance(wn1, spy.AnalogData)
+        assert isinstance(wn1, AnalogData)
         assert not np.allclose(wn1.show(trials=0), wn1.show(trials=1))
 
         # However, using the same seed for a new instance must lead to identical trials between instances:
@@ -59,7 +95,7 @@ class TestSynthData:
         # Trials must be identical within an object if seed_per_trial is False (and a seed is used).
         seed = 42
         wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, nTrials=self.nTrials, seed=seed, seed_per_trial=False)
-        assert isinstance(wn1, spy.AnalogData)
+        assert isinstance(wn1, AnalogData)
         assert np.allclose(wn1.show(trials=0), wn1.show(trials=1))
 
         # And also, using the same scalar seed again should lead to an identical object.
@@ -72,7 +108,7 @@ class TestSynthData:
         # Trials must differ within an object if seed is None:
         seed = None
         wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, nTrials=self.nTrials, seed=seed)
-        assert isinstance(wn1, spy.AnalogData)
+        assert isinstance(wn1, AnalogData)
         assert not np.allclose(wn1.show(trials=0), wn1.show(trials=1))
 
         # And instances must also differ:

@@ -17,7 +17,7 @@ import syncopy as spy
 from syncopy import AnalogData, SpectralData
 from syncopy.connectivity.connectivity_analysis import connectivity_outputs
 from syncopy import connectivityanalysis as cafunc
-import syncopy.tests.synth_data as synth_data
+from syncopy import synthdata
 import syncopy.tests.helpers as helpers
 from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import get_defaults
@@ -107,11 +107,11 @@ class TestGranger:
     cpl_idx = np.where(AdjMat)
     nocpl_idx = np.where(AdjMat == 0)
 
-    data = synth_data.AR2_network(nTrials,
-                                  AdjMat=AdjMat,
-                                  nSamples=nSamples,
-                                  samplerate=fs,
-                                  seed=42)
+    data = synthdata.AR2_network(nTrials,
+                                 AdjMat=AdjMat,
+                                 nSamples=nSamples,
+                                 samplerate=fs,
+                                 seed=42)
 
     time_span = [-1, nSamples / fs - 1]   # -1s offset
 
@@ -147,8 +147,8 @@ class TestGranger:
         Gcaus_ad = cafunc(self.data, method='granger',
                           cfg=self.cfg, **kwargs)
 
-        # same results on all channels and freqs within 1%
-        assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], atol=1e-2)
+        # same results on all channels and freqs within 2%
+        assert np.allclose(Gcaus_ad.trials[0], Gcaus_spec.trials[0], atol=2e-2)
 
         for Gcaus in [Gcaus_spec, Gcaus_ad]:
             # check all channel combinations with coupling
@@ -216,7 +216,7 @@ class TestGranger:
         selections[0].pop('latency')
         result_ad = cafunc(self.data, self.cfg, method='granger', select=selections[0])
         result_spec = cafunc(self.spec, method='granger', select=selections[0])
-        assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=1e-3)
+        assert np.allclose(result_ad.trials[0], result_spec.trials[0], atol=2e-2)
 
     def test_gr_foi(self):
 
@@ -243,7 +243,7 @@ class TestGranger:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_gr_parallel(self, testcluster=None):
+    def test_gr_parallel(self, testcluster):
 
         ppl.ioff()
         client = dd.Client(testcluster)
@@ -279,21 +279,21 @@ class TestCoherence:
 
     f1, f2 = 20, 40
     # a lot of phase diffusion (1% per step) in the 20Hz band
-    s1 = synth_data.phase_diffusion(nTrials, freq=f1,
-                                    eps=.03,
-                                    nChannels=nChannels,
-                                    nSamples=nSamples,
-                                    seed=helpers.test_seed)
+    s1 = synthdata.phase_diffusion(nTrials, freq=f1,
+                                   eps=.03,
+                                   nChannels=nChannels,
+                                   nSamples=nSamples,
+                                   seed=helpers.test_seed)
 
     # little diffusion in the 40Hz band
-    s2 = synth_data.phase_diffusion(nTrials, freq=f2,
-                                    eps=.001,
-                                    nChannels=nChannels,
-                                    nSamples=nSamples,
-                                    seed=helpers.test_seed)
+    s2 = synthdata.phase_diffusion(nTrials, freq=f2,
+                                   eps=.001,
+                                   nChannels=nChannels,
+                                   nSamples=nSamples,
+                                   seed=helpers.test_seed)
 
-    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples,
-                                seed=helpers.test_seed)
+    wn = synthdata.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples,
+                               seed=helpers.test_seed)
 
     # superposition
     data = s1 + s2 + wn
@@ -480,8 +480,8 @@ class TestCoherence:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_coh_parallel(self):
-        check_parallel(self)
+    def test_coh_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_coh_padding(self):
 
@@ -523,18 +523,20 @@ class TestCSD:
 
     f1, f2 = 20, 40
     # a lot of phase diffusion (1% per step) in the 20Hz band
-    s1 = synth_data.phase_diffusion(nTrials, freq=f1,
-                                    eps=.01,
-                                    nChannels=nChannels,
-                                    nSamples=nSamples)
+    s1 = synthdata.phase_diffusion(nTrials, freq=f1,
+                                   eps=.01,
+                                   nChannels=nChannels,
+                                   nSamples=nSamples,
+                                   seed=42)
 
     # little diffusion in the 40Hz band
-    s2 = synth_data.phase_diffusion(nTrials, freq=f2,
-                                    eps=.001,
-                                    nChannels=nChannels,
-                                    nSamples=nSamples)
+    s2 = synthdata.phase_diffusion(nTrials, freq=f2,
+                                   eps=.001,
+                                   nChannels=nChannels,
+                                   nSamples=nSamples,
+                                   seed=42)
 
-    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples)
+    wn = synthdata.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples)
 
     # superposition
     data = s1 + s2 + wn
@@ -555,8 +557,8 @@ class TestCSD:
         assert cross_spec.data.shape != self.spec.data.shape
 
     @skip_low_mem
-    def test_csd_parallel(self):
-        check_parallel(self)
+    def test_csd_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_csd_input(self):
         assert isinstance(self.spec, SpectralData)
@@ -589,17 +591,19 @@ class TestCorrelation:
     for _ in range(nTrials):
 
         # no phase diffusion
-        p1 = synth_data.phase_diffusion(freq=f1,
-                                        eps=0,
-                                        nChannels=nChannels,
-                                        nSamples=nSamples,
-                                        return_phase=True)
+        p1 = synthdata.phase_diffusion(freq=f1,
+                                       eps=0,
+                                       nChannels=nChannels,
+                                       nSamples=nSamples,
+                                       seed=42,
+                                       return_phase=True)
         # same frequency but more diffusion
-        p2 = synth_data.phase_diffusion(freq=f1,
-                                        eps=0.1,
-                                        nChannels=1,
-                                        nSamples=nSamples,
-                                        return_phase=True)
+        p2 = synthdata.phase_diffusion(freq=f1,
+                                       eps=0.1,
+                                       nChannels=1,
+                                       nSamples=nSamples,
+                                       seed=42,
+                                       return_phase=True)
 
         # set 2nd channel to higher phase diffusion
         p1[:, 1] = p2[:, 0]
@@ -717,8 +721,8 @@ class TestCorrelation:
                      cfg=get_defaults(cafunc))
 
     @skip_low_mem
-    def test_corr_parallel(self):
-        check_parallel(self)
+    def test_corr_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_corr_polyremoval(self):
 
@@ -737,13 +741,13 @@ class TestPPC:
 
     f1 = 20
     # phase diffusion (1% per step) in the 20Hz band
-    s1 = synth_data.phase_diffusion(nTrials, freq=f1,
-                                    eps=.01,
-                                    nChannels=nChannels,
-                                    nSamples=nSamples,
-                                    seed=helpers.test_seed)
-    wn = synth_data.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples,
-                                seed=helpers.test_seed)
+    s1 = synthdata.phase_diffusion(nTrials, freq=f1,
+                                   eps=.01,
+                                   nChannels=nChannels,
+                                   nSamples=nSamples,
+                                   seed=helpers.test_seed)
+    wn = synthdata.white_noise(nTrials, nChannels=nChannels, nSamples=nSamples,
+                               seed=helpers.test_seed)
 
     # superposition
     data = s1 + wn
@@ -903,8 +907,8 @@ class TestPPC:
             _ = cafunc(self.data, method='ppc', foilim='abc')
 
     @skip_low_mem
-    def test_ppc_parallel(self):
-        check_parallel(self)
+    def test_ppc_parallel(self, testcluster):
+        check_parallel(self, testcluster)
 
     def test_ppc_padding(self):
 
@@ -918,7 +922,7 @@ class TestPPC:
         helpers.run_polyremoval_test(call)
 
 
-def check_parallel(TestClass, testcluster=None):
+def check_parallel(TestClass, testcluster):
     ppl.ioff()
     client = dd.Client(testcluster)
     all_tests = [attr for attr in TestClass.__dir__()

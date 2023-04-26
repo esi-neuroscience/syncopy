@@ -5,7 +5,7 @@
 import numpy as np
 import matplotlib.pyplot as ppl
 
-from syncopy.tests import synth_data
+from syncopy import synthdata
 from syncopy.connectivity import csd
 from syncopy.connectivity import ST_compRoutines as stCR
 from syncopy.connectivity.wilson_sf import (
@@ -191,7 +191,7 @@ def test_wilson():
     CSDav = np.zeros((nSamples // 2 + 1, nChannels, nChannels), dtype=np.complex64)
     for _ in range(nTrials):
 
-        sol = synth_data.AR2_network(nSamples=nSamples, seed=None)
+        sol = synthdata.AR2_network(nSamples=nSamples, seed=None)
         # --- get the (single trial) CSD ---
 
         CSD, freqs = csd.csd(sol, fs,
@@ -276,7 +276,7 @@ def test_granger():
     for _ in range(nTrials):
 
         # -- simulate 2 AR(2) processes with 2->1 coupling --
-        sol = synth_data.AR2_network(nSamples=nSamples)
+        sol = synthdata.AR2_network(nSamples=nSamples)
 
         # --- get CSD ---
         bw = 2

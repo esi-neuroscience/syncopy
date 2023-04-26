@@ -13,7 +13,7 @@ import dask.distributed as dd
 # Local imports
 import syncopy as spy
 
-import syncopy.tests.synth_data as synth_data
+from syncopy import synthdata
 from syncopy.shared.tools import StructDict
 
 
@@ -35,10 +35,10 @@ class TestCfg:
 
     # -- use flat white noise as test data --
 
-    adata = synth_data.white_noise(nTrials,
-                                   nSamples=nSamples,
-                                   nChannels=nChannels,
-                                   samplerate=fs)
+    adata = synthdata.white_noise(nTrials,
+                                  nSamples=nSamples,
+                                  nChannels=nChannels,
+                                  samplerate=fs)
 
     # for toi tests, -1s offset
     time_span = [-.9, -.6]
@@ -146,7 +146,7 @@ class TestCfg:
         assert np.allclose(res.data[:], res2.data[:])
         assert res.cfg == res2.cfg
 
-    def test_parallel(self, testcluster=None):
+    def test_parallel(self, testcluster):
 
         client = dd.Client(testcluster)
         all_tests = [attr for attr in self.__dir__()

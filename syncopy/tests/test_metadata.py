@@ -17,7 +17,7 @@ import dask.distributed as dd
 from syncopy import freqanalysis
 from syncopy.datatype.methods.copy import copy
 from syncopy.shared.tools import get_defaults
-from syncopy.tests.synth_data import AR2_network, phase_diffusion
+from syncopy.synthdata import AR2_network, phase_diffusion
 from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, parse_cF_returns, _parse_backend_metadata, _merge_md_list, metadata_from_hdf5_file, metadata_nest, metadata_unnest
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 import syncopy as spy
@@ -395,7 +395,11 @@ class TestMetadataUsingFooof():
         spec_dt = freqanalysis(cfg, multi_chan_data, fooof_opt=fooof_opt, chan_per_worker=chan_per_worker)
 
         # How many more calls we expect due to channel parallelization.
-        calls_per_trial = int(math.ceil(num_channels / chan_per_worker))
+        used_parallel = 'used_parallel = True' in spec_dt._log
+        if used_parallel:
+            calls_per_trial = int(math.ceil(num_channels / chan_per_worker))
+        else:
+            calls_per_trial = 1
         data_size = 100
 
         # check frequency axis
@@ -428,7 +432,7 @@ class TestMetadataUsingFooof():
         # check that the cfg is correct (required for replay)
         assert spec_dt.cfg['freqanalysis']['output'] == 'fooof'
 
-    def test_metadata_parallel(self, testcluster=None):
+    def test_metadata_parallel(self, testcluster):
 
         plt.ioff()
         client = dd.Client(testcluster)

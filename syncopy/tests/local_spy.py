@@ -18,8 +18,7 @@ import syncopy as spy
 
 # Import artificial data generator
 from syncopy.tests.misc import generate_artificial_data
-from syncopy.tests import synth_data
-
+from syncopy import synthdata
 
 # Prepare code to be executed using, e.g., iPython's `%run` magic command
 if __name__ == "__main__":
@@ -34,14 +33,14 @@ if __name__ == "__main__":
     # coupling from 0 to 1
     AdjMat[0, 1] = .15
     alphas = [.55, -.8]
-    adata = synth_data.AR2_network(nTrials, samplerate=fs,
-                                   AdjMat=AdjMat,
+    adata = synthdata.AR2_network(nTrials, samplerate=fs,
+                                  AdjMat=AdjMat,
+                                  nSamples=nSamples,
+                                  alphas=alphas)
+    adata += synthdata.AR2_network(nTrials, AdjMat=np.zeros((2, 2)),
+                                   samplerate=fs,
                                    nSamples=nSamples,
-                                   alphas=alphas)
-    adata += synth_data.AR2_network(nTrials, AdjMat=np.zeros((2, 2)),
-                                    samplerate=fs,
-                                    nSamples=nSamples,
-                                    alphas=[0.9, 0])
+                                   alphas=[0.9, 0])
 
     spec = spy.freqanalysis(adata, tapsmofrq=2, keeptrials=False)
     foi = np.linspace(40, 160, 25)

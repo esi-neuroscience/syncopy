@@ -70,13 +70,13 @@ syncopy.specest
     syncopy.specest.compRoutines.FooofSpy
 
 
-syncopy.nwanalysis
-^^^^^^^^^^^^^^^^^^
+syncopy.connectivity
+^^^^^^^^^^^^^^^^^^^^
 
 .. autosummary::
     :toctree: _stubs
 
-    syncopy.nwanalysis.AV_compRoutines.GrangerCausality
+    syncopy.connectivity.AV_compRoutines.GrangerCausality
 
 
 syncopy.plotting

@@ -1,3 +1,7 @@
+# This is the setup for our internal CI at ESI, which runs some extra
+# tests which require test data we cannot publish and/or take very long.
+# It is not used by the GitHub CI.
+
 stages:
     - single
     - slurm
@@ -7,7 +11,7 @@ stages:
 variables:
     TEST_DIR: "$CI_PROJECT_DIR/syncopy/tests"
     REL_TEST_DIR: "syncopy/tests"
-    
+
 intellinux:
     stage: single
     allow_failure: true
@@ -72,7 +76,7 @@ intelwin:
     # needs to be done only once
     # - cmd /c mklink /J C:\Python38 %CONDA_PREFIX%
     - conda.bat activate syncopy "&" pytest -ra -k 'not parallel' $TEST_DIR
-    - conda.bat activate syncopy "&" pytest -ra -k 'parallel' $TEST_DIR        
+    - conda.bat activate syncopy "&" pytest -ra -k 'parallel' $TEST_DIR
 
 m1macos:
     stage: single
@@ -115,7 +119,7 @@ slurmtest:
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_specest.py
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_connectivity.py
     - srun -p DEV pytest -ra --ignore=$REL_TEST_DIR/test_specest.py --ignore=$REL_TEST_DIR/test_connectivity.py
-    
+
 slurmtest-acme:
     stage: slurm
     allow_failure: true
@@ -151,9 +155,12 @@ pypitest:
     - rm -rf dist/
     - source $HOME/miniconda/etc/profile.d/conda.sh
     # get poetry with python 3.10
+    - conda create --yes --name syncopy-deploy python=3.10 poetry=1.4.0
     - conda activate syncopy-deploy
     - poetry build
-    # needs config pypi credentials on runner
+    # needs pypi token as env variable in GitLab CI config
+    - poetry config repositories.testpypi https://test.pypi.org/legacy/
+    - poetry config pypi-token.testpypi $TESTPYPI_SECRET
     - poetry publish -r testpypi
     - sleep 300
     # create clean new env and install the pypitest package

@@ -11,7 +11,7 @@ import matplotlib.pyplot as ppl
 
 # Local imports
 import syncopy as spy
-import syncopy.tests.synth_data as synth_data
+from syncopy import synthdata
 import syncopy.tests.helpers as helpers
 from syncopy.shared.errors import SPYValueError
 
@@ -21,15 +21,15 @@ class TestAnalogPlotting():
     nTrials = 10
     nChannels = 9
     nSamples = 300
-    adata = synth_data.AR2_network(nTrials=nTrials,
-                                   AdjMat=np.zeros(nChannels),
-                                   nSamples=nSamples,
-                                   seed=helpers.test_seed)
+    adata = synthdata.AR2_network(nTrials=nTrials,
+                                  AdjMat=np.zeros(nChannels),
+                                  nSamples=nSamples,
+                                  seed=helpers.test_seed)
 
-    adata += 0.3 * synth_data.linear_trend(nTrials=nTrials,
-                                           y_max=nSamples / 20,
-                                           nSamples=nSamples,
-                                           nChannels=nChannels)
+    adata += 0.3 * synthdata.linear_trend(nTrials=nTrials,
+                                          y_max=nSamples / 20,
+                                          nSamples=nSamples,
+                                          nChannels=nChannels)
 
 
     # add an offset
@@ -137,15 +137,15 @@ class TestSpectralPlotting():
     nChannels = 4
     nSamples = 300
     AdjMat = np.zeros((nChannels, nChannels))
-    adata = synth_data.AR2_network(nTrials=nTrials,
-                                   AdjMat=AdjMat,
-                                   nSamples=nSamples)
+    adata = synthdata.AR2_network(nTrials=nTrials,
+                                  AdjMat=AdjMat,
+                                  nSamples=nSamples)
 
     # add AR(1) 'background'
-    adata = adata + 1.2 * synth_data.AR2_network(nTrials=nTrials,
-                                                 AdjMat=AdjMat,
-                                                 nSamples=nSamples,
-                                                 alphas=[0.8, 0])
+    adata = adata + 1.2 * synthdata.AR2_network(nTrials=nTrials,
+                                                AdjMat=AdjMat,
+                                                nSamples=nSamples,
+                                                alphas=[0.8, 0])
 
     # some interesting range
     frequency = [1, 400]
@@ -263,16 +263,16 @@ class TestCrossSpectralPlotting():
 
     AdjMat = np.zeros((nChannels, nChannels))
     AdjMat[2, 3] = 0.2   # coupling
-    adata = synth_data.AR2_network(nTrials=nTrials,
-                                   AdjMat=AdjMat,
-                                   nSamples=nSamples)
+    adata = synthdata.AR2_network(nTrials=nTrials,
+                                  AdjMat=AdjMat,
+                                  nSamples=nSamples)
 
     # add 'background'
-    adata = adata + .6 * synth_data.AR2_network(nTrials=nTrials,
-                                                AdjMat=np.zeros((nChannels,
-                                                                 nChannels)),
-                                                nSamples=nSamples,
-                                                alphas=[0.8, 0])
+    adata = adata + .6 * synthdata.AR2_network(nTrials=nTrials,
+                                               AdjMat=np.zeros((nChannels,
+                                                                nChannels)),
+                                               nSamples=nSamples,
+                                               alphas=[0.8, 0])
 
     # some interesting range
     frequency = [1, 400]

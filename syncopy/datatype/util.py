@@ -58,9 +58,35 @@ class TrialIndexer:
         return "{} element iterable".format(self._len)
 
 
-def setup_storage():
+def get_dir_size(start_path = '.', out="byte"):
     """
-    Create temporary storage dir and report on its size.
+    Compute size of all files in directory (and its subdirectories), in bytes or GB.
+    """
+    total_size_bytes = 0
+    num_files = 0
+    for dirpath, _, filenames in os.walk(start_path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            # skip if it is symbolic link
+            try:
+                if not os.path.islink(fp):
+                    total_size_bytes += os.path.getsize(fp)
+                    num_files += 1
+            except Exception as ex:  # Ignore issues from several parallel cleanup processes.
+                pass
+
+    if out == "GB":
+        total_size = total_size_bytes / 1e9
+    elif out == "byte":
+        total_size = total_size_bytes
+    else:
+        raise ValueError("Invalid 'out' unit: '{}', expected one of 'byte' or 'GB'".format(out))
+    return total_size, num_files
+
+
+def setup_storage(storage_dir=__storage__):
+    """
+    Create temporary storage dir if needed, and report on its size.
 
     Returns
     -------
@@ -69,29 +95,17 @@ def setup_storage():
     """
 
     # Create package-wide tmp directory if not already present
-    if not os.path.exists(__storage__):
+    if not os.path.exists(storage_dir):
         try:
-            os.mkdir(__storage__)
+            os.mkdir(storage_dir)
         except Exception as exc:
             err = (
                 "Syncopy core: cannot create temporary storage directory {}. "
                 + "Original error message below\n{}"
             )
-            raise IOError(err.format(__storage__, str(exc)))
+            raise IOError(err.format(storage_dir, str(exc)))
 
-    # Check for upper bound of temp directory size
-    with os.scandir(__storage__) as scan:
-        storage_size = 0.0
-        storage_num_files = 0
-        for fle in scan:
-            try:
-                storage_size += fle.stat().st_size / 1024 ** 3
-                storage_num_files += 1
-            # this catches a cleanup by another process
-            except FileNotFoundError:
-                continue
-
-    return storage_size, storage_num_files
+    return get_dir_size(storage_dir, out="GB")
 
 
 

@@ -116,22 +116,30 @@ def sinc_filtering_cF(dat,
     # construct the filter
     fkernel = design_wsinc(window, order, freq / samplerate, filter_type)
 
+    # switch to time-domain convolutions if NaNs present
+    if np.any(np.isnan(dat)):
+        method = 'direct'
+    else:
+        method = 'fft'
+    # to pass info to user
+    metadata = {'has_nan': np.array(method == 'direct')}
+
     # filtering by convolution
     if direction == 'onepass':
-        filtered = apply_fir(dat, fkernel)
+        filtered = apply_fir(dat, fkernel, method)
 
     # for symmetric filters actual
     # filter direction does NOT matter
     elif direction == 'twopass':
-        filtered = apply_fir(dat, fkernel)
-        filtered = apply_fir(filtered, fkernel)
+        filtered = apply_fir(dat, fkernel, method)
+        filtered = apply_fir(filtered, fkernel, method)
 
     elif direction == 'onepass-minphase':
         # 0-phase transform
         fkernel = minphaserceps(fkernel)
-        filtered = apply_fir(dat, fkernel)
+        filtered = apply_fir(dat, fkernel, method)
 
-    return filtered
+    return filtered, metadata
 
 
 class SincFiltering(ComputationalRoutine):
@@ -238,6 +246,10 @@ def but_filtering_cF(dat,
     if noCompute:
         return outShape, np.float32
 
+    # we can't do anything here, but at least
+    # collect this information to pass back to user
+    metadata = {'has_nan': np.array(np.any(np.isnan(dat)))}
+
     # detrend
     if polyremoval == 0:
         dat = sci.detrend(dat, type='constant', axis=0, overwrite_data=True)
@@ -250,11 +262,11 @@ def but_filtering_cF(dat,
     # do the filtering
     if direction == 'twopass':
         filtered = sci.sosfiltfilt(sos, dat, axis=0)
-        return filtered
+        return filtered, metadata
 
     elif direction == 'onepass':
         filtered = sci.sosfilt(sos, dat, axis=0)
-        return filtered
+        return filtered, metadata
 
 
 class ButFiltering(ComputationalRoutine):
@@ -701,15 +713,27 @@ def detrending_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShape
     logger = logging.getLogger("syncopy_" + platform.node())
     logger.debug(f"Detrending data chunk with shape {dat.shape} with polyremoval={polyremoval}.")
 
-    # detrend
+    # we can't do anything here, but at least
+    # collect this information to pass back to user
+    has_nan = np.array(np.any(np.isnan(dat)))
+    metadata = {'has_nan': has_nan}
+
+    # demeaning, this 'works' with NaNs (all nan come back)
     if polyremoval == 0:
         dat = sci.detrend(dat, type='constant', axis=0, overwrite_data=True)
-    elif polyremoval == 1:
+    elif polyremoval == 1 and not has_nan:
         dat = sci.detrend(dat, type='linear', axis=0, overwrite_data=True)
+    # here we have to nan-all the offending channels ourselves
+    elif polyremoval == 1 and has_nan:
+        nan_col_sum = np.sum(np.isnan(dat), axis=0)
+        nan_cols = np.where(nan_col_sum)[0]
+        ok_cols = np.where(nan_col_sum == 0)[0]
+        dat[:, nan_cols] = np.nan
+        dat[:, ok_cols] = sci.detrend(dat[:, ok_cols], type='linear', axis=0, overwrite_data=True)
 
     # renaming
     detrended = dat
-    return detrended
+    return detrended, metadata
 
 
 class Detrending(ComputationalRoutine):

@@ -196,12 +196,14 @@ class TestAnalogData():
 
         # -- test with single array--
 
-        dummy = AnalogData(data=self.data)
+        chan_labels = [str(i) for i in range(self.nc)]
+        dummy = AnalogData(data=self.data, channel=chan_labels)
         assert dummy.dimord == AnalogData._defaultDimord
         assert dummy.channel.size == self.nc
         assert (dummy.sampleinfo == [0, self.ns]).min()
         assert dummy.trialinfo.shape == (1, 0)
         assert np.array_equal(dummy.data, self.data)
+        assert np.all(dummy.channel == chan_labels)
 
         # wrong shape for data-type
         with pytest.raises(SPYValueError):
@@ -579,7 +581,7 @@ class TestSpectralData():
     def test_sd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_sd_dataselection", "test_sd_arithmetic"]
+        par_tests = ["test_sd_arithmetic", "test_sd_concat"]
         for test in par_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)
@@ -765,7 +767,7 @@ class TestCrossSpectralData():
     def test_csd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        par_tests = ["test_csd_dataselection", "test_csd_arithmetic"]
+        par_tests = ["test_csd_arithmetic", "test_csd_concat"]
         for test in par_tests:
             getattr(self, test)
             flush_local_cluster(testcluster)
