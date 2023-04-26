@@ -248,7 +248,7 @@ class ContinuousData(BaseData, ABC):
                 else:
                     tstop = stop - start
 
-                # account for trial offsets an compute slicing index + shape
+                # account for trial offsets and compute slicing index + shape
                 start = start + tstart
                 stop = start + (tstop - tstart)
                 idx[self._stackingDim] = slice(start, stop)

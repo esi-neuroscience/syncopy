@@ -380,6 +380,8 @@ class Selector:
     @time.setter
     def time(self, dataselect):
 
+        log("Selector.time setter called.", level="DEBUG")
+
         # Unpack input and perform error-checking
         data, select = dataselect
         timeSpec = select.get("latency", None)

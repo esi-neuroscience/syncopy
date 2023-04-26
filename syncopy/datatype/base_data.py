@@ -32,7 +32,7 @@ from syncopy.shared.parsers import (
     filename_parser,
     data_parser,
 )
-from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError, SPYWarning
+from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError, SPYWarning, log
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __acme__, __sessionid__
 
@@ -1493,6 +1493,7 @@ class FauxTrial:
     """
 
     def __init__(self, shape, idx, dtype, dimord):
+        log(f"FauxTrial.init Creating instance with shape {shape}.", level="DEBUG")
         self.shape = tuple(shape)
         self.idx = tuple(idx)
         self.dtype = dtype
