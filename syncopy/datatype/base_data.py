@@ -985,8 +985,11 @@ class BaseData(ABC):
     def selection(self, select):
         if select is None:
             self._selector = None
+            log("BaseData.selection setter called with select=None.", level="DEBUG")
         else:
+            log("BaseData.selection setter called with a valid select, initializing Selector instance.", level="DEBUG")
             self._selector = Selector(self, select)
+
 
     @property
     def trialdefinition(self):
