@@ -82,7 +82,7 @@ class TimeIndexer:
 
     def construct_time_array(self, trialno):
 
-        start, stop, offset = self.data_object.trialdefinition[trialno, :]
+        start, stop, offset = self.data_object.trialdefinition[trialno, :3]
         return (np.arange(0, stop - start) + offset) / self.data_object.samplerate
 
     def __getitem__(self, trialno):
