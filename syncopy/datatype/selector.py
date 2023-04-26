@@ -970,7 +970,7 @@ class Selector:
         # Finally, prepare new `trialdefinition` array for objects with `time` dimensions
         if self.time is not None:
             print(f"self.time is of type {type(self.time)}")
-            if not all(myslice == slice(None, None, None)for myslice in self.time):
+            if not all(myslice == slice(None, None, None) for myslice in self.time):
                 log(f"_make_consistent: setting trialdefinition from data, self.time is not None. Note that self.time has len {len(self.time)}.", level="DEBUG")
                 if len(self.time) > 0:
                     log(f"Here is the first entry of self.time: self.time[0] = {self.time[0]}")
@@ -978,6 +978,8 @@ class Selector:
                 log(f"TODO: This should only happen under certain conditions, i.e., when the selection potentially changed the trial definition. Find them and avoid in other cases.")
                 log(f"     Also self.time seems never to be just None, but a list of slices, which contain all Nones. Check if this is correct.", level="DEBUG")
                 self.trialdefinition = data
+            else:
+                self._trialdefinition = data.trialdefinition
 
         log(f"_make_consistent: done.", level="DEBUG")
         return
