@@ -208,6 +208,7 @@ class Selector:
         # Note: `trialdefinition` is set *after* harmonizing indexing selections
         # in `_make_consistent`
         for prop in self._allProps:
+            log(f"Selector.init: setting property {prop}", level="DEBUG")
             setattr(self, prop, (data, select))
 
 
@@ -399,6 +400,7 @@ class Selector:
 
         # If `data` has a `time` property, fill up `self.time`
         if hasTime:
+            log("Selector.time setter: filling self.time, data has time/trialtime property.", level="DEBUG")
             if isinstance(timeSpec, str):
                 if timeSpec == "all":
                     timeSpec = None
@@ -967,13 +969,15 @@ class Selector:
 
         # Finally, prepare new `trialdefinition` array for objects with `time` dimensions
         if self.time is not None:
-            log(f"_make_consistent: setting trialdefinition from data, self.time is not None. Note that self.time has len {len(self.time)}.", level="DEBUG")
-            if len(self.time) > 0:
-                log(f"Here is the first entry of self.time: self.time[0] = {self.time[0]}")
+            print(f"self.time is of type {type(self.time)}")
+            if not all(myslice == slice(None, None, None)for myslice in self.time):
+                log(f"_make_consistent: setting trialdefinition from data, self.time is not None. Note that self.time has len {len(self.time)}.", level="DEBUG")
+                if len(self.time) > 0:
+                    log(f"Here is the first entry of self.time: self.time[0] = {self.time[0]}")
 
-            log(f"TODO: This should only happen under certain conditions, i.e., when the selection potentially changed the trial definition. Find them and avoid in other cases.")
-            log(f"     Also self.time seems never to be just None, but a list of slices, which contain all Nones. Check if this is correct.", level="DEBUG")
-            self.trialdefinition = data
+                log(f"TODO: This should only happen under certain conditions, i.e., when the selection potentially changed the trial definition. Find them and avoid in other cases.")
+                log(f"     Also self.time seems never to be just None, but a list of slices, which contain all Nones. Check if this is correct.", level="DEBUG")
+                self.trialdefinition = data
 
         log(f"_make_consistent: done.", level="DEBUG")
         return
