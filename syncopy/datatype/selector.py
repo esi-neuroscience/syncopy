@@ -228,6 +228,8 @@ class Selector:
         # create the Selector._get_trial helper
         self.create_get_trial(data)
 
+        log(f"Selector init done.", level="DEBUG")
+
     @property
     def trial_ids(self):
         """Index list of selected trials"""
@@ -946,13 +948,17 @@ class Selector:
                 listCount += 1
 
         # Now go through trial-dependent selectors to see if any by-trial selection is a list
+        trial_affecting_selections = []
         for prop in self._byTrialProps:
             selList = getattr(self, prop)
             if selList is not None:
+                trial_affecting_selections.append(prop)
                 for tsel in selList:
                     if isinstance(tsel, list):
                         listCount += 1
                         break
+
+        log(f"_make_consistent: found {len(trial_affecting_selections)} trial_affecting_selections: {trial_affecting_selections}", level="DEBUG")
 
         # If (on a by-trial basis) we have two or more lists, we need fancy indexing
         if listCount >= 2:
@@ -961,7 +967,12 @@ class Selector:
 
         # Finally, prepare new `trialdefinition` array for objects with `time` dimensions
         if self.time is not None:
-            log(f"_make_consistent: setting trialdefinition from data.", level="DEBUG")
+            log(f"_make_consistent: setting trialdefinition from data, self.time is not None. Note that self.time has len {len(self.time)}.", level="DEBUG")
+            if len(self.time) > 0:
+                log(f"Here is the first entry of self.time: self.time[0] = {self.time[0]}")
+
+            log(f"TODO: This should only happen under certain conditions, i.e., when the selection potentially changed the trial definition. Find them and avoid in other cases.")
+            log(f"     Also self.time seems never to be just None, but a list of slices, which contain all Nones. Check if this is correct.", level="DEBUG")
             self.trialdefinition = data
 
         log(f"_make_consistent: done.", level="DEBUG")
