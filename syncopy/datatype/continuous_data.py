@@ -234,8 +234,6 @@ class ContinuousData(BaseData, ABC):
         shp[self._stackingDim] = stop - start
         idx[self._stackingDim] = slice(start, stop)
 
-        log(f"Creating FauxTrial object for trial {trialno} in _preview_trial.", level="DEBUG")
-
         # process existing data selections
         if self.selection is not None:
 
@@ -326,12 +324,9 @@ class ContinuousData(BaseData, ABC):
         """
         timing = []
         num_trials = len(trials)
-        log(f"_get_time: calling for {num_trials} trials.", level="DEBUG")
         if toilim is not None:
             for trlno in trials:
-                log(f"_get_time: with toilim {toilim}, calling best_match for trial {trlno}.", level="DEBUG")
                 _, selTime = best_match(self.time[trlno], toilim, span=True)
-                log(f"_get_time: with toilim {toilim}, best_match done.", level="DEBUG")
                 selTime = selTime.tolist()
                 if len(selTime) > 1:  # data type has time axis
                     timing.append(slice(selTime[0], selTime[-1] + 1, 1))
@@ -340,9 +335,7 @@ class ContinuousData(BaseData, ABC):
 
         elif toi is not None:
             for trlno in trials:
-                log(f"_get_time: with toi {toi}, calling best_match for trial {trlno}.", level="DEBUG")
                 _, selTime = best_match(self.time[trlno], toi)
-                log(f"_get_time: with toi {toi}, calling best_match.", level="DEBUG")
                 selTime = selTime.tolist()
                 if len(selTime) > 1:
                     timeSteps = np.diff(selTime)

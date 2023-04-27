@@ -9,7 +9,6 @@ import h5py
 
 # Local imports
 from syncopy import __acme__
-from .selectdata import _get_selection_size
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
 from syncopy.shared.computational_routine import ComputationalRoutine
