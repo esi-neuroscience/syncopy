@@ -129,8 +129,6 @@ class Selector:
 
     def __init__(self, data, select):
 
-        log(f"Selector initializing for data of type {type(data)} with select: {select}", level="DEBUG")
-
         # Ensure input makes sense
         try:
             data_parser(data, varname="data", empty=False)
@@ -208,28 +206,18 @@ class Selector:
         # Note: `trialdefinition` is set *after* harmonizing indexing selections
         # in `_make_consistent`
         for prop in self._allProps:
-            log(f"Selector.init: setting property {prop}", level="DEBUG")
             setattr(self, prop, (data, select))
-
-
-        log(f"Selector calling _make_consistent", level="DEBUG")
 
         # Ensure correct indexing: harmonize selections for `DiscreteData`-children
         # or convert everything to lists for use w/`np.ix_` if we ended up w/more
         # than 2 list selectors for `ContinuousData`-offspring
         self._make_consistent(data)
 
-        log(f"Selector setting select", level="DEBUG")
-
         # store for later re-application/modification
         self.select = select
 
-        log(f"Selector calling create_get_trial", level="DEBUG")
-
         # create the Selector._get_trial helper
         self.create_get_trial(data)
-
-        log(f"Selector init done.", level="DEBUG")
 
     @property
     def trial_ids(self):
@@ -383,8 +371,6 @@ class Selector:
     @time.setter
     def time(self, dataselect):
 
-        log("Selector.time setter called.", level="DEBUG")
-
         # Unpack input and perform error-checking
         data, select = dataselect
         timeSpec = select.get("latency", None)
@@ -400,7 +386,6 @@ class Selector:
 
         # If `data` has a `time` property, fill up `self.time`
         if hasTime:
-            log("Selector.time setter: filling self.time, data has time/trialtime property.", level="DEBUG")
             if isinstance(timeSpec, str):
                 if timeSpec == "all":
                     timeSpec = None
@@ -470,7 +455,6 @@ class Selector:
 
         # `DiscreteData`: simply copy relevant sample-count -> trial assignments,
         # for other classes build new trialdefinition array using `t0`-offsets
-        log(f"trialdefinition setter: setting for {self._dataClass}", level="DEBUG")
 
         if self._dataClass in ["SpikeData", "EventData"]:
             trlDef = trl[self.trial_ids, :]
@@ -479,26 +463,12 @@ class Selector:
             counter = 0
             num_trials = len(self.trial_ids)
             for tk, trlno in enumerate(self.trial_ids):
-                log(f"trialdefinition setter: setting for trial {tk} of {num_trials}", level="DEBUG")
                 tsel = self.time[tk]
                 if isinstance(tsel, slice):
                     start, stop, step = tsel.start, tsel.stop, tsel.step
-                    log(f"trialdefinition setter: tsel is a slice. initial values: start={start}, stop={stop}, step={step}", level="DEBUG")
                     if start is None:
                         start = 0
                     if stop is None:
-                        log(f"trialdefinition setter: calling data._get_time", level="DEBUG")
-                        #trlTime = data._get_time([trlno], toilim=[-np.inf, np.inf])[0]
-                        #trlTime = data.time[trlno]
-                        log(f"trialdefinition setter: data._get_time returned", level="DEBUG")
-                        #if isinstance(trlTime, list):  # Only happens for data types with empty time axis.
-                        #    stop = np.max(trlTime)
-                        #    # Avoid creating empty arrays for "static" `SpectralData` objects
-                        #    if stop == start == 0:
-                        #        stop += 1
-                        #else:
-                        #    stop = trlTime.stop
-                        #stop = trlTime.size
                         stop = trl[trlno, 1] - trl[trlno, 0]
                     if step is None:
                         step = 1
@@ -506,7 +476,6 @@ class Selector:
                     endSample = stop + data._trialdefinition[trlno, 2]
                     t0 = int(endSample - nSamples)
                 else:
-                    log(f"trialdefinition setter: tsel is NOT a slice", level="DEBUG")
                     nSamples = len(tsel)
                     if nSamples == 0:
                         t0 = 0
@@ -514,7 +483,6 @@ class Selector:
                         t0 = data._trialdefinition[trlno, 2]
                 trlDef[tk, :3] = [counter, counter + nSamples, t0]
                 trlDef[tk, 3:] = trl[trlno, 3:]
-                log(f"trialdefinition setter: writing to trlDef done", level="DEBUG")
                 counter += nSamples
         self._trialdefinition = trlDef
 
@@ -874,8 +842,6 @@ class Selector:
         # indices, go through each trial and combine them
         if self._dataClass in ["SpikeData", "EventData"]:
 
-            log(f"_make_consistent: handling DiscreteData children.", level="DEBUG")
-
             # Get relevant selectors (e.g., `self.unit` is `None` for `EventData`)
             actualSelections = []
             for selection in ["time", "eventid", "unit"]:
@@ -943,8 +909,6 @@ class Selector:
 
             return
 
-        log(f"_make_consistent: handling non-DiscreteData children.", level="DEBUG")
-
         # Count how many lists we got
         listCount = 0
         for prop in self._dimProps:
@@ -962,11 +926,8 @@ class Selector:
                         listCount += 1
                         break
 
-        log(f"_make_consistent: found {len(trial_affecting_selections)} trial_affecting_selections: {trial_affecting_selections}", level="DEBUG")
-
         # If (on a by-trial basis) we have two or more lists, we need fancy indexing
         if listCount >= 2:
-            log(f"_make_consistent: using fancy indexing.", level="DEBUG")
             self._useFancy = True
 
         # Finally, prepare new `trialdefinition` array for objects with `time` dimensions
