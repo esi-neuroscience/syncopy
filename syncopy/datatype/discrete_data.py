@@ -144,7 +144,7 @@ class DiscreteData(BaseData, ABC):
     def time(self):
         """list(float): trigger-relative time of each event """
         if self.samplerate is not None and self.sampleinfo is not None:
-            return [(trl[:,self.dimord.index("sample")] - self.sampleinfo[tk,0] + self._t0[tk]) / self.samplerate \
+            return [(trl[:,self.dimord.index("sample")] - self.sampleinfo[tk,0] + self.trialdefinition[tk, 2]) / self.samplerate \
                     for tk, trl in enumerate(self.trials)]
 
     @property
@@ -177,7 +177,7 @@ class DiscreteData(BaseData, ABC):
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            sample0 = self.sampleinfo[:, 0] - self._t0[:]
+            sample0 = self.sampleinfo[:, 0] - self._t0
             sample0 = np.append(sample0, np.nan)[self.trialid]
             return (self.data[:, self.dimord.index("sample")] - sample0) / self.samplerate
 

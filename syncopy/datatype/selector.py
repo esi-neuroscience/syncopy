@@ -500,7 +500,7 @@ class Selector:
                     if step is None:
                         step = 1
                     nSamples = (stop - start) / step
-                    endSample = stop + data._t0[trlno]
+                    endSample = stop + data._trialdefinition[trlno, 2]
                     t0 = int(endSample - nSamples)
                 else:
                     log(f"trialdefinition setter: tsel is NOT a slice", level="DEBUG")
@@ -508,8 +508,7 @@ class Selector:
                     if nSamples == 0:
                         t0 = 0
                     else:
-                        t0 = data._t0[trlno]
-                log(f"trialdefinition setter: writing to trlDef, t0={t0}", level="DEBUG")
+                        t0 = data._trialdefinition[trlno, 2]
                 trlDef[tk, :3] = [counter, counter + nSamples, t0]
                 trlDef[tk, 3:] = trl[trlno, 3:]
                 log(f"trialdefinition setter: writing to trlDef done", level="DEBUG")

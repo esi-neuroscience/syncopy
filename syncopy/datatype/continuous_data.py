@@ -16,6 +16,7 @@ from collections.abc import Iterator
 
 # Local imports
 from .base_data import BaseData, FauxTrial, _definetrial
+from .util import TimeIndexer
 from .methods.definetrial import definetrial
 from .base_data import BaseData
 from syncopy.shared.parsers import scalar_parser, array_parser
@@ -87,7 +88,7 @@ class ContinuousData(BaseData, ABC):
         for attr in ppattrs:
             value = getattr(self, attr)
             if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
-                tlen = np.unique([sinfo[1] - sinfo[0] for sinfo in self.sampleinfo])
+                tlen = np.unique(np.diff(self.sampleinfo))
                 if tlen.size == 1:
                     trlstr = "of length {} ".format(str(tlen[0]))
                 else:
@@ -181,10 +182,12 @@ class ContinuousData(BaseData, ABC):
 
     @property
     def time(self):
-        """list(float): trigger-relative time axes of each trial """
+        """indexable iterable of the time arrays"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            return [(np.arange(0, stop - start) + self._t0[tk]) / self.samplerate \
-                    for tk, (start, stop) in enumerate(self.sampleinfo)]
+            trial_ids = list(range(self.sampleinfo.shape[0]))
+            # this is cheap as it just initializes a list-like generator
+            # with no real data and/or computation!
+            return TimeIndexer(self, trial_ids)
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
