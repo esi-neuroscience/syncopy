@@ -978,7 +978,7 @@ class Selector:
                 log(f"     Also self.time seems never to be just None, but a list of slices, which contain all Nones. Check if this is correct.", level="DEBUG")
                 self.trialdefinition = data
             else:
-                self._trialdefinition = data.trialdefinition
+                self._trialdefinition = data.trialdefinition.copy()
 
         log(f"_make_consistent: done.", level="DEBUG")
         return
