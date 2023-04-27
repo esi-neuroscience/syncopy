@@ -333,7 +333,7 @@ class ContinuousData(BaseData, ABC):
                 _, selTime = best_match(self.time[trlno], toilim, span=True)
                 log(f"_get_time: with toilim {toilim}, best_match done.", level="DEBUG")
                 selTime = selTime.tolist()
-                if len(selTime) > 1:
+                if len(selTime) > 1:  # data type has time axis
                     timing.append(slice(selTime[0], selTime[-1] + 1, 1))
                 else:
                     timing.append(selTime)
