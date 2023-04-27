@@ -489,7 +489,7 @@ class Selector:
                     if stop is None:
                         log(f"trialdefinition setter: calling data._get_time", level="DEBUG")
                         #trlTime = data._get_time([trlno], toilim=[-np.inf, np.inf])[0]
-                        trlTime = data.time[trlno]
+                        #trlTime = data.time[trlno]
                         log(f"trialdefinition setter: data._get_time returned", level="DEBUG")
                         #if isinstance(trlTime, list):  # Only happens for data types with empty time axis.
                         #    stop = np.max(trlTime)
@@ -973,20 +973,6 @@ class Selector:
         if self.time is not None:
             self.trialdefinition = data
 
-            #log(f"_make_consistent: self.time is not None.", level="DEBUG")
-            #if not all(myslice == slice(None, None, None) for myslice in self.time):
-            #    log(f"_make_consistent: setting trialdefinition from data, not all time entries are None-slices. Note that self.time has len {len(self.time)}.", level="DEBUG")
-            #    if len(self.time) > 0:
-            #        log(f"Here is the first entry of self.time: self.time[0] = {self.time[0]}")#
-#
-#                log(f"TODO: This should only happen under certain conditions, i.e., when the selection potentially changed the trial definition. Find them and avoid in other cases.")
-#                log(f"     Also self.time seems never to be just None, but a list of slices, which contain all Nones. Check if this is correct.", level="DEBUG")
-#                self.trialdefinition = data
- #           else:
-  #              log(f"_make_consistent: all time slices are all-None. setting trialdefinition from data.trialdefinition.copy()")
-   #             self._trialdefinition = data.trialdefinition.copy()
-
-        log(f"_make_consistent: done. trialdefinition has shape {self.trialdefinition.shape} (first 5 rows): {self.trialdefinition[0:(min(self.trialdefinition.shape[0], 5)),]}", level="DEBUG")
         return
 
     # Legacy support
