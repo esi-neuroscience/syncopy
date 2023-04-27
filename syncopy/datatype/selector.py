@@ -499,7 +499,7 @@ class Selector:
                         #else:
                         #    stop = trlTime.stop
                         #stop = trlTime.size
-                        stop = trl[trlno, 2] - trl[trlno, 1]
+                        stop = trl[trlno, 1] - trl[trlno, 0]
                     if step is None:
                         step = 1
                     nSamples = (stop - start) / step
