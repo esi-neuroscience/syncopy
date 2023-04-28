@@ -4,7 +4,7 @@ import numpy as np
 
 # syncopy imports
 from syncopy.shared.parsers import array_parser, data_parser
-from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError, log
+from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
 
 # local imports
 from .util import TrialIndexer
@@ -461,7 +461,6 @@ class Selector:
         else:
             trlDef = np.zeros((len(self.trial_ids), trl.shape[1]))
             counter = 0
-            num_trials = len(self.trial_ids)
             for tk, trlno in enumerate(self.trial_ids):
                 tsel = self.time[tk]
                 if isinstance(tsel, slice):
@@ -916,11 +915,9 @@ class Selector:
                 listCount += 1
 
         # Now go through trial-dependent selectors to see if any by-trial selection is a list
-        trial_affecting_selections = []
         for prop in self._byTrialProps:
             selList = getattr(self, prop)
             if selList is not None:
-                trial_affecting_selections.append(prop)
                 for tsel in selList:
                     if isinstance(tsel, list):
                         listCount += 1
