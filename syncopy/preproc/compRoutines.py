@@ -15,6 +15,7 @@ from sklearn.decomposition import FastICA
 from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
 from syncopy.shared.const_def import spectralConversions, spectralDTypes
 from syncopy.shared.kwarg_decorators import process_io
+from syncopy.shared.metadata import metadata_from_hdf5_file
 
 # backend imports
 from .firws import design_wsinc, apply_fir, minphaserceps
@@ -969,5 +970,12 @@ class SpyFastICA(ComputationalRoutine):
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(fastica_cF).parameters.keys())[1:]
 
+    # Attach metadata to the output Syncopy data instance of the CF
     def process_metadata(self, data, out):
+
+        # General-purpose loading of metadata.
+        mdata = metadata_from_hdf5_file(out.filename)
+
+        out.metadata = mdata
+
         propagate_properties(data, out)
