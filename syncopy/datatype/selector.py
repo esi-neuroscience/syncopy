@@ -947,7 +947,7 @@ class Selector:
         for attr in ppattrs:
             val = getattr(self, attr)
             if val is not None and attr in self._byTrialProps:
-                val = val[0]
+                val = next(iter(val))
             if isinstance(val, slice):
                 if val.start is val.stop is None:
                     ppdict[attr] = "all {}{}, ".format(
