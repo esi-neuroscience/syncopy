@@ -952,14 +952,12 @@ def fastica_cF(dat, timeAxis=0, noCompute=False, chunkShape=None, fit_params = {
                  'whitening' : getattr(transformer, 'whitening_', None)  # Only set if whiten is ‘True’. This is the pre-whitening matrix that projects data onto the first n_components principal components.
                 }
 
-    # Remove None values from metadata, they are not allowed in HDF5.
+    # Some post-processing of metadata is required to make it HDF5-compatible.
     for md_key in ['mean', 'n_features_in', 'n_iter', 'whitening']:
-        if not isinstance(metadata[md_key], np.ndarray):
+        if not isinstance(metadata[md_key], np.ndarray):  # Wrap scalars into np.ndarrays
             metadata[md_key] = np.array(metadata[md_key])
-        if metadata[md_key] is None:
+        if metadata[md_key] is None:   # Remove None values from metadata, they are not allowed in HDF5.
             metadata.pop(md_key)
-
-
 
     return estim_sources, metadata
 
