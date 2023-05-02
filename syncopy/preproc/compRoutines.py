@@ -946,12 +946,20 @@ def fastica_cF(dat, timeAxis=0, noCompute=False, chunkShape=None, fit_params = {
     # See sklearn documentation for details, https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.FastICA.html
     metadata = { 'comp' : transformer.components_,    # ndarray of shape (n_components, n_features). The linear operator to apply to the data to get the independent sources. This is equal to the unmixing matrix when whiten is False, and equal to np.dot(unmixing_matrix, self.whitening_) when whiten is True.
                  'mixing' : transformer.mixing_,      # ndarray of shape (n_features, n_components). The pseudo-inverse of components_. It is the linear operator that maps independent sources to the data.
-                  'mean' : getattr(transformer, 'mean_', None),   # The mean over features. Only set if self.whiten is True.
-                  'n_features_in' : getattr(transformer, 'n_features_in_', None),   # Number of features seen during fit.
-                  'feature_names_in' : getattr(transformer, 'feature_names_in_', None),  # Names of features seen during fit. Defined only when X has feature names that are all strings.
-                  'n_iter' : getattr(transformer, 'n_iter_', None),   # If the algorithm is “deflation”, n_iter is the maximum number of iterations run across all components. Else they are just the number of iterations taken to converge.
-                  'whitening' : getattr(transformer, 'whitening_', None)  # Only set if whiten is ‘True’. This is the pre-whitening matrix that projects data onto the first n_components principal components.
+                 'mean' : getattr(transformer, 'mean_', None),   # The mean over features. Only set if self.whiten is True.
+                 'n_features_in' : getattr(transformer, 'n_features_in_', None),   # Number of features seen during fit.
+                 'n_iter' : getattr(transformer, 'n_iter_', None),   # If the algorithm is “deflation”, n_iter is the maximum number of iterations run across all components. Else they are just the number of iterations taken to converge.
+                 'whitening' : getattr(transformer, 'whitening_', None)  # Only set if whiten is ‘True’. This is the pre-whitening matrix that projects data onto the first n_components principal components.
                 }
+
+    # Remove None values from metadata, they are not allowed in HDF5.
+    for md_key in ['mean', 'n_features_in', 'n_iter', 'whitening']:
+        if not isinstance(metadata[md_key], np.ndarray):
+            metadata[md_key] = np.array(metadata[md_key])
+        if metadata[md_key] is None:
+            metadata.pop(md_key)
+
+
 
     return estim_sources, metadata
 

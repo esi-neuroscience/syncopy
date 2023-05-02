@@ -144,13 +144,13 @@ def parse_cF_returns(res):
             res, details = res
         if details is not None: # Accept and silently ignore a 2nd return value of None.
             if isinstance(details, dict):
-                for _, v in details.items():
+                for k, v in details.items():
                     if not isinstance(v, np.ndarray):
-                        raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays")
+                        raise SPYValueError(f"2nd return value of compute functions to be dict containing np.ndarrays, but entry at key '{k}' has type '{type(v)}'.")
                     if v.dtype == object:
-                        raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays with datatype other than 'np.object'")
+                        raise SPYValueError(f"2nd return value of compute functions to be dict containing np.ndarrays with datatype other than 'np.object', but entry at key '{k}' is an object.")
             else:
-                raise SPYValueError("the second return value of user-supplied compute functions must be a dict")
+                raise SPYValueError("the second return value of user-supplied compute functions to be a dict")
     else:
         if not isinstance(res, np.ndarray):
             raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="neither tuple nor np.ndarray")
