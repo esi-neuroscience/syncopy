@@ -5,7 +5,7 @@ from hmac import compare_digest
 from numbers import Number
 import numpy as np
 
-from syncopy.shared.errors import (SPYInfo, SPYTypeError, SPYValueError, SPYWarning)
+from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYWarning)
 
 
 def metadata_from_hdf5_file(h5py_filename, delete_afterwards=True):
