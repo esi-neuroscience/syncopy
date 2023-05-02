@@ -238,7 +238,7 @@ class ContinuousData(BaseData, ABC):
         if self.selection is not None:
 
             # time-selection is most delicate due to trial-offset
-            tsel = self.selection.time[self.selection.trial_ids.index(trialno)]
+            tsel = self.selection.time[trialno]
             if isinstance(tsel, slice):
                 if tsel.start is not None:
                     tstart = tsel.start
@@ -287,66 +287,6 @@ class ContinuousData(BaseData, ABC):
                         shp[dimIdx] = 1
 
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
-
-    # Helper function that extracts timing-related indices
-    def _get_time(self, trials, toi=None, toilim=None):
-        """
-        Get relative by-trial indices of time-selections
-        `toi` is legacy.. `toilim ` is used by selections via `latency`
-
-        Parameters
-        ----------
-        trials : list
-            List of trial-indices to perform selection on
-        toi : None or list
-            Time-points to be selected (in seconds) on a by-trial scale.
-        toilim : None or list
-            Time-window to be selected (in seconds) on a by-trial scale
-
-        Returns
-        -------
-        timing : list of lists
-            List of by-trial sample-indices corresponding to provided
-            time-selection. If both `toi` and `toilim` are `None`, `timing`
-            is a list of universal (i.e., ``slice(None)``) selectors.
-
-        Notes
-        -----
-        This class method is intended to be solely used by
-        :class:`syncopy.datatype.selector.Selector` objects and thus has purely
-        auxiliary character. Therefore, all input sanitization and error checking
-        is left to :class:`syncopy.datatype.selector.Selector` and not
-        performed here.
-
-        See also
-        --------
-        syncopy.datatype.selector.Selector : Syncopy data selectors
-        """
-        timing = []
-        num_trials = len(trials)
-        if toilim is not None:
-            for trlno in trials:
-                _, selTime = best_match(self.time[trlno], toilim, span=True)
-                selTime = selTime.tolist()
-                if len(selTime) > 1:  # data type has time axis
-                    timing.append(slice(selTime[0], selTime[-1] + 1, 1))
-                else:
-                    timing.append(selTime)
-
-        elif toi is not None:
-            for trlno in trials:
-                _, selTime = best_match(self.time[trlno], toi)
-                selTime = selTime.tolist()
-                if len(selTime) > 1:
-                    timeSteps = np.diff(selTime)
-                    if timeSteps.min() == timeSteps.max() == 1:
-                        selTime = slice(selTime[0], selTime[-1] + 1, 1)
-                timing.append(selTime)
-
-        else:
-            timing = [slice(None)] * len(trials)
-
-        return timing
 
     # Make instantiation persistent in all subclasses
     def __init__(self, data=None, channel=None, samplerate=None, **kwargs):

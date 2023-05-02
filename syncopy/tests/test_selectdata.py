@@ -121,7 +121,7 @@ class TestAnalogSelections:
             selector_object = Selector(self.adata, sel_kwargs)
             for sel_kw in sel_kwargs.keys():
                 attr_name = map_sel_attr[sel_kw]
-                assert getattr(selector_object, attr_name) == solution[sel_kw]
+                assert list(getattr(selector_object, attr_name)) == solution[sel_kw]
 
     def test_ad_invalid(self):
 
@@ -227,7 +227,7 @@ class TestSpectralSelections:
                 # the 'solutions'
                 {'frequency': slice(None),
                  'taper': [1],
-                 'latency': [[1], [1]],
+                 'latency': [slice(1, 2, 1), slice(1, 2, 1)],
                  'trials': [1, 2]},
             )
         ]
@@ -238,7 +238,11 @@ class TestSpectralSelections:
             selector_object = Selector(self.sdata, sel_kwargs)
             for sel_kw in sel_kwargs.keys():
                 attr_name = map_sel_attr[sel_kw]
-                assert getattr(selector_object, attr_name) == solution[sel_kw]
+                res = getattr(selector_object, attr_name)
+                if sel_kw == 'latency':
+                    assert list(res) == solution[sel_kw]
+                else:
+                    assert res == solution[sel_kw]
 
     def test_spectral_invalid(self):
 
@@ -334,7 +338,11 @@ class TestCrossSpectralSelections:
             selector_object = Selector(self.csd_data, sel_kwargs)
             for sel_kw in sel_kwargs.keys():
                 attr_name = map_sel_attr[sel_kw]
-                assert getattr(selector_object, attr_name) == solution[sel_kw]
+                res = getattr(selector_object, attr_name)
+                if sel_kw == 'latency':
+                    assert list(res) == solution[sel_kw]
+                else:
+                    assert res == solution[sel_kw]
 
     def test_csd_invalid(self):
 

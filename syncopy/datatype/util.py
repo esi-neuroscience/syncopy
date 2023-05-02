@@ -31,14 +31,14 @@ class TrialIndexer:
         """
 
         self.data_object = data_object
-        self.idx_list = idx_list
+        self.idx_set = set(idx_list)
         self._len = len(idx_list)
 
     def __getitem__(self, trialno):
         # single trial access via index operator []
         if not isinstance(trialno, Number):
             raise SPYTypeError(trialno, "trial index", "single number to index a single trial")
-        if trialno not in self.idx_list:
+        if trialno not in self.idx_set:
             lgl = "index of existing trials"
             raise SPYValueError(lgl, "trial index", trialno)
         return self.data_object._get_trial(trialno)
@@ -47,7 +47,7 @@ class TrialIndexer:
         # this generator gets freshly created and exhausted
         # for each new iteration, with only 1 trial being in memory
         # at any given time
-        yield from (self[i] for i in self.idx_list)
+        yield from (self[i] for i in self.idx_set)
 
     def __len__(self):
         return self._len
@@ -77,7 +77,7 @@ class TimeIndexer:
         """
 
         self.data_object = data_object
-        self.idx_list = idx_list
+        self.idx_set = set(idx_list)
         self._len = len(idx_list)
 
     def construct_time_array(self, trialno):
@@ -89,7 +89,7 @@ class TimeIndexer:
         # single trial access via index operator []
         if not isinstance(trialno, Number):
             raise SPYTypeError(trialno, "trial index", "single number to index a single trial")
-        if trialno not in self.idx_list:
+        if trialno not in self.idx_set:
             lgl = "index of existing trials"
             raise SPYValueError(lgl, "trial index", trialno)
         return self.construct_time_array(trialno)
@@ -98,7 +98,7 @@ class TimeIndexer:
         # this generator gets freshly created and exhausted
         # for each new iteration, with only 1 time array being in memory
         # at any given time
-        yield from (self[i] for i in self.idx_list)
+        yield from (self[i] for i in self.idx_set)
 
     def __len__(self):
         return self._len

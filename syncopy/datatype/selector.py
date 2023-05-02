@@ -1,10 +1,12 @@
 # Builtin/3rd party package imports
 from functools import reduce
 import numpy as np
+from numbers import Number
 
 # syncopy imports
 from syncopy.shared.parsers import array_parser, data_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError, SPYError
+from syncopy.shared.tools import best_match
 
 # local imports
 from .util import TrialIndexer
@@ -418,25 +420,17 @@ class Selector:
                             timeSpec[0], timeSpec[1]
                         )
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
-            timing = data._get_time(self.trial_ids, toi=None, toilim=select.get("latency"))
-
-            # ---------------------------------------------------------------------------
-            # this is legacy, might be needed later if ppl really want to "time shuffle"
-            # to destroy any correlations and produce white noise from their data..
-            # .. which is questionable
-
-            # Determine, whether time-selection is unordered/contains repetitions
-            # and set `self._timeShuffle` accordingly
-            if timeSpec is not None:  # saves time for `timeSpec = None` "selections"
-                for tsel in timing:
-                    if isinstance(tsel, list) and len(tsel) > 1:
-                        if np.diff(tsel).min() <= 0:
-                            self._timeShuffle = True
-                            break
-            # ---------------------------------------------------------------------------
 
             # Assign timing selection and copy over samplerate from source object
-            self._time = timing
+            if any(["DiscreteData" in str(base) for base in data.__class__.__mro__]):
+                # special case DiscreteData: here we need an assignable property
+                # for `_make_consistent` so we unpack the Indexer right away
+                self._time = list(SelectionTimeIndexer(data, toilim=select.get("latency"),
+                                                       idx_list=self.trial_ids))
+
+            else:
+                self._time = SelectionTimeIndexer(data, toilim=select.get("latency"),
+                                                  idx_list=self.trial_ids)
             self._samplerate = data.samplerate
 
         else:
@@ -462,7 +456,7 @@ class Selector:
             trlDef = np.zeros((len(self.trial_ids), trl.shape[1]))
             counter = 0
             for tk, trlno in enumerate(self.trial_ids):
-                tsel = self.time[tk]
+                tsel = self.time[trlno]
                 if isinstance(tsel, slice):
                     start, stop, step = tsel.start, tsel.stop, tsel.step
                     if start is None:
@@ -860,6 +854,7 @@ class Selector:
                 trialArr = np.arange(data._trialslice[trialno].stop - data._trialslice[trialno].start)
                 byTrialSelections = []
                 for selection in actualSelections:
+                    # discrete data selections are still indexed by relative trial indices..
                     byTrialSelections.append(trialArr[getattr(self, selection)[tk]])
 
                 # (try to) preserve unordered selections by processing them first
@@ -888,6 +883,7 @@ class Selector:
 
                 # Update selector properties
                 for selection in actualSelections:
+                    print(getattr(self, "_{}".format(selection)), self._dataClass)
                     getattr(self, "_{}".format(selection))[tk] = combinedSelect
 
             # Ensure that `self.channel` is compatible w/provided selections: harmonize
@@ -980,3 +976,76 @@ class Selector:
             msg += pout
 
         return msg[:-2]
+
+
+class SelectionTimeIndexer:
+
+    def __init__(self, data_object, toilim, idx_list):
+        """
+        Class to obtain an indexable iterable of time slices
+        from an instantiated Syncopy data class `data_object` with an
+        active time/latency selection given by `toilim`.
+        Relies on the `time` property of the respective
+        `data_object`.
+        Proper parsing of `toilim` is required beforehand.
+
+        Parameters
+        ----------
+        data_object : Syncopy data class, e.g. AnalogData
+
+        idx_list : list
+            List of valid trial indices
+        """
+
+        self.data_object = data_object
+        self.toilim = toilim
+
+        self.idx_set = set(idx_list)
+        self._len = len(idx_list)
+
+        if any(["DiscreteData" in str(base) for base in self.__class__.__mro__]):
+            self.is_discrete = True
+            self.trialtime = data_object.trialtime
+        else:
+            self.is_discrete = False
+            self.trialtime = None
+
+    def construct_time_index(self, trialno):
+
+        # trivial all time points selection
+        if self.toilim is None:
+            return slice(None)
+
+        # continuous data
+        elif not self.is_discrete:
+            _, selTime = best_match(self.data_object.time[trialno], self.toilim, span=True)
+            return np.s_[selTime[0]:selTime[-1] + 1:1]
+        # discrete data
+        else:
+            trlTime = self.trialtime[self.data_object._trialslice[trialno]]
+            _, selTime = best_match(trlTime, self.toilim, span=True)
+            return np.s_[selTime[0]:selTime[-1] + 1:1]
+
+    def __getitem__(self, trialno):
+        # single trial access via index operator []
+        if not isinstance(trialno, Number):
+            raise SPYTypeError(trialno, "trial index", "single number to index a single trial")
+        if trialno not in self.idx_set:
+            lgl = "index of existing trials"
+            raise SPYValueError(lgl, "trial index", trialno)
+        return self.construct_time_index(trialno)
+
+    def __iter__(self):
+        # this generator gets freshly created and exhausted
+        # for each new iteration, with only 1 time array being in memory
+        # at any given time
+        yield from (self[i] for i in self.idx_set)
+
+    def __len__(self):
+        return self._len
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return "{} element iterable".format(self._len)
