@@ -376,7 +376,7 @@ class TestComputationalRoutine():
                         # compare expected w/actual shape of computed data
                         reference = 0
                         for tk, trlno in enumerate(sel.trial_ids):
-                            reference += nonequidata.trials[trlno][sel.time[tk]].shape[0]
+                            reference += nonequidata.trials[trlno][sel.time[trlno]].shape[0]
                             # check for correct time selection
                             # FIXME: remove `if` below as soon as `time` prop for lists is fixed
                             if not isinstance(sel.time[0], list):
