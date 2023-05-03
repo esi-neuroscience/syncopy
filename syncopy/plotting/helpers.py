@@ -7,7 +7,6 @@
 # Builtin/3rd party package imports
 import numpy as np
 from copy import deepcopy
-import re
 import functools
 
 
@@ -84,7 +83,7 @@ def parse_toi(dataobject, trl, show_kwargs):
     dataobject.selectdata(inplace=True, **show_kwargs)
 
     # still have to index the only and single trial
-    idx = dataobject.selection.time[0]
+    idx = next(iter(dataobject.selection.time))
 
     # index selection, again the single trial
     time = dataobject.time[trl][idx]

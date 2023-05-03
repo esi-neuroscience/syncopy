@@ -991,11 +991,9 @@ class BaseData(ABC):
     @property
     def trialdefinition(self):
         """nTrials x >=3 :class:`numpy.ndarray` of [start, end, offset, trialinfo[:]]"""
-        return np.array(self._trialdefinition)
-
-    @trialdefinition.setter
-    def trialdefinition(self, trl):
-        _definetrial(self, trialdefinition=trl)
+        if self._trialdefinition is not None:
+            # to avoid hanging references
+            return self._trialdefinition.copy()
 
     @property
     def sampleinfo(self):
@@ -1010,6 +1008,12 @@ class BaseData(ABC):
         raise SPYError(
             "Cannot set sampleinfo. Use `BaseData.trialdefinition` instead."
         )
+
+    @property
+    def trial_ids(self):
+        """Index list of trials"""
+        if self._trialdefinition is not None:
+            return self._trial_ids
 
     @property
     def trialintervals(self):

@@ -12,7 +12,6 @@ import syncopy
 import warnings
 import datetime
 import platform
-import getpass
 
 
 loggername = "syncopy"  # Since this is a library, we should not use the root logger (see Python logging docs).
@@ -63,6 +62,12 @@ def setup_logging(spydir=None, session=""):
     fmt_interactive = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt_interactive)
     # Log file formatter: with hostname and session info.
     fmt_with_hostname = logging.Formatter('%(asctime)s - %(levelname)s - %(hostname)s - %(session)s: %(message)s',
+                                          datefmt_file)
+
+    # Allow users to set env variable SPYLOGMSECS to have millisecond precision in logs. Useful for performance profiling.
+    if os.environ.get("SPYLOGMSECS"):
+        fmt_interactive = logging.Formatter('%(asctime)s.%(msecs)03d - %(levelname)s: %(message)s', datefmt_interactive)
+        fmt_with_hostname = logging.Formatter('%(asctime)s.%(msecs)03d - %(levelname)s - %(hostname)s - %(session)s: %(message)s',
                                           datefmt_file)
 
     sh = logging.StreamHandler(sys.stdout)

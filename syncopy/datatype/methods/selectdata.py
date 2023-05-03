@@ -11,7 +11,7 @@ import h5py
 import syncopy as spy
 from syncopy.shared.tools import get_frontend_cfg, get_defaults
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, log
 from syncopy.shared.kwarg_decorators import unwrap_cfg, process_io, detect_parallel_client
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.latency import get_analysis_window, create_trial_selection
@@ -321,6 +321,7 @@ def selectdata(data,
 
     # Pass provided selections on to `Selector` class which performs error checking
     # this is an in-place selection!
+
     data.selection = selectDict
 
     # -- sort out trials if latency is set --
