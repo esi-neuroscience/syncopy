@@ -171,11 +171,13 @@ class ContinuousData(BaseData, ABC):
             self._samplerate = None
             return
 
-        try:
-            scalar_parser(sr, varname="samplerate", lims=[np.finfo('float').eps, np.inf])
-        except Exception as exc:
-            raise exc
+        scalar_parser(sr, varname="samplerate", lims=[np.finfo('float').eps, np.inf])
         self._samplerate = float(sr)
+        # we need a new TimeIndexer
+        if self.trialdefinition is not None:
+            self._time = TimeIndexer(self.trialdefinition,
+                                     self.samplerate,
+                                     list(self._trial_ids))
 
     @BaseData.trialdefinition.setter
     def trialdefinition(self, trldef):
@@ -183,6 +185,7 @@ class ContinuousData(BaseData, ABC):
         # all-to-all trialdefinition
         if trldef is None:
             self._trialdefinition = np.array([[0, self.data.shape[self.dimord.index("time")], 0]])
+            self._trial_ids = [0]
         else:
             scount = self.data.shape[self.dimord.index("time")]
             array_parser(trldef, varname="trialdefinition", dims=2)

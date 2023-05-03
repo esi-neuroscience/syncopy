@@ -992,7 +992,7 @@ class BaseData(ABC):
     @property
     def trialdefinition(self):
         """nTrials x >=3 :class:`numpy.ndarray` of [start, end, offset, trialinfo[:]]"""
-        return np.array(self._trialdefinition)
+        return self._trialdefinition
 
     @property
     def sampleinfo(self):
