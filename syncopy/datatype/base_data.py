@@ -988,11 +988,12 @@ class BaseData(ABC):
         else:
             self._selector = Selector(self, select)
 
-
     @property
     def trialdefinition(self):
         """nTrials x >=3 :class:`numpy.ndarray` of [start, end, offset, trialinfo[:]]"""
-        return self._trialdefinition
+        if self._trialdefinition is not None:
+            # to avoid hanging references
+            return self._trialdefinition.copy()
 
     @property
     def sampleinfo(self):

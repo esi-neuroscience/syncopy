@@ -25,7 +25,7 @@ class TestRedefinetrial:
                                  samplerate=samplerate)
 
     irreg_data = reg_data.copy()
-    trldef = irreg_data.trialdefinition.copy()
+    trldef = irreg_data.trialdefinition
     # short 3rd trial
     trldef[2] = [23, 26, -10]
     # longer trial 6 (with overlap)
