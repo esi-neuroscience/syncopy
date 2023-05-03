@@ -96,13 +96,7 @@ class Selector:
 
     For objects that have a `time` property, a suitable new `trialdefinition`
     array (accessible via the identically named `Selector` class property)
-    is automatically constructed based on the provided selection. For unsorted
-    time-selections with or without repetitions, the `timepoints` property
-    encodes the timing of the selected (discrete) points. To permit this
-    functionality, the input object's samplerate is stored in the identically
-    named hidden attribute `_samplerate`. In addition, the hidden `_timeShuffle`
-    attribute is a binary flag encoding whether selected time-points are
-    unordered and/or contain repetitions (`Selector._timeShuffle = True`).
+    is automatically constructed based on the provided selection. 
 
     By default, each selection property tries to convert a user-provided
     selection to a contiguous slice-indexer so that simple NumPy array
@@ -505,19 +499,6 @@ class Selector:
             return None
 
     @property
-    def timepoints(self):
-        """len(self.trial_ids) list of lists encoding actual (not sample indices!)
-        timing information of unordered `toi` selections"""
-        if self._timeShuffle:
-            return [
-                [
-                    (tvec[tp] + self.trialdefinition[tk, 2]) / self._samplerate
-                    for tp in range(len(tvec))
-                ]
-                for tk, tvec in enumerate(self.time)
-            ]
-
-    @property
     def freq(self):
         """List or slice encoding frequency-selection"""
         return self._freq
@@ -883,7 +864,6 @@ class Selector:
 
                 # Update selector properties
                 for selection in actualSelections:
-                    print(getattr(self, "_{}".format(selection)), self._dataClass)
                     getattr(self, "_{}".format(selection))[tk] = combinedSelect
 
             # Ensure that `self.channel` is compatible w/provided selections: harmonize
@@ -1010,7 +990,7 @@ class SelectionTimeIndexer:
             self.is_discrete = False
             self.trialtime = None
 
-    def construct_time_index(self, trialno):
+    def construct_time_slice(self, trialno):
 
         # trivial all time points selection
         if self.toilim is None:
@@ -1033,7 +1013,7 @@ class SelectionTimeIndexer:
         if trialno not in self.idx_set:
             lgl = "index of existing trials"
             raise SPYValueError(lgl, "trial index", trialno)
-        return self.construct_time_index(trialno)
+        return self.construct_time_slice(trialno)
 
     def __iter__(self):
         # this generator gets freshly created and exhausted

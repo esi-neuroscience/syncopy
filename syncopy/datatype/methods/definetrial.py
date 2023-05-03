@@ -86,11 +86,8 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
     # Check array/object holding trial specifications
     if trialdefinition is not None:
         if trialdefinition.__class__.__name__ == "EventData":
-            try:
-                data_parser(trialdefinition, varname="trialdefinition",
-                            writable=None, empty=False)
-            except Exception as exc:
-                raise exc
+            data_parser(trialdefinition, varname="trialdefinition",
+                        writable=None, empty=False)
             evt = True
         else:
             array_parser(trialdefinition, varname="trialdefinition", dims=2)
@@ -99,11 +96,8 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 scount = obj.data.shape[obj.dimord.index("time")]
             else:
                 scount = np.inf
-            try:
-                array_parser(trialdefinition[:, :2], varname="sampleinfo", dims=(None, 2), hasnan=False,
+            array_parser(trialdefinition[:, :2], varname="sampleinfo", dims=(None, 2), hasnan=False,
                          hasinf=False, ntype="int_like", lims=[0, scount])
-            except Exception as exc:
-                raise exc
 
             trl = np.array(trialdefinition, dtype="float")
             ref = obj

@@ -155,11 +155,8 @@ class ContinuousData(BaseData, ABC):
             raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
                   "Please assign data first")
 
-        try:
-            array_parser(channel, varname="channel", ntype="str",
-                         dims=(self.data.shape[self.dimord.index("channel")],))
-        except Exception as exc:
-            raise exc
+        array_parser(channel, varname="channel", ntype="str",
+                     dims=(self.data.shape[self.dimord.index("channel")],))
 
         self._channel = np.array(channel)
 
@@ -184,10 +181,9 @@ class ContinuousData(BaseData, ABC):
     def time(self):
         """indexable iterable of the time arrays"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            trial_ids = list(range(self.sampleinfo.shape[0]))
             # this is cheap as it just initializes a list-like generator
             # with no real data and/or computation!
-            return TimeIndexer(self, trial_ids)
+            return TimeIndexer(self, self._trial_ids)
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
