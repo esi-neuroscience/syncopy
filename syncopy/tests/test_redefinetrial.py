@@ -25,7 +25,7 @@ class TestRedefinetrial:
                                  samplerate=samplerate)
 
     irreg_data = reg_data.copy()
-    trldef = irreg_data.trialdefinition
+    trldef = irreg_data.trialdefinition.copy()
     # short 3rd trial
     trldef[2] = [23, 26, -10]
     # longer trial 6 (with overlap)
@@ -35,9 +35,9 @@ class TestRedefinetrial:
     # check trial lengths in seconds
     assert np.all(np.diff(reg_data.trialintervals) == 0.9)
     assert not np.all(np.diff(irreg_data.trialintervals) == 0.9)
-    # one short trial
+    # # one short trial
     assert np.sum(np.diff(irreg_data.trialintervals) < 0.9) == 1
-    # one long trial
+    # # one long trial
     assert np.sum(np.diff(irreg_data.trialintervals) > 0.9) == 1
 
     def test_user_input(self):
