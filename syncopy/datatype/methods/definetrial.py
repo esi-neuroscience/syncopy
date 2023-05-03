@@ -320,6 +320,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
     # Finally: assign `sampleinfo`, `t0` and `trialinfo` (and potentially `trialid`)
     tgt._trialdefinition = trl
+    tgt._trial_ids = list(range((tgt.sampleinfo.shape[0])))
 
     # In the discrete case, we have some additinal work to do
     if any(["DiscreteData" in str(base) for base in tgt.__class__.__mro__]):

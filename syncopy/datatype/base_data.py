@@ -997,7 +997,6 @@ class BaseData(ABC):
     @trialdefinition.setter
     def trialdefinition(self, trl):
         _definetrial(self, trialdefinition=trl)
-        self._trial_ids = list(range((self.sampleinfo.shape[0])))
 
     @property
     def sampleinfo(self):
@@ -1017,7 +1016,7 @@ class BaseData(ABC):
     def trial_ids(self):
         """Index list of trials"""
         if self._trialdefinition is not None:
-            return self._trial_ids
+            return np.array(self._trial_ids)
 
     @property
     def trialintervals(self):
