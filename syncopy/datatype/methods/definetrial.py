@@ -317,11 +317,8 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                             actual="shape = {shp:s}".format(shp=str(trl.shape)))
 
     # Finally: assign `sampleinfo`, `t0` and `trialinfo` (and potentially `trialid`)
-    # ..writing private attributes into the `tgt` data object
-    tgt._trialdefinition = trl
-    tgt._trial_ids = np.arange(tgt.sampleinfo.shape[0])
-    if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
-        tgt._time = TimeIndexer(tgt, list(tgt._trial_ids))
+    # use target class setter
+    tgt.trialdefinition = trl
 
     # In the discrete case, we have some additinal work to do
     if any(["DiscreteData" in str(base) for base in tgt.__class__.__mro__]):

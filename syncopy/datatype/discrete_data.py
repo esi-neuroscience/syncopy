@@ -140,6 +140,30 @@ class DiscreteData(BaseData, ABC):
             raise exc
         self._samplerate = sr
 
+    @BaseData.trialdefinition.setter
+    def trialdefinition(self, trldef):
+
+        if trldef is None:
+            sidx = self.dimord.index("sample")
+            self._trialdefinition = np.array([[np.nanmin(self.data[:, sidx]),
+                                               np.nanmax(self.data[:, sidx]), 0]])
+        else:
+            array_parser(trldef, varname="trialdefinition", dims=2)
+            array_parser(trldef[:, :2], varname="sampleinfo", hasnan=False,
+                         hasinf=False, ntype="int_like", lims=[0, np.inf])
+
+            self._trialdefinition = trldef.copy()
+
+            # Compute trial-IDs by matching data samples with provided trial-bounds
+            samples = self.data[:, self.dimord.index("sample")]
+            idx = np.searchsorted(samples, self.sampleinfo.ravel())
+            idx = idx.reshape(self.sampleinfo.shape)
+
+            self._trialslice = [slice(st,end) for st,end in idx]
+            self.trialid = np.full((samples.shape), -1, dtype=int)
+            for itrl, itrl_slice in enumerate(self._trialslice):
+                self.trialid[itrl_slice] = itrl
+
     @property
     def time(self):
         """list(float): trigger-relative time of each event """

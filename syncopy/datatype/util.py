@@ -61,7 +61,7 @@ class TrialIndexer:
 
 class TimeIndexer:
 
-    def __init__(self, data_object, idx_list):
+    def __init__(self, trialdefinition, samplerate, idx_list):
         """
         Class to obtain an indexable time array iterable from
         an instantiated Syncopy data class `data_object`.
@@ -76,14 +76,15 @@ class TimeIndexer:
             List of valid trial indices
         """
 
-        self.data_object = data_object
+        self.trialdefinition = trialdefinition
+        self.samplerate = samplerate
         self.idx_set = set(idx_list)
         self._len = len(idx_list)
 
     def construct_time_array(self, trialno):
 
-        start, stop, offset = self.data_object.trialdefinition[trialno, :3]
-        return (np.arange(0, stop - start) + offset) / self.data_object.samplerate
+        start, stop, offset = self.trialdefinition[trialno, :3]
+        return (np.arange(0, stop - start) + offset) / self.samplerate
 
     def __getitem__(self, trialno):
         # single trial access via index operator []

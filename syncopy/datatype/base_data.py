@@ -994,11 +994,6 @@ class BaseData(ABC):
         """nTrials x >=3 :class:`numpy.ndarray` of [start, end, offset, trialinfo[:]]"""
         return np.array(self._trialdefinition)
 
-    @trialdefinition.setter
-    def trialdefinition(self, trl):
-        # gets bypassed by external call of `definetrial`
-        _definetrial(self, trialdefinition=trl)
-
     @property
     def sampleinfo(self):
         """nTrials x 2 :class:`numpy.ndarray` of [start, end] sample indices"""

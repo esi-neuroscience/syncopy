@@ -22,6 +22,7 @@ from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, log
 from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
+from .util import TimeIndexer
 
 
 
@@ -175,6 +176,24 @@ class ContinuousData(BaseData, ABC):
         except Exception as exc:
             raise exc
         self._samplerate = float(sr)
+
+    @BaseData.trialdefinition.setter
+    def trialdefinition(self, trldef):
+
+        # all-to-all trialdefinition
+        if trldef is None:
+            self._trialdefinition = np.array([[0, self.data.shape[self.dimord.index("time")], 0]])
+        else:
+            scount = self.data.shape[self.dimord.index("time")]
+            array_parser(trldef, varname="trialdefinition", dims=2)
+            array_parser(trldef[:, :2], varname="sampleinfo", hasnan=False,
+                         hasinf=False, ntype="int_like", lims=[0, scount])
+
+            self._trialdefinition = trldef.copy()
+            self._trial_ids = np.arange(self.sampleinfo.shape[0])
+            self._time = TimeIndexer(self.trialdefinition,
+                                     self.samplerate,
+                                     list(self._trial_ids))
 
     @property
     def time(self):
@@ -762,8 +781,8 @@ class TimeLockData(ContinuousData):
                               ...]
         """
 
-        # first harness all parsers here
-        _definetrial(self, trialdefinition=trldef)
+        # we need parent setter for basic validation
+        ContinuousData.trialdefinition.fset(self, trldef)
 
         # now check for additional conditions
 
@@ -781,7 +800,6 @@ class TimeLockData(ContinuousData):
             raise SPYValueError(lgl, varname="trialdefinition", actual=act)
 
     # TODO - overload `time` property, as there is only one by definition!
-
     # implement plotting
     def singlepanelplot(self, shifted=True, **show_kwargs):
 
