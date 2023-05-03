@@ -16,7 +16,6 @@ from collections.abc import Iterator
 
 # Local imports
 from .base_data import BaseData, FauxTrial, _definetrial
-from .util import TimeIndexer
 from .methods.definetrial import definetrial
 from .base_data import BaseData
 from syncopy.shared.parsers import scalar_parser, array_parser
@@ -181,9 +180,7 @@ class ContinuousData(BaseData, ABC):
     def time(self):
         """indexable iterable of the time arrays"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            # this is cheap as it just initializes a list-like generator
-            # with no real data and/or computation!
-            return TimeIndexer(self, self._trial_ids)
+            return self._time
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
@@ -290,6 +287,7 @@ class ContinuousData(BaseData, ABC):
         self._channel = None
         self._samplerate = None
         self._data = None
+        self._time = None
 
         self.samplerate = samplerate     # use setter for error-checking
 

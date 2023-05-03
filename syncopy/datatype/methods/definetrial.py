@@ -10,6 +10,7 @@ import numpy as np
 # Local imports
 from syncopy.shared.parsers import data_parser, array_parser, scalar_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError
+from ...datatype.util import TimeIndexer
 
 __all__ = ["definetrial"]
 
@@ -74,10 +75,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
     """
 
     # Start by vetting input object
-    try:
-        data_parser(obj, varname="obj")
-    except Exception as exc:
-        raise exc
+    data_parser(obj, varname="obj")
     if obj.data is None:
         lgl = "non-empty Syncopy data object"
         act = "empty Syncopy data object"
@@ -319,8 +317,11 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                             actual="shape = {shp:s}".format(shp=str(trl.shape)))
 
     # Finally: assign `sampleinfo`, `t0` and `trialinfo` (and potentially `trialid`)
+    # ..writing private attributes into the `tgt` data object
     tgt._trialdefinition = trl
-    tgt._trial_ids = list(range((tgt.sampleinfo.shape[0])))
+    tgt._trial_ids = np.arange(tgt.sampleinfo.shape[0])
+    if any(["ContinuousData" in str(base) for base in obj.__class__.__mro__]):
+        tgt._time = TimeIndexer(tgt, list(tgt._trial_ids))
 
     # In the discrete case, we have some additinal work to do
     if any(["DiscreteData" in str(base) for base in tgt.__class__.__mro__]):

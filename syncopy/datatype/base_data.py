@@ -996,6 +996,7 @@ class BaseData(ABC):
 
     @trialdefinition.setter
     def trialdefinition(self, trl):
+        # gets bypassed by external call of `definetrial`
         _definetrial(self, trialdefinition=trl)
 
     @property
@@ -1016,7 +1017,7 @@ class BaseData(ABC):
     def trial_ids(self):
         """Index list of trials"""
         if self._trialdefinition is not None:
-            return np.array(self._trial_ids)
+            return self._trial_ids
 
     @property
     def trialintervals(self):
