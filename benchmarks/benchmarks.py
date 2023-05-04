@@ -1,31 +1,30 @@
-# Write the benchmarking functions here.
+# Syncopy benchmark suite.
 # See "Writing benchmarks" in the asv docs for more information.
 
+import syncopy as spy
+from syncopy.synthdata.analog import white_noise
 
-class TimeSuite:
+class SelectionSuite:
     """
-    An example benchmark that times the performance of various kinds
-    of iterating over dictionaries in Python.
+    Benchmark selections on AnalogData objects.
     """
     def setup(self):
-        self.d = {}
-        for x in range(500):
-            self.d[x] = None
+        self.adata = white_noise(nSamples=2500, nChannels=16, nTrials=200, samplerate=1000)
 
-    def time_keys(self):
-        for key in self.d.keys():
-            pass
+    def time_external_tlim_selection(self):
+        _ = spy.selectdata(self.adata, tlims=[0, 1], inplace=False)
 
-    def time_values(self):
-        for value in self.d.values():
-            pass
+    def time_inplace_tlim_selection(self):
+        spy.selectdata(self.adata, tlims=[0, 1], inplace=True)
 
-    def time_range(self):
-        d = self.d
-        for key in range(500):
-            x = d[key]
 
 
 class MemSuite:
-    def mem_list(self):
-        return [0] * 256
+    """Test memory usage of data classes."""
+
+    def setup(self):
+        self.adata = white_noise(nSamples=500, nChannels=16, nTrials=200)
+
+    def mem_analogdata(self):
+        """Test memory usage of AnalogData object."""
+        return self.adata
