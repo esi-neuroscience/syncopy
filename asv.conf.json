@@ -22,15 +22,15 @@
     // uninstalling the project. See asv.conf.json documentation.
     //
     // "install_command": ["in-dir={env_dir} python -mpip install {wheel_file}"],
-    "install_command": ["poetry install"],
+    //"install_command": [ "python -m pip install poetry", "poetry install", "poetry shell"],
     // "uninstall_command": ["return-code=any python -mpip uninstall -y {project}"],
-    "uninstall_command": ["poetry run pip uninstall esi-syncopy -y"],
-       "build_command": [
+    //"uninstall_command": ["poetry run pip uninstall esi-syncopy -y"],
+    //   "build_command": [
          //"python setup.py build",
          //"PIP_NO_BUILD_ISOLATION=false python -mpip wheel --no-deps --no-index -w {build_cache_dir} {build_dir}"
-         "python -m pip install poetry",
-         "poetry build"
-    ],
+    //     "python -m pip install poetry",
+    //     "poetry build"
+    //],
 
     // List of branches to benchmark. If not provided, defaults to "master"
     // (for git) or "default" (for mercurial).
@@ -66,7 +66,7 @@
     "conda_channels": ["conda-forge", "defaults"],
 
     // A conda environment file that is used for environment creation.
-    "conda_environment_file": "syncopy.yml",
+    "conda_environment_file": "asv_syncopy.yml",
 
     // The matrix of dependencies to test.  Each key of the "req"
     // requirements dictionary is the name of a package (in PyPI) and
@@ -88,15 +88,16 @@
     // new environments.  A value of ``null`` means that the variable
     // will not be set for the current combination.
     //
-     "matrix": {
-         "req": {
+
+    //"matrix": {
+    //     "req": {
              //"numpy": ["1.6", "1.7"],
-             "esi-acme": ["", null] //,  // test with and without esi-acme installed (from conda)
+    //         "esi-acme": ["", null] //,  // test with and without esi-acme installed (from conda)
     //         "pip+emcee": [""]   // emcee is only available for install with pip.
-         } //,
+    //     } //,
          //"env": {"ENV_VAR_1": ["val1", "val2"]},
          //"env_nobuild": {"ENV_VAR_2": ["val3", null]},
-    },
+    //},
 
     // Combinations of libraries/python versions can be excluded/included
     // from the set to test. Each entry is a dictionary containing additional
