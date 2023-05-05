@@ -22,11 +22,15 @@
     // uninstalling the project. See asv.conf.json documentation.
     //
     // "install_command": ["in-dir={env_dir} python -mpip install {wheel_file}"],
+    "install_command": ["poetry install"],
     // "uninstall_command": ["return-code=any python -mpip uninstall -y {project}"],
-    // "build_command": [
-    //     "python setup.py build",
-    //     "PIP_NO_BUILD_ISOLATION=false python -mpip wheel --no-deps --no-index -w {build_cache_dir} {build_dir}"
-    // ],
+    "uninstall_command": ["poetry run pip uninstall esi-syncopy -y"],
+       "build_command": [
+         //"python setup.py build",
+         //"PIP_NO_BUILD_ISOLATION=false python -mpip wheel --no-deps --no-index -w {build_cache_dir} {build_dir}"
+         "python -m pip install poetry",
+         "poetry build"
+    ],
 
     // List of branches to benchmark. If not provided, defaults to "master"
     // (for git) or "default" (for mercurial).
@@ -59,7 +63,7 @@
 
     // The list of conda channel names to be searched for benchmark
     // dependency packages in the specified order
-    // "conda_channels": ["conda-forge", "defaults"],
+    "conda_channels": ["conda-forge", "defaults"],
 
     // A conda environment file that is used for environment creation.
     "conda_environment_file": "syncopy.yml",
