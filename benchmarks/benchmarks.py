@@ -20,7 +20,10 @@ class SelectionSuite:
 
 
 class MemSuite:
-    """Test memory usage of data classes."""
+    """Test memory usage of data classes.
+    Note that this is intented to test memory usage of python objects, not of a function call.
+    Use the mem_peak prefix for that.
+    """
 
     def setup(self):
         self.adata = white_noise(nSamples=500, nChannels=16, nTrials=200)
