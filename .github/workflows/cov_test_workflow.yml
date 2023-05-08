@@ -41,6 +41,11 @@ jobs:
         poetry run pytest -k 'computationalroutine and parallel'
         # don't run general parallel tests
         poetry run pytest  -k 'not parallel' --color=yes --tb=short --verbose --cov=../../syncopy --cov-config=../../.coveragerc --cov-report=xml
+    - name: Run benchmarks
+      run: |
+        cd syncopy/benchmarks
+        poetry run asv machine --yes
+        poetry run asv continuous base pr --strict -e
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
