@@ -140,11 +140,35 @@ class DiscreteData(BaseData, ABC):
             raise exc
         self._samplerate = sr
 
+    @BaseData.trialdefinition.setter
+    def trialdefinition(self, trldef):
+
+        if trldef is None:
+            sidx = self.dimord.index("sample")
+            self._trialdefinition = np.array([[np.nanmin(self.data[:, sidx]),
+                                               np.nanmax(self.data[:, sidx]), 0]])
+        else:
+            array_parser(trldef, varname="trialdefinition", dims=2)
+            array_parser(trldef[:, :2], varname="sampleinfo", hasnan=False,
+                         hasinf=False, ntype="int_like", lims=[0, np.inf])
+
+            self._trialdefinition = trldef.copy()
+
+            # Compute trial-IDs by matching data samples with provided trial-bounds
+            samples = self.data[:, self.dimord.index("sample")]
+            idx = np.searchsorted(samples, self.sampleinfo.ravel())
+            idx = idx.reshape(self.sampleinfo.shape)
+
+            self._trialslice = [slice(st,end) for st,end in idx]
+            self.trialid = np.full((samples.shape), -1, dtype=int)
+            for itrl, itrl_slice in enumerate(self._trialslice):
+                self.trialid[itrl_slice] = itrl
+
     @property
     def time(self):
         """list(float): trigger-relative time of each event """
         if self.samplerate is not None and self.sampleinfo is not None:
-            return [(trl[:,self.dimord.index("sample")] - self.sampleinfo[tk,0] + self._t0[tk]) / self.samplerate \
+            return [(trl[:,self.dimord.index("sample")] - self.sampleinfo[tk,0] + self.trialdefinition[tk, 2]) / self.samplerate \
                     for tk, trl in enumerate(self.trials)]
 
     @property
@@ -177,7 +201,7 @@ class DiscreteData(BaseData, ABC):
     def trialtime(self):
         """list(:class:`numpy.ndarray`): trigger-relative sample times in s"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            sample0 = self.sampleinfo[:, 0] - self._t0[:]
+            sample0 = self.sampleinfo[:, 0] - self._t0
             sample0 = np.append(sample0, np.nan)[self.trialid]
             return (self.data[:, self.dimord.index("sample")] - sample0) / self.samplerate
 
@@ -226,74 +250,6 @@ class DiscreteData(BaseData, ABC):
         shp = [len(idx[0]), nCol]
 
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
-
-    # Helper function that extracts by-trial timing-related indices
-    def _get_time(self, trials, toi=None, toilim=None):
-        """
-        Get relative by-trial indices of time-selections.
-
-        Parameters
-        ----------
-        trials : list
-            List of trial-indices to perform selection on.
-        toi : None or list
-            Time-points to be selected (in seconds) on a by-trial scale.
-        toilim : None or list
-            Time-window to be selected (in seconds) on a by-trial scale.
-
-        Returns
-        -------
-        timing : list of lists
-            List of by-trial sample-indices corresponding to provided
-            time-selection. If both `toi` and `toilim` are `None`, `timing`
-            is a list of universal (i.e., ``slice(None)``) selectors.
-
-        Notes
-        -----
-        This class method is intended to be solely used by
-        :class:`syncopy.datatype.selector.Selector` objects and thus has purely
-        auxiliary character. Therefore, all input sanitization and error checking
-        is left to :class:`syncopy.datatype.selector.Selector` and not
-        performed here.
-
-        See also
-        --------
-        syncopy.datatype.selector.Selector : Syncopy data selectors
-        """
-        timing = []
-        if toilim is not None:
-            allTrials = self.trialtime
-            for trlno in trials:
-                trlTime = allTrials[self._trialslice[trlno]]
-                _, selTime = best_match(trlTime, toilim, span=True)
-                selTime = selTime.tolist()
-                if len(selTime) > 1 and np.diff(trlTime).min() > 0:
-                    timing.append(slice(selTime[0], selTime[-1] + 1, 1))
-                else:
-                    timing.append(selTime)
-
-        elif toi is not None:
-            allTrials = self.trialtime
-            for trlno in trials:
-                trlTime = allTrials[self._trialslice[trlno]]
-                _, arrayIdx = best_match(trlTime, toi)
-                # squash duplicate values then readd
-                _, xdi = np.unique(trlTime[arrayIdx], return_index=True)
-                arrayIdx = arrayIdx[xdi] # we assume sorted data
-                selTime = []
-                for t in arrayIdx:
-                    selTime += np.where(trlTime[t] == trlTime)[0].tolist()
-                # convert to slice if possible
-                if len(selTime) > 1:
-                    timeSteps = np.diff(selTime)
-                    if timeSteps.min() == timeSteps.max() == 1:
-                        selTime = slice(selTime[0], selTime[-1] + 1, 1)
-                timing.append(selTime)
-
-        else:
-            timing = [slice(None)] * len(trials)
-
-        return timing
 
     def __init__(self, data=None, samplerate=None, trialid=None, **kwargs):
 

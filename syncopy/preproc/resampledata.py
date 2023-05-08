@@ -113,10 +113,6 @@ def resampledata(data,
     if data.selection is not None:
         sinfo = data.selection.trialdefinition[:, :2]
         # user picked discrete set of time points
-        if isinstance(data.selection.time[0], list):
-            lgl = "equidistant time points (toi) or time slice (toilim)"
-            actual = "non-equidistant set of time points"
-            raise SPYValueError(legal=lgl, varname="select", actual=actual)
     else:
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()

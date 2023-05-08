@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 - created dedicated `syncopy.synthdata` module
 - synthetic data routines use generators instead of lists
 - FIR filters work around NaNs in the input via slower direct convolutions
+- `.time` property returns either an iterable or a single time array when indexed
+- substantial performance gains for selections with/from many (>1000) trials
 
 ## [2023.03]
 

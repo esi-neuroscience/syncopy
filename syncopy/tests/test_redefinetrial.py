@@ -35,9 +35,9 @@ class TestRedefinetrial:
     # check trial lengths in seconds
     assert np.all(np.diff(reg_data.trialintervals) == 0.9)
     assert not np.all(np.diff(irreg_data.trialintervals) == 0.9)
-    # one short trial
+    # # one short trial
     assert np.sum(np.diff(irreg_data.trialintervals) < 0.9) == 1
-    # one long trial
+    # # one long trial
     assert np.sum(np.diff(irreg_data.trialintervals) > 0.9) == 1
 
     def test_user_input(self):

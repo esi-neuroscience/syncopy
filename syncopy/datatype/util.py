@@ -4,6 +4,7 @@ Helpers and tools for Syncopy data classes
 
 import os
 from numbers import Number
+import numpy as np
 
 # Syncopy imports
 from syncopy import __storage__, __storagelimit__, __sessionid__
@@ -30,14 +31,14 @@ class TrialIndexer:
         """
 
         self.data_object = data_object
-        self.idx_list = idx_list
+        self.idx_set = set(idx_list)
         self._len = len(idx_list)
 
     def __getitem__(self, trialno):
         # single trial access via index operator []
         if not isinstance(trialno, Number):
             raise SPYTypeError(trialno, "trial index", "single number to index a single trial")
-        if trialno not in self.idx_list:
+        if trialno not in self.idx_set:
             lgl = "index of existing trials"
             raise SPYValueError(lgl, "trial index", trialno)
         return self.data_object._get_trial(trialno)
@@ -46,7 +47,59 @@ class TrialIndexer:
         # this generator gets freshly created and exhausted
         # for each new iteration, with only 1 trial being in memory
         # at any given time
-        yield from (self[i] for i in self.idx_list)
+        yield from (self[i] for i in self.idx_set)
+
+    def __len__(self):
+        return self._len
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return "{} element iterable".format(self._len)
+
+
+class TimeIndexer:
+
+    def __init__(self, trialdefinition, samplerate, idx_list):
+        """
+        Class to obtain an indexable time array iterable from
+        an instantiated Syncopy data class `data_object`.
+        Relies on the `trialdefinition` of the respective
+        `data_object`.
+
+        Parameters
+        ----------
+        data_object : Syncopy data class, e.g. AnalogData
+
+        idx_list : list
+            List of valid trial indices
+        """
+
+        self.trialdefinition = trialdefinition
+        self.samplerate = samplerate
+        self.idx_set = set(idx_list)
+        self._len = len(idx_list)
+
+    def construct_time_array(self, trialno):
+
+        start, stop, offset = self.trialdefinition[trialno, :3]
+        return (np.arange(0, stop - start) + offset) / self.samplerate
+
+    def __getitem__(self, trialno):
+        # single trial access via index operator []
+        if not isinstance(trialno, Number):
+            raise SPYTypeError(trialno, "trial index", "single number to index a single trial")
+        if trialno not in self.idx_set:
+            lgl = "index of existing trials"
+            raise SPYValueError(lgl, "trial index", trialno)
+        return self.construct_time_array(trialno)
+
+    def __iter__(self):
+        # this generator gets freshly created and exhausted
+        # for each new iteration, with only 1 time array being in memory
+        # at any given time
+        yield from (self[i] for i in self.idx_set)
 
     def __len__(self):
         return self._len
@@ -106,6 +159,3 @@ def setup_storage(storage_dir=__storage__):
             raise IOError(err.format(storage_dir, str(exc)))
 
     return get_dir_size(storage_dir, out="GB")
-
-
-

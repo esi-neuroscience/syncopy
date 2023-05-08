@@ -17,10 +17,13 @@ from collections.abc import Iterator
 # Local imports
 from .base_data import BaseData, FauxTrial, _definetrial
 from .methods.definetrial import definetrial
+from .base_data import BaseData
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError, SPYWarning
+from syncopy.shared.errors import SPYValueError, log
 from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
+from .util import TimeIndexer
+
 
 
 __all__ = ["AnalogData", "SpectralData", "CrossSpectralData", "TimeLockData"]
@@ -85,7 +88,7 @@ class ContinuousData(BaseData, ABC):
         for attr in ppattrs:
             value = getattr(self, attr)
             if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
-                tlen = np.unique([sinfo[1] - sinfo[0] for sinfo in self.sampleinfo])
+                tlen = np.unique(np.diff(self.sampleinfo))
                 if tlen.size == 1:
                     trlstr = "of length {} ".format(str(tlen[0]))
                 else:
@@ -152,11 +155,8 @@ class ContinuousData(BaseData, ABC):
             raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
                   "Please assign data first")
 
-        try:
-            array_parser(channel, varname="channel", ntype="str",
-                         dims=(self.data.shape[self.dimord.index("channel")],))
-        except Exception as exc:
-            raise exc
+        array_parser(channel, varname="channel", ntype="str",
+                     dims=(self.data.shape[self.dimord.index("channel")],))
 
         self._channel = np.array(channel)
 
@@ -171,18 +171,38 @@ class ContinuousData(BaseData, ABC):
             self._samplerate = None
             return
 
-        try:
-            scalar_parser(sr, varname="samplerate", lims=[np.finfo('float').eps, np.inf])
-        except Exception as exc:
-            raise exc
+        scalar_parser(sr, varname="samplerate", lims=[np.finfo('float').eps, np.inf])
         self._samplerate = float(sr)
+        # we need a new TimeIndexer
+        if self.trialdefinition is not None:
+            self._time = TimeIndexer(self.trialdefinition,
+                                     self.samplerate,
+                                     list(self._trial_ids))
+
+    @BaseData.trialdefinition.setter
+    def trialdefinition(self, trldef):
+
+        # all-to-all trialdefinition
+        if trldef is None:
+            self._trialdefinition = np.array([[0, self.data.shape[self.dimord.index("time")], 0]])
+            self._trial_ids = [0]
+        else:
+            scount = self.data.shape[self.dimord.index("time")]
+            array_parser(trldef, varname="trialdefinition", dims=2)
+            array_parser(trldef[:, :2], varname="sampleinfo", hasnan=False,
+                         hasinf=False, ntype="int_like", lims=[0, scount])
+
+            self._trialdefinition = trldef.copy()
+            self._trial_ids = np.arange(self.sampleinfo.shape[0])
+            self._time = TimeIndexer(self.trialdefinition,
+                                     self.samplerate,
+                                     list(self._trial_ids))
 
     @property
     def time(self):
-        """list(float): trigger-relative time axes of each trial """
+        """indexable iterable of the time arrays"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            return [(np.arange(0, stop - start) + self._t0[tk]) / self.samplerate \
-                    for tk, (start, stop) in enumerate(self.sampleinfo)]
+            return self._time
 
     # Helper function that grabs a single trial
     def _get_trial(self, trialno):
@@ -233,7 +253,7 @@ class ContinuousData(BaseData, ABC):
         if self.selection is not None:
 
             # time-selection is most delicate due to trial-offset
-            tsel = self.selection.time[self.selection.trial_ids.index(trialno)]
+            tsel = self.selection.time[trialno]
             if isinstance(tsel, slice):
                 if tsel.start is not None:
                     tstart = tsel.start
@@ -244,7 +264,7 @@ class ContinuousData(BaseData, ABC):
                 else:
                     tstop = stop - start
 
-                # account for trial offsets an compute slicing index + shape
+                # account for trial offsets and compute slicing index + shape
                 start = start + tstart
                 stop = start + (tstop - tstart)
                 idx[self._stackingDim] = slice(start, stop)
@@ -283,71 +303,13 @@ class ContinuousData(BaseData, ABC):
 
         return FauxTrial(shp, tuple(idx), self.data.dtype, self.dimord)
 
-    # Helper function that extracts timing-related indices
-    def _get_time(self, trials, toi=None, toilim=None):
-        """
-        Get relative by-trial indices of time-selections
-        `toi` is legacy.. `toilim ` is used by selections via `latency`
-
-        Parameters
-        ----------
-        trials : list
-            List of trial-indices to perform selection on
-        toi : None or list
-            Time-points to be selected (in seconds) on a by-trial scale.
-        toilim : None or list
-            Time-window to be selected (in seconds) on a by-trial scale
-
-        Returns
-        -------
-        timing : list of lists
-            List of by-trial sample-indices corresponding to provided
-            time-selection. If both `toi` and `toilim` are `None`, `timing`
-            is a list of universal (i.e., ``slice(None)``) selectors.
-
-        Notes
-        -----
-        This class method is intended to be solely used by
-        :class:`syncopy.datatype.selector.Selector` objects and thus has purely
-        auxiliary character. Therefore, all input sanitization and error checking
-        is left to :class:`syncopy.datatype.selector.Selector` and not
-        performed here.
-
-        See also
-        --------
-        syncopy.datatype.selector.Selector : Syncopy data selectors
-        """
-        timing = []
-        if toilim is not None:
-            for trlno in trials:
-                _, selTime = best_match(self.time[trlno], toilim, span=True)
-                selTime = selTime.tolist()
-                if len(selTime) > 1:
-                    timing.append(slice(selTime[0], selTime[-1] + 1, 1))
-                else:
-                    timing.append(selTime)
-
-        elif toi is not None:
-            for trlno in trials:
-                _, selTime = best_match(self.time[trlno], toi)
-                selTime = selTime.tolist()
-                if len(selTime) > 1:
-                    timeSteps = np.diff(selTime)
-                    if timeSteps.min() == timeSteps.max() == 1:
-                        selTime = slice(selTime[0], selTime[-1] + 1, 1)
-                timing.append(selTime)
-
-        else:
-            timing = [slice(None)] * len(trials)
-
-        return timing
-
     # Make instantiation persistent in all subclasses
     def __init__(self, data=None, channel=None, samplerate=None, **kwargs):
 
         self._channel = None
         self._samplerate = None
         self._data = None
+        self._time = None
 
         self.samplerate = samplerate     # use setter for error-checking
 
@@ -822,8 +784,8 @@ class TimeLockData(ContinuousData):
                               ...]
         """
 
-        # first harness all parsers here
-        _definetrial(self, trialdefinition=trldef)
+        # we need parent setter for basic validation
+        ContinuousData.trialdefinition.fset(self, trldef)
 
         # now check for additional conditions
 
@@ -841,7 +803,6 @@ class TimeLockData(ContinuousData):
             raise SPYValueError(lgl, varname="trialdefinition", actual=act)
 
     # TODO - overload `time` property, as there is only one by definition!
-
     # implement plotting
     def singlepanelplot(self, shifted=True, **show_kwargs):
 

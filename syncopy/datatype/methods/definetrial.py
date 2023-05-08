@@ -10,6 +10,7 @@ import numpy as np
 # Local imports
 from syncopy.shared.parsers import data_parser, array_parser, scalar_parser
 from syncopy.shared.errors import SPYTypeError, SPYValueError
+from ...datatype.util import TimeIndexer
 
 __all__ = ["definetrial"]
 
@@ -74,10 +75,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
     """
 
     # Start by vetting input object
-    try:
-        data_parser(obj, varname="obj")
-    except Exception as exc:
-        raise exc
+    data_parser(obj, varname="obj")
     if obj.data is None:
         lgl = "non-empty Syncopy data object"
         act = "empty Syncopy data object"
@@ -86,11 +84,8 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
     # Check array/object holding trial specifications
     if trialdefinition is not None:
         if trialdefinition.__class__.__name__ == "EventData":
-            try:
-                data_parser(trialdefinition, varname="trialdefinition",
-                            writable=None, empty=False)
-            except Exception as exc:
-                raise exc
+            data_parser(trialdefinition, varname="trialdefinition",
+                        writable=None, empty=False)
             evt = True
         else:
             array_parser(trialdefinition, varname="trialdefinition", dims=2)
@@ -99,11 +94,8 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 scount = obj.data.shape[obj.dimord.index("time")]
             else:
                 scount = np.inf
-            try:
-                array_parser(trialdefinition[:, :2], varname="sampleinfo", dims=(None, 2), hasnan=False,
+            array_parser(trialdefinition[:, :2], varname="sampleinfo", dims=(None, 2), hasnan=False,
                          hasinf=False, ntype="int_like", lims=[0, scount])
-            except Exception as exc:
-                raise exc
 
             trl = np.array(trialdefinition, dtype="float")
             ref = obj
@@ -325,7 +317,8 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                             actual="shape = {shp:s}".format(shp=str(trl.shape)))
 
     # Finally: assign `sampleinfo`, `t0` and `trialinfo` (and potentially `trialid`)
-    tgt._trialdefinition = trl
+    # use target class setter
+    tgt.trialdefinition = trl
 
     # In the discrete case, we have some additinal work to do
     if any(["DiscreteData" in str(base) for base in tgt.__class__.__mro__]):
