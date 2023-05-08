@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - FIR filters work around NaNs in the input via slower direct convolutions
 - `.time` property returns either an iterable or a single time array when indexed
 - substantial performance gains for selections with/from many (>1000) trials
+- catch and delete virtual datasets from storage directory
 
 ## [2023.03]
 
