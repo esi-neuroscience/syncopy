@@ -1,5 +1,7 @@
 
-on: push
+on:
+  # only manual trigger here
+  workflow_dispatch:
 
 benchmark:
     name: benchmark
