@@ -44,7 +44,6 @@ jobs:
     - name: Run benchmarks
       run: |
         pip install asv virtualenv
-        cd benchmarks
         poetry run asv machine --yes
         poetry run asv continuous base pr --strict -e
     - name: Upload coverage to Codecov
