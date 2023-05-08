@@ -45,7 +45,7 @@ jobs:
       run: |
         pip install asv virtualenv
         poetry run asv machine --yes
-        poetry run asv continuous base pr --strict -e
+        poetry run asv run
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
