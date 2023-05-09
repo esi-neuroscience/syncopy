@@ -3,28 +3,40 @@
 Synthetic Data
 ==============
 
-For testing and demonstrational purposes it is always good to work with synthetic data. Syncopy brings its own suite of synthetic data generators, but it is also possible to devise your own synthetic data and conveniently analyze it with Syncopy.
+For testing and educational purposes it is always good to work with synthetic data. Syncopy brings its own suite of synthetic data generators, but it is also possible to devise your own synthetic data using standard `NumPy <https://numpy.org>`_.
 
 .. contents::
    :local:
-
-.. _gen_synth_recipe:
 
 
 Built-in Generators
 -------------------
 
-These generators return either a multi-trial :class:`~syncopy.AnalogData` object or a single-trial NumPy array, so to import them into Syncopy use the :ref:`gen_synth_recipe` described above.
+Using syncopy's homegrown synthetic data generators is straightforward, they all reside inside the ``syncopy.synthdata`` module. With the help of basic arithmetical operations different scenarios are possible. Let's look at an example::
+
+  import syncopy as spy
+
+  cfg = spy.StructDict()
+  cfg.nTrials = 40
+  cfg.samplerate = 500
+  cfg.nSamples = 500
+  cfg.nChannels = 5
+  
+  sdata = spy.synthdata.harmonic(freq=10, cfg)
+
+
+These generators return a multi-trial :class:`~syncopy.AnalogData` object representing multi-channel time series data:
 
 .. autosummary::
 
-   .. currentmodule:: 
    syncopy.synthdata.harmonic
    syncopy.synthdata.linear_trend
    syncopy.synthdata.phase_diffusion
    syncopy.synthdata.AR2_network
    syncopy.synthdata.white_noise
 
+
+.. _gen_synth_recipe:
 
 General Recipe
 --------------

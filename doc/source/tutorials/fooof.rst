@@ -27,7 +27,7 @@ a single channel here (see :ref:`the Synthetic data tutorial<synth_data>` for de
 
     import numpy as np
     from syncopy import freqanalysis, get_defaults
-    from syncopy.tests.synth_data import AR2_network, phase_diffusion
+    from syncopy.synthdata import AR2_network, phase_diffusion
 
     def get_signals(nTrials=500, nChannels = 1):
         nSamples = 1000

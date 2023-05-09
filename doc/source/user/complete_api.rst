@@ -7,3 +7,4 @@ Reference to the complete Syncopy API
    :local:
 
 .. automodapi:: syncopy
+.. automodapi:: syncopy.synthdata
