@@ -1,14 +1,20 @@
 # Changelog of SyNCoPy
 All notable changes to this project will be documented in this file.
 
-## [unpublished]
+## [2023.05]
+
+### NEW
+- created dedicated `syncopy.synthdata` module
+- FIR filters work around NaNs in the input via slower direct convolutions
 
 ### Changed
-- created dedicated `syncopy.synthdata` module
 - synthetic data routines use generators instead of lists
-- FIR filters work around NaNs in the input via slower direct convolutions
 - `.time` property returns either an iterable or a single time array when indexed
 - substantial performance gains for selections with/from many (>1000) trials
+
+### Fixed
+- catch and delete virtual datasets from storage directory
+- channel assignment for ContinuousData
 
 ## [2023.03]
 

@@ -7,6 +7,7 @@
 import os
 import json
 import h5py
+import shutil
 import numpy as np
 from collections import OrderedDict
 import syncopy as spy
@@ -257,16 +258,20 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
     # Save the dataset names that should be loaded later into the JSON.
     outDict['_hdfFileDatasetProperties'] = list(out._hdfFileDatasetProperties)
 
-
     # Re-assign filename after saving (and remove source in case it came from `__storage__`)
     if not replace:
         h5f.close()
+        # points to source file path
         if __storage__ in out.filename:
+            is_virtual = out.data.is_virtual
             out.data.file.close()
             try:
                 os.unlink(out.filename)
+                if is_virtual:
+                    virtual_dir_path = os.path.splitext(out.filename)[0]
+                    shutil.rmtree(virtual_dir_path)
             except PermissionError as ex:
-                print(f"Could not delete file '{out.filename}': {str(ex)}.")
+                spy.log(f"Could not delete file '{out.filename}': {str(ex)}.", level='IMPORTANT')
         out.data = dataFile
 
     # Compute checksum and finally write JSON (automatically overwrites existing)
@@ -274,9 +279,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
 
     with open(infoFile, 'w') as out_json:
         json.dump(outDict, out_json, indent=4)
-
-    return
-
+    spy.log(f"Wrote container to {os.path.dirname(out.filename)}", level='INFO')
 
 def _dict_converter(dct, firstrun=True):
     """
