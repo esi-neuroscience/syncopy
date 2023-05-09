@@ -22,7 +22,7 @@
     // uninstalling the project. See asv.conf.json documentation.
     //
     // "install_command": ["in-dir={env_dir} python -mpip install {wheel_file}"],
-    "install_command": [ "python -m pip install poetry", "poetry install", "poetry shell"],
+    "install_command": [ "python -m pip install poetry", "poetry install"],
     //"uninstall_command": ["return-code=any python -mpip uninstall -y {project}"],
     "uninstall_command": ["poetry run pip uninstall esi-syncopy -y"],
        "build_command": [
@@ -98,6 +98,13 @@
          //"env": {"ENV_VAR_1": ["val1", "val2"]},
          //"env_nobuild": {"ENV_VAR_2": ["val3", null]},
     //},
+
+     // add poetry here, see https://github.com/airspeed-velocity/asv/issues/1241
+    "matrix": {
+         "req": {
+             "poetry": [""]
+         }
+    },
 
     // Combinations of libraries/python versions can be excluded/included
     // from the set to test. Each entry is a dictionary containing additional
