@@ -514,8 +514,8 @@ class TestDetrending:
 
     nTrials = 2
     nSamples = 5000
-    AData = sd.linear_trend(nTrials, nSamples=nSamples, y_max=10)
-    AData += sd.white_noise(nTrials, nSamples=nSamples) + 5  # add constant
+    AData = sd.linear_trend(nTrials=2, nSamples=nSamples, y_max=10)
+    AData += sd.white_noise(nTrials=2, nSamples=nSamples) + 5  # add constant
 
     def test_demeaning(self):
 
@@ -608,7 +608,7 @@ class TestStandardize:
 
     nTrials = 2
     nSamples = 5000
-    AData = 100 * sd.white_noise(nTrials, nSamples=nSamples) + 5  # add constant
+    AData = 100 * sd.white_noise(nTrials=nTrials, nSamples=nSamples) + 5  # add constant
 
     def test_standardize(self):
 

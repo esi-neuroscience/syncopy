@@ -1,4 +1,4 @@
-.. _synth_data:
+.. _synthdata:
    
 Synthetic Data
 ==============
@@ -9,6 +9,22 @@ For testing and demonstrational purposes it is always good to work with syntheti
    :local:
 
 .. _gen_synth_recipe:
+
+
+Built-in Generators
+-------------------
+
+These generators return either a multi-trial :class:`~syncopy.AnalogData` object or a single-trial NumPy array, so to import them into Syncopy use the :ref:`gen_synth_recipe` described above.
+
+.. autosummary::
+
+   .. currentmodule:: 
+   syncopy.synthdata.harmonic
+   syncopy.synthdata.linear_trend
+   syncopy.synthdata.phase_diffusion
+   syncopy.synthdata.AR2_network
+   syncopy.synthdata.white_noise
+
 
 General Recipe
 --------------
@@ -76,19 +92,6 @@ Now we can directly run a multi-tapered FFT analysis and plot the power spectra 
 
 As constructed, we have two harmonic peaks at the respective frequencies (20Hz and 50Hz) and the white noise floor on all channels.
     
-Built-in Generators
--------------------
-
-These generators return single-trial NumPy arrays, so to import them into Syncopy use the :ref:`gen_synth_recipe` described above.
-
-.. autosummary::
-
-   .. currentmodule:: 
-   syncopy.tests.synth_data.harmonic
-   syncopy.tests.synth_data.linear_trend
-   syncopy.tests.synth_data.phase_diffusion
-   syncopy.tests.synth_data.AR2_network
-   syncopy.tests.synth_data.white_noise
 
 
 

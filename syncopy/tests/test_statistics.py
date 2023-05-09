@@ -227,14 +227,14 @@ class TestSumStatistics:
 
     def test_itc(self, do_plot=True):
 
-        adata = sd.white_noise(100,
+        adata = sd.white_noise(nTrials=100,
                                nSamples=1000,
                                nChannels=2,
                                samplerate=500,
                                seed=42)
 
         # add simple 60Hz armonic
-        adata += sd.harmonic(100,
+        adata += sd.harmonic(nTrials=100,
                              freq=60,
                              nSamples=1000,
                              nChannels=2,
@@ -365,7 +365,7 @@ class TestJackknife:
         """
         nTrials = 10
         nSamples = 500
-        adata = 10 * sd.white_noise(nTrials, nSamples=nSamples, seed=helpers.test_seed)
+        adata = 10 * sd.white_noise(nTrials=nTrials, nSamples=nSamples, seed=helpers.test_seed)
         # to test for property propagation
         adata.channel = [f'chV_{i}' for i in range(1, 3)]
 
@@ -414,7 +414,7 @@ class TestJackknife:
         nSamples = 1000
         # sufficient to check this entry
         show_kwargs = {'channel_i': 0, 'channel_j': 1}
-        adata = sd.white_noise(nTrials, nSamples=nSamples, seed=helpers.test_seed)
+        adata = sd.white_noise(nTrials=nTrials, nSamples=nSamples, seed=helpers.test_seed)
 
         # confidence for 100 trials from
         # above mentioned publication for squared coherence
@@ -541,7 +541,7 @@ class TestJackknife:
         # weak coupling 1 -> 0
         AdjMat[1, 0] = 0.025
         nTrials = 35
-        adata = sd.AR2_network(nTrials, AdjMat=AdjMat, seed=42)
+        adata = sd.AR2_network(nTrials=nTrials, AdjMat=AdjMat, seed=42)
         # true causality is at 200Hz
         flims = [190, 210]
 

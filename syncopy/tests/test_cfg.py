@@ -35,7 +35,7 @@ class TestCfg:
 
     # -- use flat white noise as test data --
 
-    adata = synthdata.white_noise(nTrials,
+    adata = synthdata.white_noise(nTrials=nTrials,
                                   nSamples=nSamples,
                                   nChannels=nChannels,
                                   samplerate=fs)
