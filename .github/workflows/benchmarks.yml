@@ -25,4 +25,4 @@ jobs:
       run: |
         pip install asv virtualenv
         poetry run asv machine --yes
-        poetry run asv run
+        poetry run asv run HEAD^! --show-stderr
