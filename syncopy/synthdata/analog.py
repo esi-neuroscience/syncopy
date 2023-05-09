@@ -16,14 +16,27 @@ _2pi = np.pi * 2
 
 
 @collect_trials
-def white_noise(nSamples=1000, nChannels=2, seed=42):
+def white_noise(nSamples=1000, nChannels=2, seed=None):
     """
     Plain white noise with unity standard deviation.
 
-    Pass an extra `nTrials` `int` Parameter to generate multi-trial data using the `@collect_trials` decorator.
+    Parameters
+    ----------
+    nSamples : int
+        Number of samples per trial
+    nChannels : int
+        Number of channels
+    seed : int or None
+        Set to a number to get reproducible random numbers
+
+    Returns
+    --------
+    wn : :class:`syncopy.AnalogData` or numpy.ndarray
     """
+
     rng = np.random.default_rng(seed)
-    return rng.normal(size=(nSamples, nChannels))
+    wn = rng.normal(size=(nSamples, nChannels))
+    return wn
 
 
 @collect_trials
@@ -31,7 +44,19 @@ def linear_trend(y_max, nSamples=1000, nChannels=2):
     """
     A linear trend  on all channels from 0 to `y_max` in `nSamples`.
 
-    Pass an extra `nTrials` `int` Parameter to generate multi-trial data using the `@collect_trials` decorator.
+    Parameters
+    ----------
+    y_max : float
+        Ordinate value at the last sample,
+        slope is then given by samplerate * y_max / nSamples
+    nSamples : int
+        Number of samples per trial
+    nChannels : int
+        Number of channels
+
+    Returns
+    --------
+    trend : :class:`syncopy.AnalogData` or numpy.ndarray
     """
     trend = np.linspace(0, y_max, nSamples)
     return np.column_stack([trend for _ in range(nChannels)])
@@ -42,7 +67,21 @@ def harmonic(freq, samplerate, nSamples=1000, nChannels=2):
     """
     A harmonic with frequency `freq`.
 
-    Pass an extra `nTrials` `int` Parameter to generate multi-trial data using the `@collect_trials` decorator.
+    Parameters
+    ----------
+    freq : float
+        Frequency of the harmonic in Hz
+    samplerate : float
+        Sampling rate in Hz
+    nSamples : int
+        Number of samples per trial
+    nChannels : int
+        Number of channels
+
+    Returns
+    --------
+    harm : :class:`syncopy.AnalogData` or numpy.ndarray
+
     """
     # the sampling times vector needed for construction
     tvec = np.arange(nSamples) * 1 / samplerate
@@ -90,19 +129,18 @@ def phase_diffusion(freq,
         If set to ``True`` initial phases are randomized
     return_phase : bool, optional
         If set to true returns the phases in radians
-    seed: None or int, passed on to `np.random.default_rng`.
+    seed: None or int
           Set to an `int` to get reproducible results, or `None` for random ones.
-    nTrials: int, number of trials to generate using the `@collect_trials` decorator.
 
     Returns
     -------
-    phases : numpy.ndarray
+    phases : :class:`syncopy.AnalogData` or numpy.ndarray
         Synthetic `nSamples` x `nChannels` data array simulating noisy phase
         evolution/diffusion
     """
 
     # white noise
-    wn = white_noise(nSamples=nSamples, nChannels=nChannels, seed=seed)
+    wn = white_noise(nSamples=nSamples, nChannels=nChannels, seed=seed, nTrials=None)
 
     tvec = np.linspace(0, nSamples / samplerate, nSamples)
     omega0 = 2 * np.pi * freq
@@ -162,7 +200,6 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=(0.55, -0.8), seed=None):
         When using this function with an `nTrials` argument (`@collect_trials` wrapper), and you *do*
         want the data of all trials to be identical (and reproducible),
         pass a single scalar seed and set 'seed_per_trial=False'.
-    nTrials: int, number of trials to generate using the `@collect_trials` decorator.
 
     Returns
     -------
