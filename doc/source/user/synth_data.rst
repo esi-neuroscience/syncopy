@@ -12,30 +12,47 @@ For testing and educational purposes it is always good to work with synthetic da
 Built-in Generators
 -------------------
 
-Using syncopy's homegrown synthetic data generators is straightforward, they all reside inside the ``syncopy.synthdata`` module. With the help of basic arithmetical operations different scenarios are possible. Let's look at an example::
+These functions return a multi-trial :class:`~syncopy.AnalogData` object representing multi-channel time series data:
+
+.. autosummary::
+
+   syncopy.synthdata.harmonic
+   syncopy.synthdata.white_noise
+   syncopy.synthdata.ar1_noise
+   syncopy.synthdata.linear_trend
+   syncopy.synthdata.phase_diffusion   
+   syncopy.synthdata.ar2_network
+
+With the help of basic arithmetical operations we can combine different synthetic signals to arrive at more complex ones. Let's look at an example::
 
   import syncopy as spy
 
+  # set up cfg 
   cfg = spy.StructDict()
   cfg.nTrials = 40
   cfg.samplerate = 500
   cfg.nSamples = 500
   cfg.nChannels = 5
+
+  # start with a simple 60Hz harmonic
+  sdata = spy.synthdata.harmonic(freq=60, cfg=cfg)
+
+  # add some strong AR(1) process as surrogate 1/f
+  sdata = sdata + 5 * spy.synthdata.ar1_noise(alpha=0.95, cfg=cfg)
+
+  # plot all channels for a single trial
+  sdata.singlepanelplot(trials=10)
   
-  sdata = spy.synthdata.harmonic(freq=10, cfg)
+  # compute spectrum and plot trial average of 2 channels
+  spec = spy.freqanalysis(sdata, keeptrials=False)
+  spec.singlepanelplot(channel=[0, 2], frequency=[0,100])
 
+.. image:: /_static/synth_data1.png
+   :height: 300px
 
-These generators return a multi-trial :class:`~syncopy.AnalogData` object representing multi-channel time series data:
-
-.. autosummary::
-
-   syncopy.synthdata.harmonic
-   syncopy.synthdata.linear_trend
-   syncopy.synthdata.phase_diffusion
-   syncopy.synthdata.AR2_network
-   syncopy.synthdata.white_noise
-
-
+.. image:: /_static/synth_data1_spec.png
+   :height: 300px
+	    
 .. _gen_synth_recipe:
 
 General Recipe
@@ -81,6 +98,11 @@ In (pseudo-)Python code:
 .. note::
     The same recipe can be used to generally instantiate Syncopy data objects from NumPy arrays.
 
+.. note::
+    Syncopy data objects also accept Python generators as ``data``, allowing to stream
+    in trial arrays one by one. In effect this allows creating datasets which are larger
+    than the systems memory. This is also how the build in generators of ``syncopy.synthdata`` (see above) work under the hood.
+    
 
 Example: Noisy Harmonics
 ---------------------------

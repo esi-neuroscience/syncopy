@@ -107,7 +107,7 @@ class TestGranger:
     cpl_idx = np.where(AdjMat)
     nocpl_idx = np.where(AdjMat == 0)
 
-    data = synthdata.AR2_network(AdjMat=AdjMat,
+    data = synthdata.ar2_network(AdjMat=AdjMat,
                                  nSamples=nSamples,
                                  samplerate=fs,
                                  nTrials=nTrials,

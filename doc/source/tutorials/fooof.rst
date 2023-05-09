@@ -27,12 +27,12 @@ a single channel here (see :ref:`the Synthetic data tutorial<synth_data>` for de
 
     import numpy as np
     from syncopy import freqanalysis, get_defaults
-    from syncopy.synthdata import AR2_network, phase_diffusion
+    from syncopy.synthdata import ar2_network, phase_diffusion
 
     def get_signals(nTrials=500, nChannels = 1):
         nSamples = 1000
         samplerate = 1000
-        ar1_part = AR2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials)
+        ar1_part = ar2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials)
         pd1 = phase_diffusion(freq=30., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
         pd2 = phase_diffusion(freq=50., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
         signal = ar1_part + .8 * pd1 + 0.6 * pd2

@@ -27,7 +27,7 @@ def collect_trials(trial_func):
     All single trial producing functions (the ``trial_func``) should
     accept `nChannels` and `nSamples` as keyword arguments, OR provide
     other means to define those numbers, e.g.
-    `AdjMat` for :func:`~syncopy.synth_data.AR2_network`
+    `AdjMat` for :func:`~syncopy.synth_data.ar2_network`
 
     If the single trial function also accepts a `samplerate` parameter, forward it directly.
 
@@ -48,7 +48,6 @@ def collect_trials(trial_func):
     @unwrap_cfg
     @functools.wraps(trial_func)
     def wrapper_synth(*args, nTrials=100, samplerate=1000, seed=None, seed_per_trial=True, **tf_kwargs):
-
         seed_array = None  # One seed per trial.
         # Use the single seed to create one seed per trial.
         if nTrials is not None and seed is not None and seed_per_trial:
