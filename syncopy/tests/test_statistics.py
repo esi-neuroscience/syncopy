@@ -541,7 +541,7 @@ class TestJackknife:
         # weak coupling 1 -> 0
         AdjMat[1, 0] = 0.025
         nTrials = 35
-        adata = sd.AR2_network(nTrials=nTrials, AdjMat=AdjMat, seed=42)
+        adata = sd.ar2_network(nTrials=nTrials, AdjMat=AdjMat, seed=42)
         # true causality is at 200Hz
         flims = [190, 210]
 

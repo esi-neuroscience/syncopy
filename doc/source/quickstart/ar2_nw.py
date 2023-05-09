@@ -11,5 +11,5 @@ AdjMat = np.zeros((2, 2))
 AdjMat[0, 1] = 0.2
 
 
-data = synth_data.AR2_network(nTrials, samplerate=500, AdjMat=AdjMat, nSamples=nSamples)
+data = synth_data.ar2_network(nTrials, samplerate=500, AdjMat=AdjMat, nSamples=nSamples)
 spec = spy.freqanalysis(data, tapsmofrq=3, keeptrials=False)

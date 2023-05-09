@@ -191,7 +191,7 @@ def test_wilson():
     CSDav = np.zeros((nSamples // 2 + 1, nChannels, nChannels), dtype=np.complex64)
     for _ in range(nTrials):
 
-        sol = synthdata.AR2_network(nSamples=nSamples, seed=None, nTrials=None)
+        sol = synthdata.ar2_network(nSamples=nSamples, seed=None, nTrials=None)
         # --- get the (single trial) CSD ---
 
         CSD, freqs = csd.csd(sol, fs,
@@ -276,7 +276,7 @@ def test_granger():
     for _ in range(nTrials):
 
         # -- simulate 2 AR(2) processes with 2->1 coupling --
-        sol = synthdata.AR2_network(nSamples=nSamples, nTrials=None)
+        sol = synthdata.ar2_network(nSamples=nSamples, nTrials=None)
 
         # --- get CSD ---
         bw = 2

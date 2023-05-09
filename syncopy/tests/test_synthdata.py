@@ -10,7 +10,7 @@ import pytest
 from syncopy import AnalogData
 from syncopy.shared.tools import StructDict
 from syncopy.synthdata import collect_trials
-from syncopy.synthdata import white_noise, AR2_network
+from syncopy.synthdata import white_noise, ar2_network
 from syncopy.shared.errors import SPYValueError
 
 
@@ -62,7 +62,8 @@ class TestSynthData:
         cfg.nSamples = self.nSamples
         cfg.nChannels = self.nChannels
         cfg.nTrials = None
-        cfg.seed = None
+        # that is the default
+        # cfg.seed = None
 
         wn1 = white_noise(cfg)
         wn2 = white_noise(cfg)
@@ -136,8 +137,8 @@ class TestSynthData:
            Note: This does not use collect trials.
         """
         num_channels = 2
-        arn1 = AR2_network(nSamples=self.nSamples, seed=None, nTrials=None)  # 2 channels, via default adj matrix
-        arn2 = AR2_network(nSamples=self.nSamples, seed=None, nTrials=None)
+        arn1 = ar2_network(nSamples=self.nSamples, seed=None, nTrials=None)  # 2 channels, via default adj matrix
+        arn2 = ar2_network(nSamples=self.nSamples, seed=None, nTrials=None)
         assert isinstance(arn1, np.ndarray)
         assert isinstance(arn2, np.ndarray)
         assert arn1.shape == (self.nSamples, num_channels)
@@ -150,8 +151,8 @@ class TestSynthData:
            Note: This does not use collect trials.
         """
         seed = 42
-        arn1 = AR2_network(nSamples=self.nSamples, seed=seed, seed_per_trial=False, nTrials=None)
-        arn2 = AR2_network(nSamples=self.nSamples, seed=seed, seed_per_trial=False, nTrials=None)
+        arn1 = ar2_network(nSamples=self.nSamples, seed=seed, seed_per_trial=False, nTrials=None)
+        arn2 = ar2_network(nSamples=self.nSamples, seed=seed, seed_per_trial=False, nTrials=None)
 
         assert np.allclose(arn1, arn2)
 

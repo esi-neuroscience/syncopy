@@ -38,7 +38,7 @@ def AR1_plus_harm_spec(nTrials=30, hfreq=30, ratio=0.7):
     fs = 400
     nSamples = 1000
     # single channel and alpha2 = 0 <-> single AR(1)
-    signals = [sd.AR2_network(AdjMat=np.zeros(1),
+    signals = [sd.ar2_network(AdjMat=np.zeros(1),
                               alphas=[0.8, 0],
                               nSamples=nSamples) + ratio * sd.phase_diffusion(freq=hfreq,
                                                                               fs=fs, eps=0.1,

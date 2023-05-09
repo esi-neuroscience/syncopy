@@ -17,7 +17,7 @@ import dask.distributed as dd
 from syncopy import freqanalysis
 from syncopy.datatype.methods.copy import copy
 from syncopy.shared.tools import get_defaults
-from syncopy.synthdata import AR2_network, phase_diffusion
+from syncopy.synthdata import ar2_network, phase_diffusion
 from syncopy.shared.metadata import encode_unique_md_label, decode_unique_md_label, parse_cF_returns, _parse_backend_metadata, _merge_md_list, metadata_from_hdf5_file, metadata_nest, metadata_unnest
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 import syncopy as spy
@@ -33,7 +33,7 @@ def _get_fooof_signal(nTrials=100, nChannels = 1, nSamples = 1000, seed=None):
     Returns AnalogData instance.
     """
     samplerate = 1000
-    ar1_part = AR2_network(AdjMat=np.zeros(nChannels), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials, seed=seed)
+    ar1_part = ar2_network(AdjMat=np.zeros(nChannels), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials, seed=seed)
     pd1 = phase_diffusion(freq=30., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials, seed=seed)
     pd2 = phase_diffusion(freq=50., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials, seed=seed)
     signal = ar1_part + .8 * pd1 + 0.6 * pd2
