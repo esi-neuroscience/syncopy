@@ -240,11 +240,11 @@ def ar2_network(AdjMat=None, nSamples=1000, alphas=(0.55, -0.8), seed=None):
 
 
 @collect_trials
-def ar1_noise(alpha, nSamples=1000, nChannels=2, seed=None):
+def red_noise(alpha, nSamples=1000, nChannels=2, seed=None):
 
     """
     Uncoupled multi-channel AR(1) process realizations.
-    For `alpha` close to 1 can be used as a mock up 1/f
+    For `alpha` close to 1 can be used as a surrogate 1/f
     background.
 
     Parameters
