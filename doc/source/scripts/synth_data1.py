@@ -5,7 +5,7 @@ import syncopy as spy
 def generate_noisy_harmonics(nSamples, nChannels, samplerate):
 
     f1, f2 = 20, 50 # the harmonic frequencies in Hz
-    
+
     # the sampling times vector
     tvec = np.arange(nSamples) * 1 / samplerate
 

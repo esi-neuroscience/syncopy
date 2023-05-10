@@ -174,7 +174,7 @@ Inplace Selections
 
 An in-place selection can be understood as a mask being put onto the data. Meaning that the selected subset of the data is actually **not copied on disc**, but the selection criteria are applied *in place* to be used in a processing step. Inplace selections take two forms: either explicit via the ``inplace`` keyword ``selectdata(..., inplace=True)``, or implicit by passing a ``select`` keyword to a Syncopy meta-function.
 
-To illustrate this mechanic, let's create a simulated dataset with :func:`~syncopy.tests.synth_data.phase_diffusion` and compute the coherence for the full dataset:
+To illustrate this mechanic, let's create a simulated dataset with :func:`~syncopy.synthdata.phase_diffusion` and compute the coherence for the full dataset:
 
 .. literalinclude:: /scripts/select_example.py
 

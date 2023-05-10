@@ -10,7 +10,7 @@ import pytest
 from syncopy import AnalogData
 from syncopy.shared.tools import StructDict
 from syncopy.synthdata import collect_trials
-from syncopy.synthdata import white_noise, AR2_network
+from syncopy.synthdata import white_noise, ar2_network
 from syncopy.shared.errors import SPYValueError
 
 
@@ -39,9 +39,9 @@ def test_trial_collection():
     assert len(adata.time[0]) == cfg.nSamples
     assert adata.samplerate == cfg.samplerate
 
-    # without nTrials, the decorator gets bypassed
+    # with nTrials=None, the decorator gets bypassed
     # and returns the single trial array
-    cfg.pop('nTrials')
+    cfg['nTrials'] = None
     arr = ones(cfg)
     assert isinstance(arr, np.ndarray)
     assert arr.shape == (cfg.nSamples, cfg.nChannels)
@@ -58,8 +58,15 @@ class TestSynthData:
         """Without seed set, the data should not be identical.
            Note: This does not use collect trials.
         """
-        wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, seed=None)
-        wn2 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, seed=None)
+        cfg = StructDict()
+        cfg.nSamples = self.nSamples
+        cfg.nChannels = self.nChannels
+        cfg.nTrials = None
+        # that is the default
+        # cfg.seed = None
+
+        wn1 = white_noise(cfg)
+        wn2 = white_noise(cfg)
         assert isinstance(wn1, np.ndarray)
         assert isinstance(wn2, np.ndarray)
 
@@ -69,9 +76,15 @@ class TestSynthData:
         """With seed set, the data should be identical.
            Note: This does not use @collect_trials.
         """
-        seed = 42
-        wn1 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, seed=seed)
-        wn2 = white_noise(nSamples=self.nSamples, nChannels=self.nChannels, seed=seed)
+        cfg = StructDict()
+        cfg.nSamples = self.nSamples
+        cfg.nChannels = self.nChannels
+        cfg.nTrials = None
+        cfg.seed = 42
+
+        wn1 = white_noise(cfg)
+        wn2 = white_noise(cfg)
+
         assert isinstance(wn1, np.ndarray)
         assert isinstance(wn2, np.ndarray)
 
@@ -124,8 +137,8 @@ class TestSynthData:
            Note: This does not use collect trials.
         """
         num_channels = 2
-        arn1 = AR2_network(nSamples=self.nSamples, seed=None)  # 2 channels, via default adj matrix
-        arn2 = AR2_network(nSamples=self.nSamples, seed=None)
+        arn1 = ar2_network(nSamples=self.nSamples, seed=None, nTrials=None)  # 2 channels, via default adj matrix
+        arn2 = ar2_network(nSamples=self.nSamples, seed=None, nTrials=None)
         assert isinstance(arn1, np.ndarray)
         assert isinstance(arn2, np.ndarray)
         assert arn1.shape == (self.nSamples, num_channels)
@@ -138,8 +151,8 @@ class TestSynthData:
            Note: This does not use collect trials.
         """
         seed = 42
-        arn1 = AR2_network(nSamples=self.nSamples, seed=seed, seed_per_trial=False)
-        arn2 = AR2_network(nSamples=self.nSamples, seed=seed, seed_per_trial=False)
+        arn1 = ar2_network(nSamples=self.nSamples, seed=seed, seed_per_trial=False, nTrials=None)
+        arn2 = ar2_network(nSamples=self.nSamples, seed=seed, seed_per_trial=False, nTrials=None)
 
         assert np.allclose(arn1, arn2)
 

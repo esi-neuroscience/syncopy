@@ -21,7 +21,7 @@ class TestAnalogPlotting():
     nTrials = 10
     nChannels = 9
     nSamples = 300
-    adata = synthdata.AR2_network(nTrials=nTrials,
+    adata = synthdata.ar2_network(nTrials=nTrials,
                                   AdjMat=np.zeros(nChannels),
                                   nSamples=nSamples,
                                   seed=helpers.test_seed)
@@ -137,12 +137,12 @@ class TestSpectralPlotting():
     nChannels = 4
     nSamples = 300
     AdjMat = np.zeros((nChannels, nChannels))
-    adata = synthdata.AR2_network(nTrials=nTrials,
+    adata = synthdata.ar2_network(nTrials=nTrials,
                                   AdjMat=AdjMat,
                                   nSamples=nSamples)
 
     # add AR(1) 'background'
-    adata = adata + 1.2 * synthdata.AR2_network(nTrials=nTrials,
+    adata = adata + 1.2 * synthdata.ar2_network(nTrials=nTrials,
                                                 AdjMat=AdjMat,
                                                 nSamples=nSamples,
                                                 alphas=[0.8, 0])
@@ -263,12 +263,12 @@ class TestCrossSpectralPlotting():
 
     AdjMat = np.zeros((nChannels, nChannels))
     AdjMat[2, 3] = 0.2   # coupling
-    adata = synthdata.AR2_network(nTrials=nTrials,
+    adata = synthdata.ar2_network(nTrials=nTrials,
                                   AdjMat=AdjMat,
                                   nSamples=nSamples)
 
     # add 'background'
-    adata = adata + .6 * synthdata.AR2_network(nTrials=nTrials,
+    adata = adata + .6 * synthdata.ar2_network(nTrials=nTrials,
                                                AdjMat=np.zeros((nChannels,
                                                                 nChannels)),
                                                nSamples=nSamples,

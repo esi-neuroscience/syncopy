@@ -10,7 +10,11 @@ import functools
 
 from syncopy import AnalogData
 from syncopy.shared.parsers import scalar_parser
-from syncopy.shared.kwarg_decorators import unwrap_cfg
+from syncopy.shared.kwarg_decorators import (
+    unwrap_cfg,
+    _append_docstring,
+    _append_signature
+)
 
 
 def collect_trials(trial_func):
@@ -19,10 +23,11 @@ def collect_trials(trial_func):
     synthetic data function. Creates a generator expression to arrive
     memory safely at a multi-trial :class:``~syncopy.AnalogData`` object.
 
+
     All single trial producing functions (the ``trial_func``) should
     accept `nChannels` and `nSamples` as keyword arguments, OR provide
     other means to define those numbers, e.g.
-    `AdjMat` for :func:`~syncopy.synth_data.AR2_network`
+    `AdjMat` for :func:`~syncopy.synth_data.ar2_network`
 
     If the single trial function also accepts a `samplerate` parameter, forward it directly.
 
@@ -42,8 +47,7 @@ def collect_trials(trial_func):
 
     @unwrap_cfg
     @functools.wraps(trial_func)
-    def wrapper_synth(nTrials=None, samplerate=1000, seed=None, seed_per_trial=True, **tf_kwargs):
-
+    def wrapper_synth(*args, nTrials=100, samplerate=1000, seed=None, seed_per_trial=True, **tf_kwargs):
         seed_array = None  # One seed per trial.
         # Use the single seed to create one seed per trial.
         if nTrials is not None and seed is not None and seed_per_trial:
@@ -73,12 +77,22 @@ def collect_trials(trial_func):
                             tf_kwargs['seed'] = seed_array[trial_idx]
                         else:
                             tf_kwargs['seed'] = seed
-                    yield trial_func(**tf_kwargs)
+                    yield trial_func(*args, **tf_kwargs)
 
             trl_generator = mk_trl_generator()
 
             data = AnalogData(trl_generator, samplerate=samplerate)
 
         return data
+
+    # Append `nTrials` and `seed` keyword entry to wrapped function's docstring and signature
+    nTrialsDocEntry = (
+        "    nTrials : int or None\n"
+        "        Number of trials for the returned :class:`~syncopy.AnalogData` object.\n"
+        "        When set to `None` a single-trial :class:`~numpy.ndarray`\n"
+        "        is returned.")
+
+    wrapper_synth.__doc__ = _append_docstring(trial_func, nTrialsDocEntry)
+    wrapper_synth.__signature__ = _append_signature(trial_func, "nTrials", kwdefault=100)
 
     return wrapper_synth

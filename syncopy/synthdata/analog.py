@@ -16,14 +16,27 @@ _2pi = np.pi * 2
 
 
 @collect_trials
-def white_noise(nSamples=1000, nChannels=2, seed=42):
+def white_noise(nSamples=1000, nChannels=2, seed=None):
     """
     Plain white noise with unity standard deviation.
 
-    Pass an extra `nTrials` `int` Parameter to generate multi-trial data using the `@collect_trials` decorator.
+    Parameters
+    ----------
+    nSamples : int
+        Number of samples per trial
+    nChannels : int
+        Number of channels
+    seed : int or None
+        Set to a number to get reproducible random numbers
+
+    Returns
+    --------
+    wn : :class:`syncopy.AnalogData` or numpy.ndarray
     """
+
     rng = np.random.default_rng(seed)
-    return rng.normal(size=(nSamples, nChannels))
+    signal = rng.normal(size=(nSamples, nChannels))
+    return signal
 
 
 @collect_trials
@@ -31,7 +44,19 @@ def linear_trend(y_max, nSamples=1000, nChannels=2):
     """
     A linear trend  on all channels from 0 to `y_max` in `nSamples`.
 
-    Pass an extra `nTrials` `int` Parameter to generate multi-trial data using the `@collect_trials` decorator.
+    Parameters
+    ----------
+    y_max : float
+        Ordinate value at the last sample,
+        slope is then given by samplerate * y_max / nSamples
+    nSamples : int
+        Number of samples per trial
+    nChannels : int
+        Number of channels
+
+    Returns
+    --------
+    trend : :class:`syncopy.AnalogData` or numpy.ndarray
     """
     trend = np.linspace(0, y_max, nSamples)
     return np.column_stack([trend for _ in range(nChannels)])
@@ -42,7 +67,21 @@ def harmonic(freq, samplerate, nSamples=1000, nChannels=2):
     """
     A harmonic with frequency `freq`.
 
-    Pass an extra `nTrials` `int` Parameter to generate multi-trial data using the `@collect_trials` decorator.
+    Parameters
+    ----------
+    freq : float
+        Frequency of the harmonic in Hz
+    samplerate : float
+        Sampling rate in Hz
+    nSamples : int
+        Number of samples per trial
+    nChannels : int
+        Number of channels
+
+    Returns
+    --------
+    harm : :class:`syncopy.AnalogData` or numpy.ndarray
+
     """
     # the sampling times vector needed for construction
     tvec = np.arange(nSamples) * 1 / samplerate
@@ -63,13 +102,18 @@ def phase_diffusion(freq,
                     seed=None):
 
     """
-    Linear (harmonic) phase evolution + a Brownian noise term
-    inducing phase diffusion around the deterministic phase drift with
-    slope ``2pi * freq`` (angular frequency).
+    Linear (harmonic) phase evolution plus a Brownian noise term
+    inducing phase diffusion around the deterministic phase velocity (angular frequency).
 
-    The linear phase increments are given by ``dPhase = 2pi * freq/samplerate``,
-    the Brownian increments are scaled with `eps` relative to these
-    phase increments.
+    The linear phase increments are given by
+
+    .. math::
+
+        \Delta \phi = 2\pi  \frac{freq}{samplerate}.
+
+    The Brownian increments are scaled with `eps` relative to these
+    phase increments, meaning the relative phase diffusion is frequency
+    independent.
 
     Parameters
     ----------
@@ -90,19 +134,18 @@ def phase_diffusion(freq,
         If set to ``True`` initial phases are randomized
     return_phase : bool, optional
         If set to true returns the phases in radians
-    seed: None or int, passed on to `np.random.default_rng`.
+    seed: None or int
           Set to an `int` to get reproducible results, or `None` for random ones.
-    nTrials: int, number of trials to generate using the `@collect_trials` decorator.
 
     Returns
     -------
-    phases : numpy.ndarray
+    phases : :class:`syncopy.AnalogData` or numpy.ndarray
         Synthetic `nSamples` x `nChannels` data array simulating noisy phase
         evolution/diffusion
     """
 
     # white noise
-    wn = white_noise(nSamples=nSamples, nChannels=nChannels, seed=seed)
+    wn = white_noise(nSamples=nSamples, nChannels=nChannels, seed=seed, nTrials=None)
 
     tvec = np.linspace(0, nSamples / samplerate, nSamples)
     omega0 = 2 * np.pi * freq
@@ -127,7 +170,7 @@ def phase_diffusion(freq,
 
 
 @collect_trials
-def AR2_network(AdjMat=None, nSamples=1000, alphas=(0.55, -0.8), seed=None):
+def ar2_network(AdjMat=None, nSamples=1000, alphas=(0.55, -0.8), seed=None):
 
     """
     Simulation of a network of coupled AR(2) processes
@@ -162,11 +205,10 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=(0.55, -0.8), seed=None):
         When using this function with an `nTrials` argument (`@collect_trials` wrapper), and you *do*
         want the data of all trials to be identical (and reproducible),
         pass a single scalar seed and set 'seed_per_trial=False'.
-    nTrials: int, number of trials to generate using the `@collect_trials` decorator.
 
     Returns
     -------
-    sol : numpy.ndarray
+    signal : numpy.ndarray
         The `nSamples` x `nChannel`
         solution of the network dynamics
     """
@@ -185,19 +227,56 @@ def AR2_network(AdjMat=None, nSamples=1000, alphas=(0.55, -0.8), seed=None):
     # diagonal 'self-interaction' with lag 1
     DiagMat = np.diag(nChannels * [alpha1])
 
-    sol = np.zeros((nSamples, nChannels), dtype=np.float32)
+    signal = np.zeros((nSamples, nChannels), dtype=np.float32)
     # pick the 1st values at random
     rng = np.random.default_rng(seed)
-    sol[:2, :] = rng.normal(size=(2, nChannels))
+    signal[:2, :] = rng.normal(size=(2, nChannels))
 
     for i in range(2, nSamples):
-        sol[i, :] = (DiagMat + AdjMat.T) @ sol[i - 1, :] + alpha2 * sol[i - 2, :]
-        sol[i, :] += rng.normal(size=(nChannels))
+        signal[i, :] = (DiagMat + AdjMat.T) @ signal[i - 1, :] + alpha2 * signal[i - 2, :]
+        signal[i, :] += rng.normal(size=(nChannels))
 
-    return sol
+    return signal
 
 
-def AR2_peak_freq(a1, a2, samplerate=1):
+@collect_trials
+def red_noise(alpha, nSamples=1000, nChannels=2, seed=None):
+
+    """
+    Uncoupled multi-channel AR(1) process realizations.
+    For `alpha` close to 1 can be used as a surrogate 1/f
+    background.
+
+    Parameters
+    ----------
+    alpha : float
+        Must lie within the [0, 1) interval
+    nSamples : int
+        Number of samples per trial
+    nChannels : int
+        Number of channels
+    seed : int or None
+        Set to a number to get reproducible random numbers
+
+    Returns
+    --------
+    signal : :class:`syncopy.AnalogData` or numpy.ndarray
+    """
+
+    # configure AR2 network to arrive at the uncoupled
+    # AR1 processes
+    alphas = [alpha, 0]
+    AdjMat = np.diag(np.zeros(nChannels))
+
+    signal = ar2_network(AdjMat=AdjMat,
+                         nSamples=nSamples,
+                         alphas=alphas,
+                         seed=seed, nTrials=None)
+
+    return signal
+
+
+def ar2_peak_freq(a1, a2, samplerate=1):
     """
     Helper function to tune spectral peak of AR(2) process
     """
@@ -253,5 +332,3 @@ def mk_RandomAdjMat(nChannels=3, conn_thresh=0.25, max_coupling=0.25, seed=None)
     AdjMat = AdjMat / norm[None, :] * max_coupling
 
     return AdjMat
-
-

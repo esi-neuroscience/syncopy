@@ -30,7 +30,7 @@ class TestDownsampling:
     fNy = fs / 2
 
     # -- use flat white noise as test data --
-    adata = synthdata.white_noise(nTrials,
+    adata = synthdata.white_noise(nTrials=nTrials,
                                   nChannels=nChannels,
                                   nSamples=nSamples,
                                   samplerate=fs,
@@ -170,7 +170,7 @@ class TestResampling:
     fNy = fs / 2
 
     # -- use flat white noise as test data --
-    adata = synthdata.white_noise(nTrials,
+    adata = synthdata.white_noise(nTrials=nTrials,
                                   nChannels=nChannels,
                                   nSamples=nSamples,
                                   samplerate=fs,
