@@ -18,7 +18,7 @@ These functions return a multi-trial :class:`~syncopy.AnalogData` object represe
 
    syncopy.synthdata.harmonic
    syncopy.synthdata.white_noise
-   syncopy.synthdata.ar1_noise
+   syncopy.synthdata.red_noise
    syncopy.synthdata.linear_trend
    syncopy.synthdata.phase_diffusion   
    syncopy.synthdata.ar2_network
@@ -38,7 +38,7 @@ With the help of basic arithmetical operations we can combine different syntheti
   sdata = spy.synthdata.harmonic(freq=60, cfg=cfg)
 
   # add some strong AR(1) process as surrogate 1/f
-  sdata = sdata + 5 * spy.synthdata.ar1_noise(alpha=0.95, cfg=cfg)
+  sdata = sdata + 5 * spy.synthdata.red_noise(alpha=0.95, cfg=cfg)
 
   # plot all channels for a single trial
   sdata.singlepanelplot(trials=10)
