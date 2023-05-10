@@ -35,8 +35,8 @@ def white_noise(nSamples=1000, nChannels=2, seed=None):
     """
 
     rng = np.random.default_rng(seed)
-    wn = rng.normal(size=(nSamples, nChannels))
-    return wn
+    signal = rng.normal(size=(nSamples, nChannels))
+    return signal
 
 
 @collect_trials
@@ -208,7 +208,7 @@ def ar2_network(AdjMat=None, nSamples=1000, alphas=(0.55, -0.8), seed=None):
 
     Returns
     -------
-    sol : numpy.ndarray
+    signal : numpy.ndarray
         The `nSamples` x `nChannel`
         solution of the network dynamics
     """
@@ -227,16 +227,16 @@ def ar2_network(AdjMat=None, nSamples=1000, alphas=(0.55, -0.8), seed=None):
     # diagonal 'self-interaction' with lag 1
     DiagMat = np.diag(nChannels * [alpha1])
 
-    sol = np.zeros((nSamples, nChannels), dtype=np.float32)
+    signal = np.zeros((nSamples, nChannels), dtype=np.float32)
     # pick the 1st values at random
     rng = np.random.default_rng(seed)
-    sol[:2, :] = rng.normal(size=(2, nChannels))
+    signal[:2, :] = rng.normal(size=(2, nChannels))
 
     for i in range(2, nSamples):
-        sol[i, :] = (DiagMat + AdjMat.T) @ sol[i - 1, :] + alpha2 * sol[i - 2, :]
-        sol[i, :] += rng.normal(size=(nChannels))
+        signal[i, :] = (DiagMat + AdjMat.T) @ signal[i - 1, :] + alpha2 * signal[i - 2, :]
+        signal[i, :] += rng.normal(size=(nChannels))
 
-    return sol
+    return signal
 
 
 @collect_trials
@@ -260,7 +260,7 @@ def red_noise(alpha, nSamples=1000, nChannels=2, seed=None):
 
     Returns
     --------
-    red_noise : :class:`syncopy.AnalogData` or numpy.ndarray
+    signal : :class:`syncopy.AnalogData` or numpy.ndarray
     """
 
     # configure AR2 network to arrive at the uncoupled
@@ -268,12 +268,12 @@ def red_noise(alpha, nSamples=1000, nChannels=2, seed=None):
     alphas = [alpha, 0]
     AdjMat = np.diag(np.zeros(nChannels))
 
-    red_noise = ar2_network(AdjMat=AdjMat,
-                            nSamples=nSamples,
-                            alphas=alphas,
-                            seed=seed, nTrials=None)
+    signal = ar2_network(AdjMat=AdjMat,
+                         nSamples=nSamples,
+                         alphas=alphas,
+                         seed=seed, nTrials=None)
 
-    return red_noise
+    return signal
 
 
 def ar2_peak_freq(a1, a2, samplerate=1):
