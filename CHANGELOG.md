@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 ### NEW
 - created dedicated `syncopy.synthdata` module
 - FIR filters work around NaNs in the input via slower direct convolutions
+- `red_noise` simulation as a 1/f surrogate
 
 ### Changed
 - synthetic data routines use generators instead of lists
