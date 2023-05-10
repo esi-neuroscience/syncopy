@@ -1,5 +1,6 @@
 .. _synthdata:
-   
+
+==============
 Synthetic Data
 ==============
 
@@ -10,7 +11,7 @@ For testing and educational purposes it is always good to work with synthetic da
 
 
 Built-in Generators
--------------------
+===================
 
 These functions return a multi-trial :class:`~syncopy.AnalogData` object representing multi-channel time series data:
 
@@ -55,8 +56,44 @@ With the help of basic arithmetical operations we can combine different syntheti
 	    
 .. _gen_synth_recipe:
 
-General Recipe
---------------
+Phase diffusion
+---------------
+
+A diffusing phase can be modeled by adding white noise :math:`\xi(t)` to a stable angular frequency
+
+.. math::
+   \omega(t) = \omega + \epsilon \xi(t)
+
+and integrating to arrive at the phase trajectory:
+
+.. math::
+   \phi(t) = \int_0^t \omega(t) = \omega t + \epsilon W(t).
+
+Here :math:`W(t)` being the `Wiener process <https://en.wikipedia.org/wiki/Wiener_process>`_, or simply a one dimensional diffusion process. Note that for the trivial case :math:`\epsilon = 0`, so no noise got added, the phase describes a linear constant motion with the `phase velocity` :math:`\omega = 2\pi f`. This is just a harmonic oscillation with frequency :math:`f`. Finally, by wrapping the phase trajectory into a :math:`2\pi` periodic `waveform` function, we arrive at a time series (or signal). The simplest waveform is just the cosine, so we have:
+
+.. math::
+   x(t) = cos(\phi(t))
+
+This is exactly what the :func:`~syncopy.synthdata.phase_diffusion` function provides.
+
+Phase diffusing models have some interesting properties, first let's have a look at the power spectrum::
+
+  import syncopy as spy
+
+  cfg = spy.StructDict()
+  cfg.nTrials = 250
+  cfg.nChannels = 2
+  cfg.samplerate = 500
+  cfg.nSamples = 2000
+
+  # harmonic frequency is 60Hz, phase diffusion strength is 0.01
+  pdiff = spy.synthdata.phase_diffusion(freq=60, eps=0.01, cfg=cfg)
+
+  spec = spy.freqanalysis(pdiff, keeptrials=False)
+  spec.singlepanelplot(channel=0)
+
+General Recipe for custom Synthetic Data
+=========================================
 
 We can easily create custom synthetic datasets using basic `NumPy <https://numpy.org>`_ functionality and Syncopy's :class:`~syncopy.AnalogData`.
 
