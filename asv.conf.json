@@ -22,7 +22,7 @@
     // uninstalling the project. See asv.conf.json documentation.
     //
     // "install_command": ["in-dir={env_dir} python -mpip install {wheel_file}"],
-    "install_command": [ "python -m pip install poetry", "poetry install"],
+    "install_command": [ "python -m pip install poetry", "poetry install", "poetry shell"],
     //"uninstall_command": ["return-code=any python -mpip uninstall -y {project}"],
     "uninstall_command": ["poetry run pip uninstall esi-syncopy -y"],
        "build_command": [
@@ -35,7 +35,7 @@
     // List of branches to benchmark. If not provided, defaults to "master"
     // (for git) or "default" (for mercurial).
     //"branches": ["master", "dev"], // for git
-     "branches": ["master"],
+    // "branches": ["master"],
 
     // The DVCS being used.  If not set, it will be automatically
     // determined from "repo" by looking at the protocol in the URL
@@ -48,7 +48,7 @@
     // If missing or the empty string, the tool will be automatically
     // determined by looking for tools on the PATH environment
     // variable.
-    "environment_type": "conda",
+    "environment_type": "virtualenv",
 
     // timeout in seconds for installing any dependencies in environment
     // defaults to 10 min
