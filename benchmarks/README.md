@@ -6,12 +6,11 @@ Note: The current version of `asv` does not seem to work with poetry at all, and
 
 ## Running the benchmarks
 
-To run the benchmarks for the latest commit on your current branch:
+First change into the Syncopy repo. To run the benchmarks for the latest commit on your current branch:
 
 ```shell
-cd repo/benchmarks/
 pip install dephell
-dephell convert deps --from-path ../pyproject.toml --from-format pyproject --to-path ../setup.py --to-format setuppy
+dephell convert deps --from-path pyproject.toml --from-format pyproject --to-path setup.py --to-format setuppy
 pip install asv
 asv run HEAD^!
 ```
@@ -24,6 +23,11 @@ If you are getting errors when running the benchmarks, e.g., `no module named sy
 ```shell
 rm -rf .asv/env
 ```
+
+## Adding benchmarks
+
+The benchmarks can be found in `<repo>/benchmarks/benchmarks.py`. See the [asv docs](https://asv.readthedocs.io) for info on adding more.
+
 
 
 
