@@ -9,13 +9,13 @@ class SelectionSuite:
     Benchmark selections on AnalogData objects.
     """
     def setup(self):
-        self.adata = white_noise(nSamples=2500, nChannels=16, nTrials=200, samplerate=1000)
+        self.adata = white_noise(nSamples=25000, nChannels=32, nTrials=500, samplerate=1000)
 
-    def time_external_tlim_selection(self):
-        _ = spy.selectdata(self.adata, tlims=[0, 1], inplace=False)
+    def time_external_channel_selection(self):
+        _ = spy.selectdata(self.adata, channel=[0, 1, 7], inplace=False)
 
-    def time_inplace_tlim_selection(self):
-        spy.selectdata(self.adata, tlims=[0, 1], inplace=True)
+    def time_inplace_channel_selection(self):
+        spy.selectdata(self.adata, channel=[0, 1, 7], inplace=True)
 
 
 
@@ -26,7 +26,7 @@ class MemSuite:
     """
 
     def setup(self):
-        self.adata = white_noise(nSamples=500, nChannels=16, nTrials=200)
+        self.adata = white_noise(nSamples=25000, nChannels=32, nTrials=500, samplerate=1000)
 
     def mem_analogdata(self):
         """Test memory usage of AnalogData object."""
