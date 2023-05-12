@@ -12,6 +12,7 @@ First change into the Syncopy repo. To run the benchmarks for the latest commit 
 pip install dephell
 dephell convert deps --from-path pyproject.toml --from-format pyproject --to-path setup.py --to-format setuppy
 pip install asv
+asv machine --yes
 asv run HEAD^!
 ```
 
