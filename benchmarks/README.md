@@ -17,3 +17,13 @@ asv run HEAD^!
 ```
 
 
+## Common issues
+
+If you are getting errors when running the benchmarks, e.g., `no module named syncopy`, you most likely have changed something with the `asv` configuration that broke the installation. In addition to fixing that, you will have to manually delete the old environments so that `asv` creates new ones afterwards:
+
+```shell
+rm -rf .asv/env
+```
+
+
+
