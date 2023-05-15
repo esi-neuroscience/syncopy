@@ -22,7 +22,7 @@ for example the `MNE Project <https://www.martinos.org/mne/>`_.
 Exchanging Data between FieldTrip and Syncopy
 ---------------------------------------------
 
-MAT-Files can be imported directly into Syncopy via :func:`~syncopy.load_ft_raw`, at the moment only the ``ft_datatype_raw`` is supported:
+MAT-Files can be imported directly into Syncopy via :func:`~syncopy.load_ft_raw`, at the moment only the `ft_datatype_raw <https://github.com/fieldtrip/fieldtrip/blob/release/utilities/ft_datatype_raw.m>`_ is supported:
 
 .. autosummary::
    syncopy.load_ft_raw
