@@ -1,6 +1,8 @@
 name: Run asv benchmarks
 
 on:
+  pull_request:
+    branches: [ dev ]
   # Allows you to run this workflow manually from the Actions tab on github
   workflow_dispatch:
 
