@@ -28,6 +28,75 @@ MAT-Files can be imported directly into Syncopy via :func:`~syncopy.load_ft_raw`
    syncopy.load_ft_raw
 
 
+Key Differences between Syncopy and FieldTrip
+---------------------------------------------
+
+Have a look at the :ref:`quick_start` page to quickly walk through a few Syncopy examples.
+
+Data types and handling
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The data in Syncopy is represented as `Python objects <https://python.swaroopch.com/oop.html>`_. So it has **methods** (functions) and **attributes** (data) attached, accessible via the ``.`` operator. Let's have a look at an :class:`~syncopy.AnalogData` example::
+
+  import syncopy as spy
+
+  # red noise AR(1) process with 10 trials and 250 samples
+  adata = spy.synthdata.red_noise(alpha=0.9, nTrials=10, nSamples=250)
+
+  # access the filename attribute
+  adata.filename
+
+this will print something like:
+
+.. code-block:: bash
+
+   /path/to/.spy/tmp_storage/spy_fe2c_493b3197.analog
+   
+Every Syncopy data object has the following attributes:
+
+- ``trials``: returns a **single trial** as :class:`numpy.ndarray` or an **iterable**
+- ``channel``: string :class:`numpy.ndarray` of **channel labels**
+- ``trialdefinition``: :class:`numpy.ndarray` representing `start`, `stop` and `offset` off each trial
+- ``samplerate``: the samplerate in Hz
+- ``filename``: the path to the data file on disc
+- ``data``: the backing hdf5 dataset, careful here.. 
+
+Each data class can have special `attributes` like ``freq``, an extensive overview over all data classes can be found here: :ref:`syncopy-data-classes`.
+
+Functions and methods operating with data, like I/O and plotting can be found at :ref:`data_basics`.
+  
+So attributes often mirror the `fields` of MatLab `structures`, however they can not be simply overwritten::
+
+  adata.channel = 3
+
+this gives::
+
+   SPYTypeError: Wrong type of `channel`: expected array_like found int
+
+Syncopy has its own error handling, and tries to tell you what is wrong. So here, an **array_like** was epxected, but a single **int** was the input. **array_like** basically means a sequence type, so :class:`numpy.ndarray` or Python ``list``. Let's try again::
+  
+  adata.channel = ['c1', 'c2', 'c3']
+
+Still no good::
+		
+  SPYValueError: Invalid value of `channel`: 'shape = (3,)'; expected array of shape (2,)
+
+So in NumPy language that tells us, that Syncopy expected an array with two elements instead of three. Inspecting the ``channel`` attribute::
+  
+  adata.channel
+  
+.. code-block:: python
+		
+   array(['channel1', 'channel2'], dtype='<U8')
+
+we see that we have only two channels in this case, so setting three channel labels indeed makes no sense. Finally with::
+  
+  adata.channel = ['c1', 'c2']
+
+we can change the channel labels.
+
+
+
 Translating MATLAB Code to Python
 ---------------------------------
 For translating code from MATLAB to Python there are several guides, e.g.
@@ -92,6 +161,7 @@ extent, we highlight here what we think are the most important differences:
       $ python -c "import numpy; print(numpy.version.version)"
       1.15.4
 
+      
 Translating FieldTrip Calls to Syncopy
 --------------------------------------
 Using a FieldTrip function in MATLAB usually works via constructing a ``cfg``
