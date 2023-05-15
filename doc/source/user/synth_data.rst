@@ -59,12 +59,14 @@ With the help of basic arithmetical operations we can combine different syntheti
 Phase diffusion
 ---------------
 
-A diffusing phase can be modeled by adding white noise :math:`\xi(t)` to a stable angular frequency
+A diffusing phase can be modeled by adding white noise :math:`\xi(t)` to a fixed angular frequency:
 
 .. math::
-   \omega(t) = \omega + \epsilon \xi(t)
+   \omega(t) = \omega + \epsilon \xi(t),
 
-and integrating to arrive at the phase trajectory:
+with the instantaneous frequency :math:`\omega(t)`.
+
+Integration then yields the phase trajectory:
 
 .. math::
    \phi(t) = \int_0^t \omega(t) = \omega t + \epsilon W(t).
