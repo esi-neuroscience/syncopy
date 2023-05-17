@@ -1,11 +1,15 @@
 name: Run asv benchmarks
 
 on:
-  branches:
-  - 494_asv
-  - master
-  # Allows you to run this workflow manually from the Actions tab on github
-  workflow_dispatch:
+ push:
+    branches:
+    - master
+    - dev
+    - 494_asv
+ pull_request:
+
+ # Allows you to run this workflow manually from the Actions tab on github
+ workflow_dispatch:
 
 jobs:
   build-linux:
