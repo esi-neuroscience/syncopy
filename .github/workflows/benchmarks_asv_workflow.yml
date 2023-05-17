@@ -1,0 +1,30 @@
+name: Run asv benchmarks
+
+on:
+  pull_request:
+    branches: [ dev ]
+  # Allows you to run this workflow manually from the Actions tab on github
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.10"
+    - name: Install poetry
+      run: |
+        pip install poetry
+    - name: Install SyNCoPy
+      run: |
+        poetry install
+    - name: Run benchmarks
+      run: |
+        pip install asv virtualenv
+        poetry run asv machine --yes
+        poetry run asv run HEAD^! --show-stderr
