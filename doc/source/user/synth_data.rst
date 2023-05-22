@@ -91,17 +91,17 @@ Phase diffusing models have some interesting properties, let's have a look at th
   # harmonic frequency is 60Hz, phase diffusion strength is 0.01
   signals = spy.synthdata.phase_diffusion(freq=60, eps=0.01, cfg=cfg)
 
-  # add harmonic frequency with 20Hz, there is not phase diffusion
+  # add harmonic frequency with 20Hz, there is no phase diffusion
   signals += spy.synthdata.harmonic(freq=20, cfg=cfg)
 
   # freqanalysis without tapering and absolute power
- 
+
   cfg_freq = spy.StructDict()
   cfg_freq.keeptrials = False
   cfg_freq.foilim = [2, 100]
   cfg_freq.output = 'abs'
   cfg_freq.taper = None
-  
+
   spec = spy.freqanalysis(signals, cfg=cfg_freq)
   spec.singlepanelplot(channel=0)
 

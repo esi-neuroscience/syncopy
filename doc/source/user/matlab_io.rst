@@ -8,7 +8,7 @@ development and supports only a subset of data classes. Also, the MATLAB
 interface does not support loading data that do not fit into local memory.
 
 
-For this illustrative example we start by generating synthetic data in FieldTrip
+For this illustrative example we start by generating synthetic data in FieldTrip:
 
 .. code-block:: matlab
 
@@ -24,15 +24,15 @@ For this illustrative example we start by generating synthetic data in FieldTrip
     data = ft_freqsimulation(cfg);
     data.dimord = '{rpt}_label_time';
 
-Next, `download the latest release <https://github.com/esi-neuroscience/syncopy-matlab/releases>`_ 
-of Syncopy's MATLAB interface and add the folder containing the `+spy` directory to your 
-MATLAB path.  
+Next, `download the latest release <https://github.com/esi-neuroscience/syncopy-matlab/releases>`_
+of Syncopy's MATLAB interface and add the folder containing the `+spy` directory to your
+MATLAB path.
 
 .. code-block:: matlab
 
     addpath('/path/to/syncopy-matlab/')
 
-Now, we save the synthetic dataset as Syncopy :class:`~syncopy.AnalogData` dataset in the 
+Now, we save the synthetic dataset as Syncopy :class:`~syncopy.AnalogData` dataset in the
 respective user home
 
 .. code-block:: matlab
@@ -41,21 +41,21 @@ respective user home
     spy.ft_save_spy(cfg, data)
 
 The previous call generated two files: an HDF5 data-file ``~/syn_data.analog``
-and the accompanying JSON meta-data ``~/syn_data.analog.info`` (please refer to 
-:ref:`syncopy-data-format` for more information about Syncopy's file format). 
+and the accompanying JSON meta-data ``~/syn_data.analog.info`` (please refer to
+:ref:`syncopy-data-format` for more information about Syncopy's file format).
 
-We start an (i)Python session, import Syncopy and use :func:`~syncopy.load` to read the 
+We start an (i)Python session, import Syncopy and use :func:`~syncopy.load` to read the
 data from disk:
 
 .. code-block:: python
-      
-    import syncopy as spy 
+
+    import syncopy as spy
     data = spy.load('~/syn_data.analog')
 
 Now, let's compute a power-spectrum using Syncopy's parallel computing engine:
 
 .. code-block:: python
-      
+
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft'
     cfg.output = 'pow'
@@ -64,19 +64,19 @@ Now, let's compute a power-spectrum using Syncopy's parallel computing engine:
 
 .. note::
 
-    Using SLURM on the ESI HPC cluster for datasets this small usually does not 
-    yield any performance gain due to the comparatively large overhead of starting 
-    a SLURM worker pool compared to the total computation time. 
+    Using SLURM on HPC clusters for datasets this small usually does not
+    yield any performance gain due to the comparatively large overhead of starting
+    a SLURM worker pool compared to the total computation time.
 
-We save the resulting :class:`~syncopy.SpectralData` object alongside the corresponding 
+We save the resulting :class:`~syncopy.SpectralData` object alongside the corresponding
 :class:`~syncopy.AnalogData` source:
 
 .. code-block:: python
-      
+
     spy.save(spec, filename='~/syn_data')
 
-Note that :func:`syncopy.save` automatically appends the appropriate filename 
-extension (``.spectral`` in this case). 
+Note that :func:`syncopy.save` automatically appends the appropriate filename
+extension (``.spectral`` in this case).
 
 Back in MATLAB, we can import the computed spectrum using:
 

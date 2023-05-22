@@ -51,7 +51,7 @@ this will print something like:
 .. code-block:: bash
 
    /path/to/.spy/tmp_storage/spy_fe2c_493b3197.analog
-   
+
 Every Syncopy data object has the following attributes:
 
 - ``trials``: returns a **single trial** as :class:`numpy.ndarray` or an **iterable**
@@ -59,13 +59,13 @@ Every Syncopy data object has the following attributes:
 - ``trialdefinition``: :class:`numpy.ndarray` representing `start`, `stop` and `offset` off each trial
 - ``samplerate``: the samplerate in Hz
 - ``filename``: the path to the data file on disc
-- ``data``: the backing hdf5 dataset, careful here.. 
+- ``data``: the backing hdf5 dataset. You should not need to interact with this directly.
 
 Each data class can have special `attributes` like ``freq``, an extensive overview over all data classes can be found here: :ref:`syncopy-data-classes`.
 
 Functions and methods operating with data, like I/O and plotting can be found at :ref:`data_basics`.
-  
-So attributes often mirror the `fields` of MatLab `structures`, however they can not be simply overwritten::
+
+The attributes typically mirror the `fields` of MatLab `structures`, however they cannot be simply overwritten::
 
   adata.channel = 3
 
@@ -73,24 +73,24 @@ this gives::
 
    SPYTypeError: Wrong type of `channel`: expected array_like found int
 
-Syncopy has its own error handling, and tries to tell you what is wrong. So here, an **array_like** was epxected, but a single **int** was the input. **array_like** basically means a sequence type, so :class:`numpy.ndarray` or Python ``list``. Let's try again::
-  
+Syncopy has detailed error handling, and tries to tell you what exactly is wrong. So here, an **array_like** was expected, but a single **int** was the input. **array_like** basically means a sequence type, so :class:`numpy.ndarray` or Python ``list``. Let's try again::
+
   adata.channel = ['c1', 'c2', 'c3']
 
 Still no good::
-		
+
   SPYValueError: Invalid value of `channel`: 'shape = (3,)'; expected array of shape (2,)
 
 So in NumPy language that tells us, that Syncopy expected an array with two elements instead of three. Inspecting the ``channel`` attribute::
-  
+
   adata.channel
-  
+
 .. code-block:: python
-		
+
    array(['channel1', 'channel2'], dtype='<U8')
 
 we see that we have only two channels in this case, so setting three channel labels indeed makes no sense. Finally with::
-  
+
   adata.channel = ['c1', 'c2']
 
 we can change the channel labels.
@@ -116,12 +116,12 @@ extent, we highlight here what we think are the most important differences:
   >>> x[0]
   1
 
-  Python ranges are half-open intervals ``[left, right)``, i.e., the right boundary 
+  Python ranges are half-open intervals ``[left, right)``, i.e., the right boundary
   is not included:
 
   >>> list(range(1, 4))
   [1, 2, 3]
-  
+
 * Data in Python is not necessarily copied and may be manipulated in-place:
 
   >>> x = [1, 2, 3, 4]
@@ -135,25 +135,25 @@ extent, we highlight here what we think are the most important differences:
   >>> x = [1, 2,3 ,4]
   >>> y = list(x)
   >>> x[0] = -1
-  >>> y 
+  >>> y
   [1, 2, 3, 4]
 
 * Python's powerful `import system <https://docs.python.org/3/reference/import.html>`_
   allows simple function names (e.g., :func:`~syncopy.load`) without worrying
   about overwriting built-in functions
-  
+
   >>> import syncopy as spy
-  >>> import numpy as np 
-  >>> spy.load 
+  >>> import numpy as np
+  >>> spy.load
   <function syncopy.io.load_spy_container.load(filename, tag=None, dataclass=None, checksum=False, mode='r+', out=None)
   >>> np.load
   <function numpy.load(file, mmap_mode=None, allow_pickle=False, fix_imports=True, encoding='ASCII')>
-  
+
 * `Project-specific environments <https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html>`_
   allow reproducible and customizable work setups.
 
   .. code-block:: bash
-  
+
       $ conda activate np17
       $ python -c "import numpy; print(numpy.version.version)"
       1.17.2
@@ -161,7 +161,7 @@ extent, we highlight here what we think are the most important differences:
       $ python -c "import numpy; print(numpy.version.version)"
       1.15.4
 
-      
+
 Translating FieldTrip Calls to Syncopy
 --------------------------------------
 Using a FieldTrip function in MATLAB usually works via constructing a ``cfg``
@@ -176,7 +176,7 @@ Using a FieldTrip function in MATLAB usually works via constructing a ``cfg``
     result = ft_something(cfg);
 
 Syncopy emulates this concept using a :class:`syncopy.StructDict` (really just a
-slightly modified Python dictionary) that can automatically be filled with 
+slightly modified Python dictionary) that can automatically be filled with
 default settings of any function.
 
 .. code-block:: python
@@ -194,7 +194,7 @@ A FieldTrip Power Spectrum in Syncopy
 For example, a power spectrum calculated with FieldTrip via
 
 .. code-block:: matlab
-      
+
     cfg = [];
     cfg.method = 'mtmfft';
     cfg.foilim = [1 150];
@@ -206,7 +206,7 @@ For example, a power spectrum calculated with FieldTrip via
 can be computed in Syncopy with
 
 .. code-block:: python
-      
+
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft'
     cfg.foilim = [1, 150]
@@ -219,8 +219,8 @@ Key Differences between FieldTrip and Syncopy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * FieldTrip has **a lot** more features. Syncopy is still in early development and will
   never cover the rich feature-set of FieldTrip.
-* FieldTrip supports **many** data formats. Syncopy currently only supports data import 
-  from FieldTrip (see below). 
+* FieldTrip supports **many** data formats. Syncopy currently only supports data import
+  from FieldTrip (see below).
 * Syncopy data objects use disk-streaming and are thus never fully loaded into memory.
 
 Experimental import/export from MatLab
