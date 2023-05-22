@@ -26,6 +26,7 @@ from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
 from .util import TimeIndexer
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+from pynwb.ecephys import LFP, ElectricalSeries
 
 
 
@@ -422,7 +423,7 @@ class AnalogData(ContinuousData):
         figax = mp_plotting.plot_AnalogData(self, **show_kwargs)
         return figax
 
-    def save_nwb(self, outpath, nwbfile=None):
+    def save_nwb(self, outpath, nwbfile=None, with_trialdefinition=True):
         """Save AnalogData in Neurodata Without Borders (NWB) file format.
 
         Parameters
@@ -439,6 +440,9 @@ class AnalogData(ContinuousData):
         Depending on your target software, you may need to manually format the data using pynwb before writing it to disk, or manually
         open it using pynwb before using it with the target software.
         """
+
+        # See https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html
+
         if nwbfile is None:
 
             # Please make sure you understand the interpretation of the following fields, as described in the NWB documentation
@@ -463,23 +467,58 @@ class AnalogData(ContinuousData):
             )
             # When creating your own NWBFile, you can also add subject information by setting `nwbfile.subject` to a `pynwb.file.Subject` instance, see docs.
 
-        # Now that we have an NWBFile, we can add the data.
-        data = self.data
-        time_series_with_rate = TimeSeries(
-            name="test_timeseries",
-            data=data,
-            unit="m",
+        # Add the channel information.
+        ## First add the recording array
+        device = nwbfile.create_device(name="array", description="Unknown array", manufacturer="Unknown manufacturer")
+        nwbfile.add_electrode_column(name="label", description="label of electrode")
+
+        nshanks = 1     # the number of shanks in the array, each is placed in a separate electrode group. We assume 1 shank.
+        nchannels_per_shank = len(self.channel)  # number of channels. This is the number of electrodes in each shank.
+        electrode_counter = 0
+
+        for ishank in range(nshanks):
+            # create an electrode group for this shank
+            electrode_group = nwbfile.create_electrode_group(
+                name="shank{}".format(ishank),
+                description="electrode group for shank {}".format(ishank),
+                device=device,
+                location="unknown brain area",
+            )
+            # add electrodes to the electrode table
+            for ielec in range(nchannels_per_shank):
+                nwbfile.add_electrode(
+                    group=electrode_group,
+                    label="shank{}elec{}".format(ishank, ielec),
+                    location="unknown brain area (shank {}, elec {})".format(ishank, ielec),
+                )
+                electrode_counter += 1
+
+        all_table_region = nwbfile.create_electrode_table_region(
+            region=list(range(electrode_counter)),  # reference row indices 0 to N-1
+            description="all electrodes",
+            )   # this is a reference to all electrodes in the electrode table
+
+        # Now that we have an NWBFile and channels, we can add the data.
+        time_series_with_rate = ElectricalSeries(
+            name="ElectricalSeries",
+            data=self.data,
+            electrodes=all_table_region,
             starting_time=0.0,
-            rate=1.0,
+            rate=self.samplerate,
             description="an example time series dataset",)
         nwbfile.add_acquisition(time_series_with_rate)
 
-        # Add the trial definition, if any.
-        nwbfile.add_trial_column(
-            name="offset",
-            description="The offset of the trial.",
-        )
-        nwbfile.add_trial(start_time=1.0, stop_time=5.0, correct=True)
+
+        # Add trial definition
+        if with_trialdefinition and self.trialdefinition is not None:
+            # Add the trial definition, if any.
+            nwbfile.add_trial_column(
+                name="offset",
+                description="The offset of the trial.",
+            )
+            for trial_idx in range(self.trialdefinition.shape[0]):
+                td = self.trialdefinition[trial_idx, :].astype(np.float64) # TODO: convert sample idx to real time.
+                nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[0])
 
 
         # Finally, write the file to disk.

@@ -629,12 +629,14 @@ class TestNWBImporter:
         out = load_nwb(self.nwb_filename, memuse=2000)
         edata, adata1, adata2 = list(out.values())
 
+        assert isinstance(adata2, spy.AnalogData)
+
         with tempfile.TemporaryDirectory() as tdir:
             outpath = os.path.join(tdir, 'test1.nwb')
-            adata1.save_nwb(self.nwb_filename, outpath=outpath)
+            adata2.save_nwb(outpath=outpath)
 
             data_reread = load_nwb(outpath, memuse=2000)
-            assert np.allclose(adata1.data,data_reread.data)
+            assert np.allclose(adata2.data, data_reread.data)
 
 
 if __name__ == '__main__':

@@ -1244,10 +1244,6 @@ class BaseData(ABC):
     def __str__(self):
         pass
 
-    @abstractmethod
-    def save_nwb(self):
-        pass
-
     # Destructor
     def __del__(self):
 
