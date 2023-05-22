@@ -278,5 +278,12 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         angData.info = {'starting_time' : tStarts[0]}
         angData.log = log_msg
         objectDict[os.path.basename(angData.filename)] = angData
+        SPYWarning(f"Adding acquisition {angData.filename} to objectDict.")
+
+    SPYWarning(f"Done adding all {len(objectDict)} acquisitions.")
+    # Close NWB file
+    nwbio.close()
+
+
 
     return objectDict
