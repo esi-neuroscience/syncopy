@@ -4,10 +4,22 @@
 Parallel Processing
 --------------------
 
-.. contents:: Topics covered
-   :local:
+.. image:: /_static/dask_logo.png
+   :height: 60px
+   :target: https://dask.org
 
-Syncopy employs `Dask <https://dask.org/>`_ as its parallel processing engine and it gets installed along Syncopy automatically. Dask is a powerful modern parallel computing framework, allowing concurrency on a variety of systems from a single laptop up to cloud infrastructure.
+Syncopy employs `Dask <https://dask.org/>`_ as its parallel processing engine and it gets installed alongside Syncopy automatically. Dask is a powerful modern parallel computing framework, allowing concurrency on a variety of systems from a single laptop up to cloud infrastructure.
+
+In general parallelization in Syncopy works by:
+
+- setup a suitable Dask cluster
+- initialize a Dask client connected to that cluster
+- use Syncopy as usual
+
+**Syncopy always checks if a Dask client is available prior any computation** and automatically allocates compute tasks to the provided resources. In effect, on any Dask compatible compute system Syncopy can be run in parallel.
+
+.. contents::
+   :local:
 
 Dask Setup and Integration
 --------------------------
@@ -22,11 +34,14 @@ To quickly enable parallel processing on a local machine we can launch a  `Local
   # attach a client to the cluster
   client = dd.Client(cluster)
 
-**Syncopy always checks if a Dask client is avalaible** and automatically allocates computations to the provided workers.  With the client in place, we can simply call a Syncopy function as usual::
+With the client in place, we can simply call a Syncopy function as usual::
 
   import syncopy as spy
-  
-  data = spy.synthdata.red_noise(alpha=0.3, nTrials=250)
+
+  # create ~1GB of white noise 
+  data = spy.synthdata.white_noise(nTrials=5_000, nChannels=32)
+
+  # compute the power spectra
   spec = spy.freqanalysis(data)
 
 and the computations are automatically **parallelized over trials**. That means Syncopy code is the same for both parallel and sequential processing!
@@ -41,16 +56,11 @@ Syncopy notifies about parallel computations via logging:
 
 Dask itself offers a `dashboard <https://docs.dask.org/en/stable/dashboard.html>`_ which runs in the browser, checkout http://localhost:8787/status to see the status of the ``LocalCluster`` we created.
 	
-To summarize, parallelization in Syncopy works by:
-
-- setup a Dask cluster
-- connect a Dask client to that cluster
-- use Syncopy as usual
-
-In effect, on any Dask compatible compute system Syncopy can be run in parallel.
-
 .. note::
    Once a Dask client/cluster is alive, it can be re-used for any number of computations with Syncopy. Don't start a 2nd cluster for a new computation!
+
+.. note::
+   The Dask setup is independent of any Syncopy code. It might be a good idea to create a standalone ``setup_my_dask.py`` script which can be executed once before running any number of analyses with Syncopy.
 
 .. warning::
    Without a **prior initialization** of a Dask client all computations in Syncopy are only executed sequentially, relying solely on low-level built-in parallelization offered by external libraries like `NumPy <https://numpy.org/>`_.
