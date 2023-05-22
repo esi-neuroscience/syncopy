@@ -33,7 +33,7 @@ nwbErrMsg = "\nSyncopy <core> WARNING: Could not import 'pynwb'. \n" +\
 __all__ = ["load_nwb"]
 
 
-def load_nwb(filename, memuse=3000, container=None):
+def load_nwb(filename, memuse=3000, container=None, validate=False):
     """
     Read contents of NWB files
 
@@ -65,18 +65,16 @@ def load_nwb(filename, memuse=3000, container=None):
     nwbFullName = os.path.join(nwbPath, nwbBaseName)
 
     # Ensure `memuse` makes sense`
-    try:
-        scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
-    except Exception as exc:
-        raise exc
+    scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
 
     # First, perform some basal validation w/NWB
-    try:
-        this_python = os.path.join(os.path.dirname(sys.executable),'python')
-        subprocess.run([this_python, "-m", "pynwb.validate", nwbFullName], check=True)
-    except subprocess.CalledProcessError as exc:
-        err = "NWB file validation failed. Original error message: {}"
-        raise SPYError(err.format(str(exc)))
+    if validate:
+        try:
+            this_python = os.path.join(os.path.dirname(sys.executable),'python')
+            subprocess.run([this_python, "-m", "pynwb.validate", nwbFullName], check=True)
+        except subprocess.CalledProcessError as exc:
+            err = "NWB file validation failed. Original error message: {}"
+            raise SPYError(err.format(str(exc)))
 
     # Load NWB meta data from disk
     nwbio = pynwb.NWBHDF5IO(nwbFullName, "r", load_namespaces=True)

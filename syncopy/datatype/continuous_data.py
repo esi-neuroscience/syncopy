@@ -13,6 +13,8 @@ import inspect
 import numpy as np
 from abc import ABC
 from collections.abc import Iterator
+from datetime import datetime
+from uuid import uuid4
 
 # Local imports
 from .base_data import BaseData, FauxTrial, _definetrial
@@ -23,6 +25,7 @@ from syncopy.shared.errors import SPYValueError, log
 from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
 from .util import TimeIndexer
+from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 
 
 
@@ -418,6 +421,70 @@ class AnalogData(ContinuousData):
 
         figax = mp_plotting.plot_AnalogData(self, **show_kwargs)
         return figax
+
+    def save_nwb(self, outpath, nwbfile=None):
+        """Save AnalogData in Neurodata Without Borders (NWB) file format.
+
+        Parameters
+        ----------
+        outpath : str, path-like. Where to save the NWB file, including file name and `.nwb` extension. All directories in the path must exist. Example: `'mydata.nwb'`.
+
+        nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
+        your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
+
+        Notes
+        -----
+        Due to the very general architecture of the NWB format, many fields need to be interpreted by software reading the format. Thus,
+        providing a generic function to save Syncopy data in NWB format is possible only if you know who will read it.
+        Depending on your target software, you may need to manually format the data using pynwb before writing it to disk, or manually
+        open it using pynwb before using it with the target software.
+        """
+        if nwbfile is None:
+
+            # Please make sure you understand the interpretation of the following fields, as described in the NWB documentation
+            # or for pynwb here: https://pynwb.readthedocs.io/en/stable/tutorials/general/file.html
+            # Most importantly, quoting from pynwm docs:
+            #  "An NWBFile represents a single session of an experiment. Each NWBFile must have a session
+            #  description, identifier, and session start time. Importantly, the session start time is the
+            #  reference time for all timestamps in the file. For instance, an event with a timestamp of
+            #  0 in the file means the event occurred exactly at the session start time."
+
+            # See https://nwbinspector.readthedocs.io/en/dev/best_practices/nwbfile_metadata.html#file-metadata for details.
+            nwbfile = NWBFile(
+                session_description="unknown",          # required
+                identifier=str(uuid4()),                # required
+                session_start_time=datetime.now(),      # required and relevant, use something like `datetime(2018, 4, 25, 2, 30, 3, tzinfo=tz.gettz("US/Pacific"))` for real data.
+                session_id="session_0001",              # optional. remember that one file is for one session.
+                experimenter=[ "unknown", ],            # optional, name of experimenters
+                lab="unknown",                          # optional, the research lab where the experiment was performed
+                institution="unknown",                  # optional
+                experiment_description="unknown",       # optional
+                related_publications="",                # put a DOI here, if any. e.g., "https://doi.org/###"
+            )
+            # When creating your own NWBFile, you can also add subject information by setting `nwbfile.subject` to a `pynwb.file.Subject` instance, see docs.
+
+        # Now that we have an NWBFile, we can add the data.
+        data = self.data
+        time_series_with_rate = TimeSeries(
+            name="test_timeseries",
+            data=data,
+            unit="m",
+            starting_time=0.0,
+            rate=1.0,
+            description="an example time series dataset",)
+        nwbfile.add_acquisition(time_series_with_rate)
+
+        # Add the trial definition, if any.
+        nwbfile.add_trial_column(
+            name="offset",
+            description="The offset of the trial.",
+        )
+        nwbfile.add_trial(start_time=1.0, stop_time=5.0, correct=True)
+
+
+        # Finally, write the file to disk.
+        with NWBHDF5IO(outpath, "w") as io:
+            io.write(nwbfile)
 
 
 class SpectralData(ContinuousData):

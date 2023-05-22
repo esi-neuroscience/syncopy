@@ -569,13 +569,20 @@ class TestTDTImporter:
             load_tdt(self.tdt_dir, start_code=self.start_code, end_code=999999)
 
 
-@skip_no_esi
-@skip_no_nwb
+
 class TestNWBImporter:
 
-    nwb_filename = '/cs/slurm/syncopy/NWBdata/test.nwb'
+    nwb_filename = None
+    from os.path import expanduser
+    for nwbfile in [expanduser('~/test.nwb'), '/cs/slurm/syncopy/NWBdata/test.nwb']:
+        if os.path.isfile(nwbfile):
+            nwb_filename = nwbfile
+            break
 
     def test_load_nwb(self):
+
+        if self.nwb_filename is None:
+            pytest.skip("Demo NWB file not found on current system.")
 
         spy_filename = self.nwb_filename.split('/')[-1][:-4] + '.spy'
         out = load_nwb(self.nwb_filename, memuse=2000)
@@ -611,6 +618,23 @@ class TestNWBImporter:
             lfp2 = spy.load(os.path.join(tdir, spy_filename))
 
             assert np.allclose(lfp.data, lfp2.data)
+
+
+    def test_save_nwb(self):
+        """Test saving to NWB file and re-reading data for AnalogData."""
+
+        if self.nwb_filename is None:
+            pytest.skip("Demo NWB file not found on current system.")
+
+        out = load_nwb(self.nwb_filename, memuse=2000)
+        edata, adata1, adata2 = list(out.values())
+
+        with tempfile.TemporaryDirectory() as tdir:
+            outpath = os.path.join(tdir, 'test1.nwb')
+            adata1.save_nwb(self.nwb_filename, outpath=outpath)
+
+            data_reread = load_nwb(outpath, memuse=2000)
+            assert np.allclose(adata1.data,data_reread.data)
 
 
 if __name__ == '__main__':
