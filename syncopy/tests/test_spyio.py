@@ -630,13 +630,18 @@ class TestNWBImporter:
         edata, adata1, adata2 = list(out.values())
 
         assert isinstance(adata2, spy.AnalogData)
+        assert len(adata2.channel) == 64
 
         with tempfile.TemporaryDirectory() as tdir:
             outpath = os.path.join(tdir, 'test1.nwb')
             adata2.save_nwb(outpath=outpath)
 
-            data_reread = load_nwb(outpath, memuse=2000)
-            assert np.allclose(adata2.data, data_reread.data)
+            data_instances_reread = load_nwb(outpath, memuse=2000)
+            assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"
+            adata2_reread = list(out.values())[0]
+            assert isinstance(adata2_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata2_reread)}"
+            assert len(adata2_reread.channel) == 64, f"Expected 64 channels, got {len(adata2_reread.channel)}"
+            assert np.allclose(adata2.data, adata2_reread.data)
 
 
 if __name__ == '__main__':
