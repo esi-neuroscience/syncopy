@@ -33,6 +33,49 @@ Key Differences between Syncopy and FieldTrip
 
 Have a look at the :ref:`quick_start` page to quickly walk through a few Syncopy examples.
 
+Installation and Setup
+^^^^^^^^^^^^^^^^^^^^^^
+
+**Matlab** comes as an **all in one software package**, and additional components like FieldTrip can be added as *toolboxes* within the Matlab desktop program.
+
+Syncopy relies on the **scientific Python ecosystem**, a vast collection of open source programs and tools:
+
+.. figure:: /_static/scientific_python.jpg
+   :scale: 40%
+	  
+   Source: VanderPlas 2017, slide 52.
+	      
+Managing Python environments and installing packages can be a challenging topic. The `Anaconda Distribution <https://www.anaconda.com/>`_ eases a lot of those pains for new Python users, and is very popular within the scientific Python community. It also comes with the graphical `Anaconda Navigator <https://docs.anaconda.com/free/navigator/index.html>`_, which allows easy installation and execution of scientific Python programs like `Jupyter <https://jupyter.org/>`_ or `IPython console <https://ipython.org/>`_. Syncopy itself can be installed via anaconda, see :ref:`install` for details. 
+
+Interpreter and IDE
+^^^^^^^^^^^^^^^^^^^
+
+**Matlab** as a commercial software is a bundle consisting of the Matlab **interpreter** and the **IDE**. Both are integrated into a single program with a user interface (UI), the Matlab desktop application.
+
+.. note::
+   An interpreter is the place to interactively run commands (like ``randn(10, 2)`` in Matlab), and an IDE (integrated development environment) is the editor where scripts or programs are written.
+
+Conversely, within the open source **Python** ecosystem there exists **no inherent coupling between the IDE and the interpreter**. So there is no universal Python desktop program but a variety of different possible setups. Three common solutions for scientific Python development are:
+
+`Jupyter Notebooks <https://jupyter.org/>`_
+
+- interactive computing in the browser
+- bundles scripting (IDE) and code execution (interpreter)
+- easy to set up, recommended for Python beginners
+
+Editor + `IPython console <https://ipython.org/>`_
+
+- keeps IDE and interpreter separate
+- free choice of popular editors like `VS Code <https://code.visualstudio.com/>`_ or `Sublime Text <https://www.sublimetext.com/>`_
+- recommended for people with programming experience
+  
+`Spyder <https://www.spyder-ide.org/>`_
+
+- tries to mimick the Matlab environment
+- integrates IDE and interpreter into a single desktop app
+- not very widespread but probably the *most user friendly*
+ 
+
 Data types and handling
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -52,6 +95,31 @@ this will print something like:
 
    /path/to/.spy/tmp_storage/spy_fe2c_493b3197.analog
 
+For an overview over all attributes of a specific Syncopy data object just type its name directly into your interpreter::
+
+  >>> adata
+
+   Syncopy AnalogData object with fields
+
+            cfg : dictionary with keys ''
+        channel : [2] element <class 'numpy.ndarray'>
+      container : None
+           data : 10 trials of length 250.0 defined on [2500 x 2] float32 Dataset of size 0.02 MB
+         dimord : time by channel
+       filename : /xxx/xxx/.spy/spy_910e_572582c9.analog
+           mode : r+
+     sampleinfo : [10 x 2] element <class 'numpy.ndarray'>
+     samplerate : 1000.0
+            tag : None
+           time : 10 element iterable
+      trialinfo : [50 x 0] element <class 'numpy.ndarray'>
+         trials : 10 element iterable
+
+   Use `.log` to see object history
+
+.. hint::
+   This works with Pythons neat *string representation* of classes. Try typing the name of a *string* variable (``var = 'some string'``) into your interpreter.
+	  
 Every Syncopy data object has the following attributes:
 
 - ``trials``: returns a **single trial** as :class:`numpy.ndarray` or an **iterable**
@@ -108,8 +176,8 @@ For translating code from MATLAB to Python there are several guides, e.g.
 * `NumPy for Matlab users <https://docs.scipy.org/doc/numpy/user/numpy-for-matlab-users.html>`_
 * `MATLAB to Python - A Migration Guide by Enthought <https://www.enthought.com/white-paper-matlab-to-python>`_
 
-Key Differences between Python and MATLAB
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Key Differences between the Python and MATLAB Languages
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 While the above links cover differences between Python and MATLAB to a great
 extent, we highlight here what we think are the most important differences:
 
