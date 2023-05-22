@@ -18,6 +18,85 @@ for example the `MNE Project <https://www.martinos.org/mne/>`_.
     Contents
     :local:
 
+
+Exchanging Data between FieldTrip and Syncopy
+---------------------------------------------
+
+MAT-Files can be imported directly into Syncopy via :func:`~syncopy.load_ft_raw`, at the moment only the `ft_datatype_raw <https://github.com/fieldtrip/fieldtrip/blob/release/utilities/ft_datatype_raw.m>`_ is supported:
+
+.. autosummary::
+   syncopy.load_ft_raw
+
+
+Key Differences between Syncopy and FieldTrip
+---------------------------------------------
+
+Have a look at the :ref:`quick_start` page to quickly walk through a few Syncopy examples.
+
+Data types and handling
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The data in Syncopy is represented as `Python objects <https://python.swaroopch.com/oop.html>`_. So it has **methods** (functions) and **attributes** (data) attached, accessible via the ``.`` operator. Let's have a look at an :class:`~syncopy.AnalogData` example::
+
+  import syncopy as spy
+
+  # red noise AR(1) process with 10 trials and 250 samples
+  adata = spy.synthdata.red_noise(alpha=0.9, nTrials=10, nSamples=250)
+
+  # access the filename attribute
+  adata.filename
+
+this will print something like:
+
+.. code-block:: bash
+
+   /path/to/.spy/tmp_storage/spy_fe2c_493b3197.analog
+
+Every Syncopy data object has the following attributes:
+
+- ``trials``: returns a **single trial** as :class:`numpy.ndarray` or an **iterable**
+- ``channel``: string :class:`numpy.ndarray` of **channel labels**
+- ``trialdefinition``: :class:`numpy.ndarray` representing `start`, `stop` and `offset` off each trial
+- ``samplerate``: the samplerate in Hz
+- ``filename``: the path to the data file on disc
+- ``data``: the backing hdf5 dataset. You should not need to interact with this directly.
+
+Each data class can have special `attributes` like ``freq``, an extensive overview over all data classes can be found here: :ref:`syncopy-data-classes`.
+
+Functions and methods operating with data, like I/O and plotting can be found at :ref:`data_basics`.
+
+The attributes typically mirror the `fields` of MatLab `structures`, however they cannot be simply overwritten::
+
+  adata.channel = 3
+
+this gives::
+
+   SPYTypeError: Wrong type of `channel`: expected array_like found int
+
+Syncopy has detailed error handling, and tries to tell you what exactly is wrong. So here, an **array_like** was expected, but a single **int** was the input. **array_like** basically means a sequence type, so :class:`numpy.ndarray` or Python ``list``. Let's try again::
+
+  adata.channel = ['c1', 'c2', 'c3']
+
+Still no good::
+
+  SPYValueError: Invalid value of `channel`: 'shape = (3,)'; expected array of shape (2,)
+
+So in NumPy language that tells us, that Syncopy expected an array with two elements instead of three. Inspecting the ``channel`` attribute::
+
+  adata.channel
+
+.. code-block:: python
+
+   array(['channel1', 'channel2'], dtype='<U8')
+
+we see that we have only two channels in this case, so setting three channel labels indeed makes no sense. Finally with::
+
+  adata.channel = ['c1', 'c2']
+
+we can change the channel labels.
+
+
+
 Translating MATLAB Code to Python
 ---------------------------------
 For translating code from MATLAB to Python there are several guides, e.g.
@@ -37,12 +116,12 @@ extent, we highlight here what we think are the most important differences:
   >>> x[0]
   1
 
-  Python ranges are half-open intervals ``[left, right)``, i.e., the right boundary 
+  Python ranges are half-open intervals ``[left, right)``, i.e., the right boundary
   is not included:
 
   >>> list(range(1, 4))
   [1, 2, 3]
-  
+
 * Data in Python is not necessarily copied and may be manipulated in-place:
 
   >>> x = [1, 2, 3, 4]
@@ -56,31 +135,32 @@ extent, we highlight here what we think are the most important differences:
   >>> x = [1, 2,3 ,4]
   >>> y = list(x)
   >>> x[0] = -1
-  >>> y 
+  >>> y
   [1, 2, 3, 4]
 
 * Python's powerful `import system <https://docs.python.org/3/reference/import.html>`_
   allows simple function names (e.g., :func:`~syncopy.load`) without worrying
   about overwriting built-in functions
-  
+
   >>> import syncopy as spy
-  >>> import numpy as np 
-  >>> spy.load 
+  >>> import numpy as np
+  >>> spy.load
   <function syncopy.io.load_spy_container.load(filename, tag=None, dataclass=None, checksum=False, mode='r+', out=None)
   >>> np.load
   <function numpy.load(file, mmap_mode=None, allow_pickle=False, fix_imports=True, encoding='ASCII')>
-  
+
 * `Project-specific environments <https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html>`_
   allow reproducible and customizable work setups.
 
   .. code-block:: bash
-  
+
       $ conda activate np17
       $ python -c "import numpy; print(numpy.version.version)"
       1.17.2
       $ conda activate np15
       $ python -c "import numpy; print(numpy.version.version)"
       1.15.4
+
 
 Translating FieldTrip Calls to Syncopy
 --------------------------------------
@@ -96,7 +176,7 @@ Using a FieldTrip function in MATLAB usually works via constructing a ``cfg``
     result = ft_something(cfg);
 
 Syncopy emulates this concept using a :class:`syncopy.StructDict` (really just a
-slightly modified Python dictionary) that can automatically be filled with 
+slightly modified Python dictionary) that can automatically be filled with
 default settings of any function.
 
 .. code-block:: python
@@ -114,7 +194,7 @@ A FieldTrip Power Spectrum in Syncopy
 For example, a power spectrum calculated with FieldTrip via
 
 .. code-block:: matlab
-      
+
     cfg = [];
     cfg.method = 'mtmfft';
     cfg.foilim = [1 150];
@@ -126,12 +206,11 @@ For example, a power spectrum calculated with FieldTrip via
 can be computed in Syncopy with
 
 .. code-block:: python
-      
+
     cfg = spy.get_defaults(spy.freqanalysis)
     cfg.method = 'mtmfft'
     cfg.foilim = [1, 150]
     cfg.output = 'pow'
-    cfg.taper = 'dpss'
     cfg.tapsmofrq = 10
     spec = spy.freqanalysis(cfg, data)
 
@@ -140,93 +219,11 @@ Key Differences between FieldTrip and Syncopy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * FieldTrip has **a lot** more features. Syncopy is still in early development and will
   never cover the rich feature-set of FieldTrip.
-* FieldTrip supports **many** data formats. Syncopy currently only supports data import 
-  from FieldTrip (see below). 
+* FieldTrip supports **many** data formats. Syncopy currently only supports data import
+  from FieldTrip (see below).
 * Syncopy data objects use disk-streaming and are thus never fully loaded into memory.
 
-Exchanging Data between FieldTrip and Syncopy
----------------------------------------------
-Data created with Syncopy can be loaded into MATLAB using the `matlab-syncopy
-<https://github.com/esi-neuroscience/syncopy-matlab>`_ interface. It's still in early
-development and supports only a subset of data classes. Also, the MATLAB
-interface does not support loading data that do not fit into local memory.
+Experimental import/export from MatLab
+--------------------------------------
 
-MAT-Files can also be imported directly into Syncopy via :func:`~syncopy.load_ft_raw`, at the moment only the ``ft_datatype_raw`` is supported.
-
-Exemplary Workflow: Roundtrip - FieldTrip to Syncopy and Back
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-For this illustrative example we start by generating synthetic data in FieldTrip
-
-.. code-block:: matlab
-
-    cfg = [];
-    cfg.method  = 'superimposed';
-    cfg.fsample = 1000;
-    cfg.numtrl  = 13;
-    cfg.trllen  = 7;
-    cfg.s1.freq = 50;
-    cfg.s1.ampl = 1;
-    cfg.s1.phase = 0;
-    cfg.noise.ampl = 0;
-    data = ft_freqsimulation(cfg);
-    data.dimord = '{rpt}_label_time';
-
-Next, `download the latest release <https://github.com/esi-neuroscience/syncopy-matlab/releases>`_ 
-of Syncopy's MATLAB interface and add the folder containing the `+spy` directory to your 
-MATLAB path.  
-
-.. code-block:: matlab
-
-    addpath('/path/to/syncopy-matlab/')
-
-Now, we save the synthetic dataset as Syncopy :class:`~syncopy.AnalogData` dataset in the 
-respective user home
-
-.. code-block:: matlab
-
-    cfg = []; cfg.filename = '~/syn_data.analog';
-    spy.ft_save_spy(cfg, data)
-
-The previous call generated two files: an HDF5 data-file ``~/syn_data.analog``
-and the accompanying JSON meta-data ``~/syn_data.analog.info`` (please refer to 
-:ref:`syncopy-data-format` for more information about Syncopy's file format). 
-
-We start an (i)Python session, import Syncopy and use :func:`~syncopy.load` to read the 
-data from disk:
-
-.. code-block:: python
-      
-    import syncopy as spy 
-    data = spy.load('~/syn_data.analog')
-
-Now, let's compute a power-spectrum using Syncopy's parallel computing engine:
-
-.. code-block:: python
-      
-    cfg = spy.get_defaults(spy.freqanalysis)
-    cfg.method = 'mtmfft'
-    cfg.output = 'pow'
-    cfg.parallel = True
-    spec = spy.freqanalysis(cfg, data)
-
-.. note::
-
-    Using SLURM on the ESI HPC cluster for datasets this small usually does not 
-    yield any performance gain due to the comparatively large overhead of starting 
-    a SLURM worker pool compared to the total computation time. 
-
-We save the resulting :class:`~syncopy.SpectralData` object alongside the corresponding 
-:class:`~syncopy.AnalogData` source:
-
-.. code-block:: python
-      
-    spy.save(spec, filename='~/syn_data')
-
-Note that :func:`syncopy.save` automatically appends the appropriate filename 
-extension (``.spectral`` in this case). 
-
-Back in MATLAB, we can import the computed spectrum using:
-
-.. code-block:: matlab
-
-    spec = spy.ft_load_spy('~/syn_data.spectral')
+See :ref:`matlab_io` for an example.

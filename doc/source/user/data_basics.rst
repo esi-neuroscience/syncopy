@@ -1,3 +1,5 @@
+.. _data_basics:
+
 Syncopy Data Basics
 ===================
 

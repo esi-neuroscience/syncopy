@@ -116,7 +116,7 @@ def csd(trl_dat,
 def normalize_csd(csd_av_dat,
                   output='abs'):
 
-    """
+    r"""
     Given the trial averaged cross spectral densities,
     calculates the normalizations to arrive at the
     channel x channel coherencies. If ``S_ij(f)`` is the

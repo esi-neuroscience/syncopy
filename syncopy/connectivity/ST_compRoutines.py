@@ -131,7 +131,7 @@ def ppc_column_cF(cross_spectrum,
                   hdf5_path=None,
                   chunkShape=None,
                   noCompute=False):
-    """
+    r"""
     The PPC involves computations on all nTrials(nTrials-1) pairs. This compute function
     in combination with the PPC CR can be used to compute one column, consisting
     of nTrials-1 pairs (and single diagonal entry), of the implicit
