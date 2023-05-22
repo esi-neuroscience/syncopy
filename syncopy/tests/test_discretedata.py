@@ -236,6 +236,12 @@ class TestEventData():
         assert not edata._is_empty()
         edata._register_dataset("blah", np.zeros((3,3), dtype=float))
 
+    def test_str_rep_with_trials(self):
+        """Test string representation of EventData with trialdefinition. Ensure that the bug with the string representation is fixed."""
+        dummy = EventData(self.data, trialdefinition=self.trl)
+        assert "samplerate" in str(dummy)  # The real test is that 'str(dummy)' does not raise an error.
+
+
     def test_ed_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
         dummy = EventData(self.data, trialdefinition=self.trl)
