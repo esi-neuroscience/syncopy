@@ -36,6 +36,7 @@ Utility
 
    syncopy.definetrial
    syncopy.selectdata
+   syncopy.redefinetrial   
    syncopy.show
    syncopy.cleanup
    

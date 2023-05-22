@@ -24,7 +24,7 @@ class TestTimelockanalysis:
 
     # create simple white noise
     # "real" data gets created for semantic test
-    adata = synthdata.white_noise(nTrials, samplerate=fs,
+    adata = synthdata.white_noise(nTrials=nTrials, samplerate=fs,
                                   nSamples=nSamples,
                                   nChannels=nChannels,
                                   seed=42)

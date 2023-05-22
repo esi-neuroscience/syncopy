@@ -20,20 +20,21 @@ one at 200Hz and one at 1300Hz:
 
     # Import package
     import syncopy as spy
-    from syncopy.tests import synth_data
+    from syncopy import synthdata
 
     # basic dataset properties
-    nTrials = 100
-    samplerate = 5000  # in Hz
+    cfg = spy.StructDict()
+    cfg.nTrials = 100
+    cfg.samplerate = 5000  # in Hz
 
     # add a strong harmonic with 200Hz
-    adata = 2 * synth_data.harmonic(nTrials, freq=200, samplerate=samplerate)
+    adata = 2 * synthdata.harmonic(freq=200, cfg)
 
     # add another harmonic with 1300Hz
-    adata += synth_data.harmonic(nTrials, freq=1300, samplerate=samplerate)
+    adata += synthdata.harmonic(freq=1300, cfg)
 
     # white noise floor
-    adata += synth_data.white_noise(nTrials, samplerate=samplerate)
+    adata += synthdata.white_noise(nTrials, samplerate=samplerate)
 
 
 Note that our *original sampling rate* is 5000Hz, so both harmonics are well sampled as can be seen in the power spectrum::

@@ -5,19 +5,13 @@
 
 # Builtin/3rd party package imports
 import numpy as np
-
-# Add SynCoPy package to Python search path
 import os
 import sys
-spy_path = os.path.abspath(".." + os.sep + "..")
-if spy_path not in sys.path:
-    sys.path.insert(0, spy_path)
 
 # Import package
 import syncopy as spy
 
-# Import artificial data generator
-from syncopy.tests.misc import generate_artificial_data
+# Import artificial data generators
 from syncopy import synthdata
 
 # Prepare code to be executed using, e.g., iPython's `%run` magic command
@@ -33,11 +27,11 @@ if __name__ == "__main__":
     # coupling from 0 to 1
     AdjMat[0, 1] = .15
     alphas = [.55, -.8]
-    adata = synthdata.AR2_network(nTrials, samplerate=fs,
+    adata = synthdata.ar2_network(nTrials, samplerate=fs,
                                   AdjMat=AdjMat,
                                   nSamples=nSamples,
                                   alphas=alphas)
-    adata += synthdata.AR2_network(nTrials, AdjMat=np.zeros((2, 2)),
+    adata += synthdata.ar2_network(nTrials, AdjMat=np.zeros((2, 2)),
                                    samplerate=fs,
                                    nSamples=nSamples,
                                    alphas=[0.9, 0])

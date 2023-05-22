@@ -1,4 +1,4 @@
-name: Run basic tests and determine coverage
+name: Run Basic Tests
 
 on:
   # Triggers the workflow on push or pull request events

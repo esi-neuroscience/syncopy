@@ -25,9 +25,9 @@ Let us first prepare suitable data, we use white noise here:
     :linenos:
 
     import syncopy as spy
-    import syncopy.tests.synth_data as synth_data
+    from syncopy import synthdata
 
-    wn = synth_data.white_noise(nTrials=2, nChannels=3, nSamples=20000, samplerate=1000)
+    wn = synthdata.white_noise(nTrials=2, nChannels=3, nSamples=20000, samplerate=1000)
 
 The return value `wn` is of type :class:`~syncopy.AnalogData` and contains 2 trials and 3 channels,
 each consisting of 20 seconds of white noise: 20000 samples at a sample rate of 1000 Hz. We can show this easily:
