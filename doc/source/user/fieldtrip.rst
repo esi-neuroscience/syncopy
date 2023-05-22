@@ -34,7 +34,7 @@ Key Differences between Syncopy and FieldTrip
 Have a look at the :ref:`quick_start` page to quickly walk through a few Syncopy examples.
 
 Data types and handling
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 The data in Syncopy is represented as `Python objects <https://python.swaroopch.com/oop.html>`_. So it has **methods** (functions) and **attributes** (data) attached, accessible via the ``.`` operator. Let's have a look at an :class:`~syncopy.AnalogData` example::
 
@@ -61,11 +61,14 @@ Every Syncopy data object has the following attributes:
 - ``filename``: the path to the data file on disc
 - ``data``: the backing hdf5 dataset. You should not need to interact with this directly.
 
-Each data class can have special `attributes` like ``freq``, an extensive overview over all data classes can be found here: :ref:`syncopy-data-classes`.
+Each data class can have special `attributes`, for example ``freq`` for :class:`~syncopy.SpectralData`. An extensive overview over all data classes can be found here: :ref:`syncopy-data-classes`.
 
-Functions and methods operating with data, like I/O and plotting can be found at :ref:`data_basics`.
+Functions and methods operating on data, like I/O and plotting can be found at :ref:`data_basics`.
 
-The attributes typically mirror the `fields` of MatLab `structures`, however they cannot be simply overwritten::
+Changing Attributes
+~~~~~~~~~~~~~~~~~~~
+
+The attributes of Syncopy data objects typically mirror the `fields` of MatLab `structures`, however they cannot be simply overwritten::
 
   adata.channel = 3
 
