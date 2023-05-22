@@ -25,6 +25,5 @@ jobs:
         poetry install
     - name: Run benchmarks
       run: |
-        pip install asv virtualenv
         poetry run asv machine --yes
         poetry run asv run HEAD^! --show-stderr
