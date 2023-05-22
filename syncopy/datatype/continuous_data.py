@@ -509,7 +509,8 @@ class AnalogData(ContinuousData):
         nwbfile.add_acquisition(time_series_with_rate)
 
 
-        # Add trial definition
+        # Add trial definition.
+        # TODO: do we need to use Epochs here?
         if with_trialdefinition and self.trialdefinition is not None:
             # Add the trial definition, if any.
             nwbfile.add_trial_column(
@@ -517,7 +518,7 @@ class AnalogData(ContinuousData):
                 description="The offset of the trial.",
             )
             for trial_idx in range(self.trialdefinition.shape[0]):
-                td = self.trialdefinition[trial_idx, :].astype(np.float64) # TODO: convert sample idx to real time.
+                td = self.trialdefinition[trial_idx, :].astype(np.float64)
                 nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[0])
 
 
