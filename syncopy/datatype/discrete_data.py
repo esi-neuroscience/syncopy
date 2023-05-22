@@ -63,8 +63,8 @@ class DiscreteData(BaseData, ABC):
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__()
                    if not (attr.startswith("_") or attr in ["log", "trialdefinition"])]
-        ppattrs = [attr for attr in ppattrs
-                   if not (inspect.ismethod(getattr(self, attr))
+        ppattrs = [attr for attr in ppattrs if hasattr(self, attr) and
+                   not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
 
         ppattrs.sort()
