@@ -157,6 +157,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
 
     # Print status update to inform user
     SPYInfo(msg)
+    log_msg = "Read data from NWB file {}".format(nwbFullName)
 
     # Check for filename
     if container is not None:
@@ -217,7 +218,6 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
             msg = "No trial information found. Proceeding with single all-encompassing trial"
 
         # Write logs
-        log_msg = "Read data from NWB file {}".format(nwbFullName)
         evtData.log = log_msg
         objectDict[os.path.basename(evtData.filename)] = evtData
 
