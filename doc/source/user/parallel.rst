@@ -1,33 +1,131 @@
 .. _parallel:
 
-------------------------------
-Serial and Parallel Processing
-------------------------------
+--------------------
+Parallel Processing
+--------------------
 
 .. contents:: Topics covered
    :local:
 
-By default, all computations in Syncopy are executed sequentially relying solely 
-on low-level built-in parallelization offered by external libraries like `NumPy <https://numpy.org/>`_. 
-The simplest way to enable full concurrency for a given Syncopy calculation 
-is by using the `parallel` keyword supported by all Syncopy meta-functions, i.e., 
+Syncopy employs `Dask <https://dask.org/>`_ as its parallel processing engine and it gets installed along Syncopy automatically. Dask is a powerful modern parallel computing framework, allowing concurrency on a variety of systems from a single laptop up to cloud infrastructure.
 
-.. code-block:: python
-      
-    spec = spy.freqanalysis(data, method="mtmfft", foilim=[1, 150], tapsmofrq=10, parallel=True)
+Dask Setup and Integration
+--------------------------
 
-or 
+To quickly enable parallel processing on a local machine we can launch a  `LocalCluster <https://docs.dask.org/en/stable/deploying-python.html#localcluster>`_::
 
-.. code-block:: python
-      
-    cfg = spy.get_defaults(spy.freqanalysis)
-    cfg.method = 'mtmfft'
-    cfg.foilim = [1, 150]
-    cfg.tapsmofrq = 10
-    cfg.parallel = True
-    spec = spy.freqanalysis(cfg, data)
+  import dask.distributed as dd
 
-Default parallelization is over trials, additional parallelization over channels can be achieved by using the `chan_per_worker` keyword:
+  # request 8 worker processes
+  cluster = dd.LocalCluster(n_workers=8)
+
+  # attach a client to the cluster
+  client = dd.Client(cluster)
+
+**Syncopy always checks if a Dask client is avalaible** and automatically allocates computations to the provided workers.  With the client in place, we can simply call a Syncopy function as usual::
+
+  import syncopy as spy
+  
+  data = spy.synthdata.red_noise(alpha=0.3, nTrials=250)
+  spec = spy.freqanalysis(data)
+
+and the computations are automatically **parallelized over trials**. That means Syncopy code is the same for both parallel and sequential processing!
+  
+Syncopy notifies about parallel computations via logging:
+
+.. code-block:: bash
+
+     15:17:50 - IMPORTANT: 8/8 workers available, starting computation..
+     15:17:51 - IMPORTANT: ..attaching to running Dask client:
+	<Client: 'tcp://127.0.0.1:58228' processes=8 threads=8, memory=16.00 GiB>
+
+Dask itself offers a `dashboard <https://docs.dask.org/en/stable/dashboard.html>`_ which runs in the browser, checkout http://localhost:8787/status to see the status of the ``LocalCluster`` we created.
+	
+To summarize, parallelization in Syncopy works by:
+
+- setup a Dask cluster
+- connect a Dask client to that cluster
+- use Syncopy as usual
+
+In effect, on any Dask compatible compute system Syncopy can be run in parallel.
+
+.. note::
+   Once a Dask client/cluster is alive, it can be re-used for any number of computations with Syncopy. Don't start a 2nd cluster for a new computation!
+
+.. warning::
+   Without a **prior initialization** of a Dask client all computations in Syncopy are only executed sequentially, relying solely on low-level built-in parallelization offered by external libraries like `NumPy <https://numpy.org/>`_.
+
+
+Example Dask SLURM cluster Setup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you are working on a HPC system, remember you need to configure your own Dask cluster **before** running any Syncopy
+computations, and Syncopy will happily use the provided ressoures. See the `Dask tutorial <https://tutorial.dask.org/>`_
+for a general introduction about allocating distributed computing ressources. On a SLURM cluster, a basic setup
+could look like this::
+
+  import dask.distributed as dd
+  import dask_jobqueue as dj
+  
+  slurm_wdir = "/path/to/workdir/"
+  n_jobs = 8
+  reqMem = 32  
+  queue = 'slurm_queue'
+
+  cluster = dj.SLURMCluster(cores=1, memory=f'{reqMem} GB', processes=1,
+                            local_directory=slurm_wdir,
+                            queue=queue)
+
+  cluster.scale(n_jobs)
+  client = dd.Client(cluster)
+
+  # now start syncopy computations
+  # global dask `client` gets automatically recognized
+
+With a client connected to a Dask cluster in place, we can run computations with Syncopy as usual::
+  
+  import syncopy as spy
+  
+  data = spy.synthdata.white_noise(nTrials=500, nSamples=10_000, nChannels=10)
+
+  # band pass filtering between 20Hz and 40Hz
+  spec = spy.preprocessing(data, freq=[20, 40], filter_type='bp')
+  
+If the Dask clurm cluster was freshly requested, we first have to wait until at least 1 worker is ready:
+
+.. code-block:: bash
+
+   Syncopy <check_workers_available> INFO: 0/8 workers available, waiting.. 0s
+   Syncopy <check_workers_available> INFO: 0/8 workers available, waiting.. 2s
+   Syncopy <check_workers_available> INFO: 0/8 workers available, waiting.. 4s		
+   Syncopy <check_workers_available> INFO: 3/8 workers available, waiting.. 6s
+   Syncopy <parallel_client_detector> INFO: ..attaching to running Dask client:
+   <Client: 'tcp://10.100.32.3:42673' processes=3 threads=3, memory=92.40 GiB>
+   [###################################     ] | 88% Completed | 52.3
+
+Syncopy employs a timeout of 360s (6 minutes), if after that time not a single worker is available the computations get aborted.
+
+To check the status of the Dask cluster manualy you can do::
+
+  dd.get_client()
+  
+This will output the current state of the client/cluster:
+
+.. code-block:: bash
+		
+  >>> <Client: 'tcp://10.100.32.3:42673' processes=3 threads=3, memory=92.40 GiB>
+
+indicating here that 3 workers are available at this very moment.
+
+.. hint::
+   For a basic introduction to HPC computing see this `wiki <https://hpc-wiki.info>`_
+   and/or the Slurm `documentation <https://slurm.schedmd.com/>`_.
+
+   
+Channel Parallelisation
+------------------------
+
+Standard parallelization is over trials, additional parallelization over channels can be achieved by using the `chan_per_worker` keyword:
 
 .. code-block:: python
 
@@ -38,79 +136,23 @@ Default parallelization is over trials, additional parallelization over channels
 			    parallel=True,
 			    chan_per_worker=40)
 
-This would allocate the computation for each trial and 40 channel chunk to an independent computing process. Note that the number of parallel processes is generally limited, depending on the computing resources available. Hence setting ``chan_per_worker=1`` can be actually quite inefficient when the data has say 200 channels but only 4 parallel processes are available at any given time. In general, if there are only few trials, it is safe and even recommended to set `chan_per_worker` to a fairly low number. On the other hand, depending on the compute cluster setup, being to greedy here might also spawn a lot of jobs and hence might induce long waiting times. 
+This would allocate the computation for each trial and 40 channel chunk to an independent computing process. Note that the number of parallel processes is generally limited, depending on the computing resources available. Hence setting ``chan_per_worker=1`` can be actually quite inefficient when the data has say 200 channels but only 4 parallel processes are available at any given time. In general, if there are only few trials, it is safe and even recommended to set `chan_per_worker` to a fairly low number. On the other hand, depending on the HPC setup at hand, being to greedy here might also spawn a lot of jobs and hence might induce long waiting times. 
 
+   
+ESI: ACME - Cluster Setup
+--------------------------
     
-ACME - Cluster Setup
-~~~~~~~~~~~~~~~~~~~~
-    
-More fine-grained control over allocated resources and load-balancer options is available 
-via the routine :func:`~syncopy.esi_cluster_setup` which is available when
-`ACME <https://github.com/esi-neuroscience/acme>`_ is installed.
-It provides a convenient way to launch a custom-tailored 
-"cluster" of parallel workers (compute jobs if run on a cluster computing manager such as SLURM)
-on the ESI HPC. 
-Thus, instead of simply "turning on" parallel computing via a keyword and letting 
-Syncopy choose an optimal setup for the computation at hand, more fine-grained 
-control over resource allocation and management can be achieved via running 
-:func:`~syncopy.esi_cluster_setup` **before** launching the actual calculation. 
+If you are on the `ESI <https://www.esi-frankfurt.de/>`_ HPC, the Dask cluster setup can be 
+handled by :func:`~acme.esi_cluster_setup` which is available when `ACME <https://github.com/esi-neuroscience/acme>`_ is installed.
+It provides a convenient way to launch a custom-tailored cluster of parallel SLURM workers on the ESI HPC. 
+
+As with any other Dask cluster 
+:func:`~acme.esi_cluster_setup` has to be called **before** launching the actual calculation. 
 For example::
 
     spyClient = spy.esi_cluster_setup(partition="16GBXL", n_jobs=10)
 
 starts 10 concurrent SLURM workers in the `16GBXL` queue if run on the ESI HPC 
-cluster. All subsequent invocations of Syncopy analysis routines will automatically 
-pick up ``spyClient`` and distribute any occurring computational payload across 
-the workers collected in ``spyClient``. 
-
-.. hint::
-
-   If `esi_cluster_setup` is unavailable, have a look at :ref:`install_acme` For general deployment on other HPC systems please contact the ACME
-   team directly.
-
-Manual Dask cluster Setup
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-With ``parallel=True`` Syncopy looks for a running `Dask <https://dask.org/>`_ client to attach to,
-and if none is found a Dask ``LocalCluster`` is started as a fallback to allow basic parallel execution on single machines.
-
-If you are working on a HPC system, you can configure your own Dask cluster **before** running any Syncopy
-computations, and Syncopy will happily use the provided ressoures. See the `Dask tutorial <https://tutorial.dask.org/>`_
-for a general introduction about allocating distributed computing ressources. On a SLURM cluster, a basic setup
-could look like this::
-
-  import dask.distributed as dd
-  import dask_jobqueue as dj
-  import syncopy as spy
-  
-  slurm_wdir = "/path/to/workdir/"
-  n_jobs = 8
-  reqMem = 32  
-  queue = 'slurm_queue'
-
-  cl = dj.SLURMCluster(cores=1, memory=f'{reqMem} GB', processes=1,
-                       local_directory=slurm_wdir,
-                       queue=queue)
-
-  cl.scale(n_jobs)
-  client = dd.Client(cl)
-
-  # now start syncopy computations,
-  # global dask `client` gets automatically recognized
-  # no need for `parallel=True`
-  spy.freqanalysis(...)
-
-If the Dask clurm cluster was freshly requested, we first have to wait until all workers are ready:
-
-.. code-block:: bash
-
-   Syncopy <check_workers_available> INFO: 0/8 workers available, waiting.. 0s
-   Syncopy <check_workers_available> INFO: 3/8 workers available, waiting.. 2s
-   Syncopy <check_workers_available> INFO: 7/8 workers available, waiting.. 4s
-   Syncopy <parallel_client_detector> INFO: ..attaching to running Dask client:
-   <Client: 'tcp://10.100.32.3:42673' processes=8 threads=8, memory=238.40 GiB>
-   [###################################     ] | 88% Completed | 52.3
-
-.. hint::
-   For a basic introduction to HPC computing see this `wiki <https://hpc-wiki.info>`_
-   and/or the Slurm `documentation <https://slurm.schedmd.com/>`_.
+cluster. As usual all subsequent invocations of Syncopy analysis routines will automatically 
+pick up the ``spyClient`` and distribute any occurring computational payload across 
+the workers collected in ``spyClient``.   
