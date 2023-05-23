@@ -25,6 +25,9 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
     Parameters
     ----------
     data : :class:`~syncopy.datatype.AnalogData`
+    shifted : bool
+        Stacks the signals on top of each other if `True` by
+        extending the y-axis
     show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
 
     Returns
@@ -135,11 +138,8 @@ def plot_SpectralData(data, logscale=True, **show_kwargs):
     else:
 
         msg = False
-        if 'toilim' in show_kwargs:
-            show_kwargs.pop('toilim')
-            msg = True
-        if 'toi' in show_kwargs:
-            show_kwargs.pop('toi')
+        if 'latency' in show_kwargs:
+            show_kwargs.pop('latency')
             msg = True
         if msg:
             msg = ("Line spectra don't have a time axis, "
