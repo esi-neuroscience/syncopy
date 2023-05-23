@@ -518,8 +518,8 @@ class AnalogData(ContinuousData):
                 description="The offset of the trial.",
             )
             for trial_idx in range(self.trialdefinition.shape[0]):
-                td = self.trialdefinition[trial_idx, :].astype(np.float64)
-                nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[0])
+                td = self.trialdefinition[trial_idx, :].astype(np.float64) / self.samplerate # Compute time from sample number.
+                nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[2])
 
 
         # Finally, write the file to disk.

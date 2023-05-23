@@ -27,7 +27,7 @@ from syncopy.shared.errors import (
 )
 import syncopy.datatype as swd
 from syncopy.tests.misc import generate_artificial_data
-
+from syncopy.synthdata.analog import white_noise
 
 
 # Decorator to detect if test data dir is available
@@ -620,28 +620,25 @@ class TestNWBImporter:
             assert np.allclose(lfp.data, lfp2.data)
 
 
-    def test_save_nwb(self):
+    def test_save_nwb_no_trialdef(self):
         """Test saving to NWB file and re-reading data for AnalogData."""
 
-        if self.nwb_filename is None:
-            pytest.skip("Demo NWB file not found on current system.")
+        numChannels = 64
+        adata = white_noise(nTrials = 1, nChannels=numChannels, nSamples= 1000)
 
-        out = load_nwb(self.nwb_filename, memuse=2000)
-        edata, adata1, adata2 = list(out.values())
-
-        assert isinstance(adata2, spy.AnalogData)
-        assert len(adata2.channel) == 64
+        assert isinstance(adata, spy.AnalogData)
+        assert len(adata.channel) == numChannels
 
         with tempfile.TemporaryDirectory() as tdir:
-            outpath = os.path.join(tdir, 'test1.nwb')
-            adata2.save_nwb(outpath=outpath)
+            outpath = os.path.join(tdir, 'test_save_analog2nwb.nwb')
+            adata.save_nwb(outpath=outpath)
 
-            data_instances_reread = load_nwb(outpath, memuse=2000)
+            data_instances_reread = load_nwb(outpath)
             assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"
-            adata2_reread = list(out.values())[0]
-            assert isinstance(adata2_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata2_reread)}"
-            assert len(adata2_reread.channel) == 64, f"Expected 64 channels, got {len(adata2_reread.channel)}"
-            assert np.allclose(adata2.data, adata2_reread.data)
+            adata_reread = list(data_instances_reread.values())[0]
+            assert isinstance(adata_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata_reread)}"
+            assert len(adata_reread.channel) == numChannels, f"Expected {numChannels} channels, got {len(adata_reread.channel)}"
+            assert np.allclose(adata.data, adata_reread.data)
 
 
 if __name__ == '__main__':
