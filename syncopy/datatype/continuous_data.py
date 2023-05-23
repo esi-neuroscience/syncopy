@@ -15,6 +15,7 @@ from abc import ABC
 from collections.abc import Iterator
 from datetime import datetime
 from uuid import uuid4
+import pytz 
 
 # Local imports
 from .base_data import BaseData, FauxTrial, _definetrial
@@ -423,7 +424,7 @@ class AnalogData(ContinuousData):
         figax = mp_plotting.plot_AnalogData(self, **show_kwargs)
         return figax
 
-    def save_nwb(self, outpath, nwbfile=None, with_trialdefinition=True):
+    def save_nwb(self, outpath, nwbfile=None, with_trialdefinition=True, is_raw=True):
         """Save AnalogData in Neurodata Without Borders (NWB) file format.
 
         Parameters
@@ -431,7 +432,11 @@ class AnalogData(ContinuousData):
         outpath : str, path-like. Where to save the NWB file, including file name and `.nwb` extension. All directories in the path must exist. Example: `'mydata.nwb'`.
 
         nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
-        your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
+         your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
+
+        is_raw : Boolean, whether this is raw data (that should never change), as opposed to LFP data that originates from some processing, e.g., down-sampling and
+         detrending. Determines where data is stored in NWB container, to make it easier for other software to interprete what the data represents. If `is_raw` is `True`,
+         the `ElectricalSeries` is stored directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a processing group called `ecephys`.
 
         Notes
         -----
@@ -453,11 +458,15 @@ class AnalogData(ContinuousData):
             #  reference time for all timestamps in the file. For instance, an event with a timestamp of
             #  0 in the file means the event occurred exactly at the session start time."
 
+            start_time_no_tz = datetime.now()
+            tz = pytz.timezone('Europe/Berlin')
+            start_time = tz.localize(start_time_no_tz)
+
             # See https://nwbinspector.readthedocs.io/en/dev/best_practices/nwbfile_metadata.html#file-metadata for details.
             nwbfile = NWBFile(
                 session_description="unknown",          # required
                 identifier=str(uuid4()),                # required
-                session_start_time=datetime.now(),      # required and relevant, use something like `datetime(2018, 4, 25, 2, 30, 3, tzinfo=tz.gettz("US/Pacific"))` for real data.
+                session_start_time=start_time,      # required and relevant, use something like `datetime(2018, 4, 25, 2, 30, 3, tzinfo=tz.gettz("US/Pacific"))` for real data.
                 session_id="session_0001",              # optional. remember that one file is for one session.
                 experimenter=[ "unknown", ],            # optional, name of experimenters
                 lab="unknown",                          # optional, the research lab where the experiment was performed
@@ -504,9 +513,17 @@ class AnalogData(ContinuousData):
             data=self.data,
             electrodes=all_table_region,
             starting_time=0.0,
-            rate=self.samplerate,
-            description="an example time series dataset",)
-        nwbfile.add_acquisition(time_series_with_rate)
+            rate=self.samplerate, # Fixes sampling rate.
+            description="Electrical time series dataset",)
+
+        if is_raw:  # raw measurements from instruments, not to be changed. Not downsampled, detrended, or anything.
+            nwbfile.add_acquisition(time_series_with_rate)
+        else: # LFP, data used for analysis.
+            lfp = LFP(electrical_series=time_series_with_rate)
+            ecephys_module = nwbfile.create_processing_module(
+                name="ecephys", description="processed extracellular electrophysiology data"
+            )
+            ecephys_module.add(lfp)
 
 
         # Add trial definition.
