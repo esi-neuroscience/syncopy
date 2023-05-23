@@ -16,6 +16,7 @@ from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError
 from syncopy.shared.tools import best_match
+from syncopy.plotting import spike_plotting
 
 __all__ = ["SpikeData", "EventData"]
 
@@ -285,6 +286,14 @@ class DiscreteData(BaseData, ABC):
             if self.sampleinfo is None:
                 # Fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
+
+
+    # plotting, only virtual in the abc
+    def singlepanelplot(self):
+        raise NotImplementedError
+
+    def multipanelplot(self):
+        raise NotImplementedError
 
 
 class SpikeData(DiscreteData):
@@ -578,6 +587,12 @@ class SpikeData(DiscreteData):
             self.unit = unit
         elif data is not None:
             self.unit = self._default_unit_labels()
+
+    # implement plotting
+    def singlepanelplot(self, **show_kwargs):
+
+        figax = spike_plotting.plot_single_trial_SpikeData(self, **show_kwargs)
+        return figax
 
 
 class EventData(DiscreteData):
