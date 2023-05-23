@@ -147,13 +147,14 @@ class DiscreteData(BaseData, ABC):
             sidx = self.dimord.index("sample")
             self._trialdefinition = np.array([[np.nanmin(self.data[:, sidx]),
                                                np.nanmax(self.data[:, sidx]), 0]])
+            self._trial_ids = [0]
         else:
             array_parser(trldef, varname="trialdefinition", dims=2)
             array_parser(trldef[:, :2], varname="sampleinfo", hasnan=False,
                          hasinf=False, ntype="int_like", lims=[0, np.inf])
 
             self._trialdefinition = trldef.copy()
-
+            self._triald_ids = np.arange(self.sampleinfo.shape[0])
             # Compute trial-IDs by matching data samples with provided trial-bounds
             samples = self.data[:, self.dimord.index("sample")]
             idx = np.searchsorted(samples, self.sampleinfo.ravel())
@@ -163,6 +164,8 @@ class DiscreteData(BaseData, ABC):
             self.trialid = np.full((samples.shape), -1, dtype=int)
             for itrl, itrl_slice in enumerate(self._trialslice):
                 self.trialid[itrl_slice] = itrl
+
+            self._trial_ids = np.arange(self.sampleinfo.shape[0])
 
     @property
     def time(self):
@@ -178,6 +181,10 @@ class DiscreteData(BaseData, ABC):
 
     @trialid.setter
     def trialid(self, trlid):
+        """
+        1d-array of the size of the total number of samples,
+        encoding which sample belongs to which trial.
+        """
         if trlid is None:
             self._trialid = None
             return
