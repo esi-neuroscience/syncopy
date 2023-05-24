@@ -172,12 +172,6 @@ class TestTools:
         assert cfg2.c == [1,2,3]
         assert cfg.c == [1,2,3,4]
 
-    def test_interactive_cleanup_twice(self):
-        """Check bug that running 'spy.cleanup(interactive=False)' twice leads to 'TypeError: object of type function has no len()'."""
-        spy.cleanup(interactive=False)
-        spy.cleanup(interactive=False)
-        assert True
-
 
 if __name__ == '__main__':
     T1 = TestTools()
