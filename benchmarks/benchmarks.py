@@ -78,6 +78,6 @@ class MemSuite:
         """Test memory usage of AnalogData object."""
         return self.adata
 
-    def mem_mtmfft(self):
+    def peakmem_mtmfft(self):
         """Test memory usage of mtmfft"""
-        return spy.freqanalysis(self.adata, tapsmofrq=2)
+        _ =  spy.freqanalysis(self.adata, tapsmofrq=2)
