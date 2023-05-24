@@ -25,5 +25,7 @@ jobs:
         poetry install
     - name: Run benchmarks
       run: |
+        git fetch origin $GITHUB_BASE_REF:base $GITHUB_REF:pr
         poetry run asv machine --yes
-        poetry run asv run HEAD^! --show-stderr
+        # poetry run asv run HEAD^! --show-stderr
+        poetry run asv continuous base pr --strict -e
