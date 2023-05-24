@@ -46,9 +46,11 @@ class Arithmetic:
 
     def setup(self):
         self.adata = white_noise(nSamples=25000, nChannels=32, nTrials=250, samplerate=1000)
+        self.adata2 = self.adata.copy()
 
     def teardown(self):
         del self.adata
+        del self.adata2
 
     def time_scalar_mult(self):
         _ = 3 * self.adata
@@ -57,7 +59,7 @@ class Arithmetic:
         _ = 3 + self.adata
 
     def time_dset_add(self):
-        _ = self.adata + self.adata
+        _ = self.adata + self.adata2
 
 
 class MemSuite:
