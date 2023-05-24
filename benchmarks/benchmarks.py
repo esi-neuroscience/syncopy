@@ -67,7 +67,7 @@ class MemSuite:
     """
 
     def setup(self):
-        self.adata = white_noise(nSamples=25000, nChannels=32, nTrials=250, samplerate=1000)
+        self.adata = white_noise(nSamples=10_000, nChannels=32, nTrials=250, samplerate=1000)
 
     def teardown(self):
         del self.adata
@@ -75,3 +75,7 @@ class MemSuite:
     def mem_analogdata(self):
         """Test memory usage of AnalogData object."""
         return self.adata
+
+    def mem_mtmfft(self):
+        """Test memory usage of mtmfft"""
+        _ = spy.freqanalysis(self.adata, tapsmofrq=2)
