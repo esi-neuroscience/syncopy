@@ -80,4 +80,4 @@ class MemSuite:
 
     def mem_mtmfft(self):
         """Test memory usage of mtmfft"""
-        _ = spy.freqanalysis(self.adata, tapsmofrq=2)
+        return spy.freqanalysis(self.adata, tapsmofrq=2)
