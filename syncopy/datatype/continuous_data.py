@@ -453,7 +453,7 @@ class AnalogData(ContinuousData):
         Depending on your target software, you may need to manually format the data using pynwb before writing it to disk, or manually
         open it using pynwb before using it with the target software.
         """
-        nwbfile = self._to_nwbfile(outpath, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
+        nwbfile = self._to_nwbfile(nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:
             io.write(nwbfile)
