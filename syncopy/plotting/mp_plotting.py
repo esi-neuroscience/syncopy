@@ -63,14 +63,14 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
 
     if nAx < 2:
         SPYWarning("Please select at least two channels for a multipanelplot!")
-        return
+        return None, None
 
     elif nAx > pltConfig['mMaxAxes']:
         SPYWarning(f"Please select max. {pltConfig['mMaxAxes']} channels for a multipanelplot!")
-        return
-    else:
-        # determine axes layout, prefer columns over rows due to display aspect ratio
-        nrows, ncols = plot_helpers.calc_multi_layout(nAx)
+        return None, None
+
+    # determine axes layout, prefer columns over rows due to display aspect ratio
+    nrows, ncols = plot_helpers.calc_multi_layout(nAx)
 
     fig, axs = _plotting.mk_multi_line_figax(nrows, ncols)
 

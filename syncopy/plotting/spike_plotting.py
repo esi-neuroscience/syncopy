@@ -16,6 +16,7 @@ from syncopy.plotting import _plotting
 from syncopy.plotting import helpers as plot_helpers
 from syncopy.plotting.config import pltErrMsg, pltConfig
 
+
 @plot_helpers.revert_selection
 def plot_single_trial_SpikeData(data, **show_kwargs):
     """
@@ -41,17 +42,18 @@ def plot_single_trial_SpikeData(data, **show_kwargs):
 
     # attach in place selection and get the only trial
     data.selectdata(inplace=True, **show_kwargs)
-    trl = next(iter(data.trials))
+    trl = next(iter(data.selection.trials))
+    offset = data.selection.trialdefinition[0, 2]
+    trl_start = data.selection.trialdefinition[0, 0]
 
-    # that's the integer value encoding a channel in the data
-    chan_ids = data.selection.channel
-
+    # that's the integer values encoding the channels in the data
+    chan_ids = np.arange(len(data.channel))[data.selection.channel]
     # the associated string labels
     chan_labels = data.channel[chan_ids]
 
     fig, ax = _plotting.mk_line_figax(ylabel='channel')
 
-    plot_single_trial(ax, trl, chan_ids, data.samplerate)
+    plot_single_trial(ax, trl, chan_ids, data.samplerate, trl_start - offset)
 
     # for less than 25 channels, plot the labels
     if len(chan_labels) <= 25:
@@ -62,14 +64,89 @@ def plot_single_trial_SpikeData(data, **show_kwargs):
         ax.set_yticks(())
     fig.tight_layout()
 
+    return fig, ax
 
-def plot_single_trial(ax, trl, chan_ids, samplerate):
+
+@plot_helpers.revert_selection
+def plot_multi_trial_SpikeData(data, **show_kwargs):
+    """
+    Plot a few trials (max. 25) of a SpikeData object as a multi-axis figure of
+    spike raster plots. Refers to `plot_single_trial` after `show_kwargs`
+    validation.
+
+    Parameters
+    ----------
+    data : :class:`~syncopy.datatype.SpikeData`
+    show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
+
+    Returns
+    -------
+    fig : `matplotlib.figure.Figure` instance (or `None` in case of errors), the plot figure.
+    ax  : `matplotlib.axes.Axes` instance (or `None` in case of errors), the plot axes.
+    """
+
+
+    # attach in place selection
+    data.selectdata(inplace=True, **show_kwargs)
+    nTrials = len(data.selection.trials)
+
+    if nTrials > 25:
+        msg = (f"Can not plot {nTrials} at once!\n"
+               "Please select maximum 25 trials for multipanel plotting.. skipping plot"
+               )
+        SPYWarning(msg)
+        return None, None
+
+    # that's the integer values encoding the channels in the data
+    chan_ids = np.arange(len(data.channel))[data.selection.channel]
+    # the associated string labels
+    chan_labels = data.channel[chan_ids]
+
+    # determine axes layout, prefer columns over rows due to display aspect ratio
+    nrows, ncols = plot_helpers.calc_multi_layout(nTrials)
+
+    fig, axes = _plotting.mk_multi_line_figax(nrows, ncols)
+
+    for trl_id, ax in zip(data.selection.trial_ids, axes.flatten()):
+        trl = data.selection.trials[trl_id]
+        trl_start = data.trialdefinition[trl_id][0]
+        offset = data.trialdefinition[trl_id][2]
+        plot_single_trial(ax, trl, chan_ids, data.samplerate, trl_start - offset)
+
+    # for less than 25 channels, plot the labels
+    # on the leftmost axes
+    loc = np.arange(len(chan_labels))
+    for ax in axes[:, 0]:
+        if len(chan_labels) <= 25:
+            ax.set_yticks(loc, chan_labels)
+            ax.set_ylabel('')
+        else:
+            ax.set_ylabel('channel')
+    for ax in axes.flatten():
+        if len(chan_labels) > 25:
+            ax.set_yticks(())
+
+    fig.tight_layout()
+    return fig, axes
+
+
+def plot_single_trial(ax, trl, chan_ids, samplerate, sample_shift):
     """
     Plot a single multi-channel trial of SpikeData as a spike raster plot.
 
     Parameters
     ----------
-
+    ax : Matplotlib axis object
+    trl : np.ndarray
+        The single trial to plot as NumPy array
+    chan_ids : np.ndarray
+        Integer array with the channel ids (integers)
+        to plot
+    samplerate : float
+        The sampling rate
+    sample_shift : int
+        Sample number to be subtracted from absolute samples
+        to arrive at a offset relative spike time
     """
 
 
@@ -81,7 +158,8 @@ def plot_single_trial(ax, trl, chan_ids, samplerate):
 
         # grab the individual channels by boolean indexing
         # includes all units of the original selection (`show_kwargs`)
-        spikes = trl[trl[:, 1] == chan_id][:, 0]
+        spikes = trl[trl[:, 1] == chan_id][:, 0]  # in absolute samples
+        spikes = spikes - sample_shift
         chan_spikes.append(spikes / samplerate)
 
-    ax.eventplot(chan_spikes, alpha=0.7, lineoffsets=1, linelengths=1)
+    ax.eventplot(chan_spikes, alpha=0.7, lineoffsets=1, linelengths=0.8)
