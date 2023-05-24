@@ -101,11 +101,9 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         # Actual extracellular analog time-series data
         if isinstance(acqValue, pynwb.ecephys.ElectricalSeries):
 
-            SPYWarning(f"Reading ElectricalSeries in acquisition {acqName}.")
-
             channels = acqValue.electrodes[:].location
             if channels.unique().size == 1:
-                SPYWarning("No channel names found for {}".format(acqName))
+                SPYWarning("No unique channel names found for {}".format(acqName))
 
             dTypes.append(acqValue.data.dtype)
             if acqValue.channel_conversion is not None:
@@ -118,8 +116,6 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
 
         # TTL event pulse data
         elif ".TTLs" in str(acqValue.__class__):
-
-            SPYWarning(f"Reading TTL data from acquisition {acqName}.")
 
             if acqValue.name == "TTL_PulseValues":
                 ttlVals.append(acqValue)
@@ -143,7 +139,6 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
     # If the NWB data is split up in "trials" (i.e., epochs), ensure things don't
     # get too wild (uniform sampling rates and timing offsets)
     if hasTrials:
-        SPYWarning(f"Data has trials. Checking for uniform sampling rates and timing offsets.")
         if all(tStarts) is None or all(sRates) is None:
             lgl = "acquisition timings defined by `starting_time` and `rate`"
             act = "`starting_time` or `rate` not set"
@@ -161,7 +156,6 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         msg = "No trial information found. Proceeding with single all-encompassing trial"
 
     # Print status update to inform user
-    SPYWarning(msg)
     log_msg = "Read data from NWB file {}".format(nwbFullName)
 
     # Check for filename
@@ -283,9 +277,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         angData.info = {'starting_time' : tStarts[0]}
         angData.log = log_msg
         objectDict[os.path.basename(angData.filename)] = angData
-        SPYWarning(f"Adding acquisition {angData.filename} to objectDict.")
 
-    SPYWarning(f"Done adding all {len(objectDict)} acquisitions.")
     # Close NWB file
     nwbio.close()
 

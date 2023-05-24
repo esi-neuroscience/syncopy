@@ -586,7 +586,7 @@ class TestNWBImporter:
 
         spy_filename = self.nwb_filename.split('/')[-1][:-4] + '.spy'
         out = load_nwb(self.nwb_filename, memuse=2000)
-        edata, adata1, adata2 = list(out.values())
+        edata, _, adata2 = list(out.values())
 
         assert isinstance(adata2, spy.AnalogData)
         assert isinstance(edata, spy.EventData)
@@ -624,7 +624,7 @@ class TestNWBImporter:
         """Test saving to NWB file and re-reading data for AnalogData, without trial definition."""
 
         numChannels = 64
-        adata = white_noise(nTrials = 1, nChannels=numChannels, nSamples= 1000)
+        adata = white_noise(nChannels=numChannels, nSamples= 1000)
 
         assert isinstance(adata, spy.AnalogData)
         assert len(adata.channel) == numChannels
@@ -644,10 +644,12 @@ class TestNWBImporter:
         """Test saving to NWB file and re-reading data for AnalogData with a trial definition."""
 
         numChannels = 64
-        adata = white_noise(nTrials = 1, nChannels=numChannels, nSamples= 1000)
+        numTrials = 5
+        adata = white_noise(nTrials = numTrials, nChannels=numChannels, nSamples= 1000)
 
         assert isinstance(adata, spy.AnalogData)
         assert len(adata.channel) == numChannels
+        assert len(adata.trials) == numTrials
 
         with tempfile.TemporaryDirectory() as tdir:
             outpath = os.path.join(tdir, 'test_save_analog2nwb.nwb')
@@ -658,6 +660,7 @@ class TestNWBImporter:
             adata_reread = list(data_instances_reread.values())[0]
             assert isinstance(adata_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata_reread)}"
             assert len(adata_reread.channel) == numChannels, f"Expected {numChannels} channels, got {len(adata_reread.channel)}"
+            assert len(adata.trials) == numTrials
             assert np.allclose(adata.data, adata_reread.data)
 
 

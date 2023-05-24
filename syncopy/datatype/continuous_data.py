@@ -15,7 +15,7 @@ from abc import ABC
 from collections.abc import Iterator
 from datetime import datetime
 from uuid import uuid4
-import pytz 
+import pytz
 
 # Local imports
 from .base_data import BaseData, FauxTrial, _definetrial
@@ -426,6 +426,7 @@ class AnalogData(ContinuousData):
 
     def save_nwb(self, outpath, nwbfile=None, with_trialdefinition=True, is_raw=True):
         """Save AnalogData in Neurodata Without Borders (NWB) file format.
+        An NWBFile represents a single session of an experiment.
 
         Parameters
         ----------
@@ -434,9 +435,51 @@ class AnalogData(ContinuousData):
         nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
          your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
 
+        with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
+
         is_raw : Boolean, whether this is raw data (that should never change), as opposed to LFP data that originates from some processing, e.g., down-sampling and
-         detrending. Determines where data is stored in NWB container, to make it easier for other software to interprete what the data represents. If `is_raw` is `True`,
+         detrending. Determines where data is stored in the NWB container, to make it easier for other software to interprete what the data represents. If `is_raw` is `True`,
          the `ElectricalSeries` is stored directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a processing group called `ecephys`.
+         Note that for the Syncopy NWB reader, the data should be stored as raw, so this is currently the default.
+
+        Returns
+        -------
+        None, called for side effect of writing the NWB file to disk.
+
+        Notes
+        -----
+        Due to the very general architecture of the NWB format, many fields need to be interpreted by software reading the format. Thus,
+        providing a generic function to save Syncopy data in NWB format is possible only if you know who will read it.
+        Depending on your target software, you may need to manually format the data using pynwb before writing it to disk, or manually
+        open it using pynwb before using it with the target software.
+        """
+        nwbfile = self.to_nwb(outpath, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
+        # Write the file to disk.
+        with NWBHDF5IO(outpath, "w") as io:
+            io.write(nwbfile)
+
+
+    def to_nwb(self, nwbfile=None, with_trialdefinition=True, is_raw=True):
+        """Convert AnalogData into pynwb.NWBFile instance, for writing to files in Neurodata Without Borders (NWB) file format.
+        An NWBFile represents a single session of an experiment.
+
+        Parameters
+        ----------
+        outpath : str, path-like. Where to save the NWB file, including file name and `.nwb` extension. All directories in the path must exist. Example: `'mydata.nwb'`.
+
+        nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
+         your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
+
+        with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
+
+        is_raw : Boolean, whether this is raw data (that should never change), as opposed to LFP data that originates from some processing, e.g., down-sampling and
+         detrending. Determines where data is stored in the NWB container, to make it easier for other software to interprete what the data represents. If `is_raw` is `True`,
+         the `ElectricalSeries` is stored directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a processing group called `ecephys`.
+         Note that for the Syncopy NWB reader, the data should be stored as raw, so this is currently the default.
+
+        Returns
+        -------
+        :class:`pynwb.NWBFile` object, the NWBFile instance that contains the data.
 
         Notes
         -----
@@ -483,7 +526,7 @@ class AnalogData(ContinuousData):
 
         nshanks = 1     # the number of shanks in the array, each is placed in a separate electrode group. We assume 1 shank.
         nchannels_per_shank = len(self.channel)  # number of channels. This is the number of electrodes in each shank.
-        electrode_counter = 0
+        electrode_counter = 0  # Total number of electectrodes in the electrode table. This is used to create the electrode table region.
 
         for ishank in range(nshanks):
             # create an electrode group for this shank
@@ -503,7 +546,7 @@ class AnalogData(ContinuousData):
                 electrode_counter += 1
 
         all_table_region = nwbfile.create_electrode_table_region(
-            region=list(range(electrode_counter)),  # reference row indices 0 to N-1
+            region=list(range(electrode_counter)),  # reference row indices 0 to N-1 in the electrode table.
             description="all electrodes",
             )   # this is a reference to all electrodes in the electrode table
 
@@ -527,7 +570,6 @@ class AnalogData(ContinuousData):
 
 
         # Add trial definition.
-        # TODO: do we need to use Epochs here?
         if with_trialdefinition and self.trialdefinition is not None:
             # Add the trial definition, if any.
             nwbfile.add_trial_column(
@@ -538,10 +580,8 @@ class AnalogData(ContinuousData):
                 td = self.trialdefinition[trial_idx, :].astype(np.float64) / self.samplerate # Compute time from sample number.
                 nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[2])
 
+        return nwbfile
 
-        # Finally, write the file to disk.
-        with NWBHDF5IO(outpath, "w") as io:
-            io.write(nwbfile)
 
 
 class SpectralData(ContinuousData):
