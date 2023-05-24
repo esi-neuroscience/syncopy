@@ -224,7 +224,7 @@ class TestSpectralPlotting():
         for sel_dict in selections:
 
             # only single trial plotting
-            # is supported, use spy.mean() to average beforehand if needed 
+            # is supported, use spy.mean() to average beforehand if needed
             # take random 1st trial
             sel_dict['trials'] = sel_dict['trials'][0]
             # we have to sort the channels (hdf5 access)
@@ -401,7 +401,7 @@ class TestSpikeDataPlotting:
 
         # singleplot is for single trial
         fig1, ax1 = self.spd.singlepanelplot(trials=11)
-        # channel labels for < 20 channels selected     
+        # channel labels for < 20 channels selected
         fig2, ax2 = self.spd.singlepanelplot(trials=11, channel=np.arange(self.cfg.nChannels, step=4))
 
 
@@ -427,6 +427,17 @@ class TestSpikeDataPlotting:
         with pytest.raises(SPYValueError, match="expected start of latency window"):
             self.spd.singlepanelplot(trials=99, latency=[10, 11])
 
+        # -- indirectly test Warnings which return None, None instead of fig, ax --
+
+        # this gives a warning that only 1 trials can be selected
+        fig, ax = self.spd.singlepanelplot(trials=[0, 3])
+        assert fig is None
+        assert ax is None
+
+        # we can plot max. 25 trials
+        fig, ax = self.spd.multipanelplot()
+        assert fig is None
+        assert ax is None
 
 if __name__ == '__main__':
     T1 = TestAnalogPlotting()
