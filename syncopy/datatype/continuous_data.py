@@ -453,20 +453,18 @@ class AnalogData(ContinuousData):
         Depending on your target software, you may need to manually format the data using pynwb before writing it to disk, or manually
         open it using pynwb before using it with the target software.
         """
-        nwbfile = self.to_nwb(outpath, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
+        nwbfile = self._to_nwbfile(outpath, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:
             io.write(nwbfile)
 
 
-    def to_nwb(self, nwbfile=None, with_trialdefinition=True, is_raw=True):
+    def _to_nwbfile(self, nwbfile=None, with_trialdefinition=True, is_raw=True):
         """Convert AnalogData into pynwb.NWBFile instance, for writing to files in Neurodata Without Borders (NWB) file format.
         An NWBFile represents a single session of an experiment.
 
         Parameters
         ----------
-        outpath : str, path-like. Where to save the NWB file, including file name and `.nwb` extension. All directories in the path must exist. Example: `'mydata.nwb'`.
-
         nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
          your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
 
@@ -483,10 +481,7 @@ class AnalogData(ContinuousData):
 
         Notes
         -----
-        Due to the very general architecture of the NWB format, many fields need to be interpreted by software reading the format. Thus,
-        providing a generic function to save Syncopy data in NWB format is possible only if you know who will read it.
-        Depending on your target software, you may need to manually format the data using pynwb before writing it to disk, or manually
-        open it using pynwb before using it with the target software.
+        This internal function is provided such that you can use it to create an NWBFile instance, and then modify it before writing it to disk.
         """
 
         # See https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html
