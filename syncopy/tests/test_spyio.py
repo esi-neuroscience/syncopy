@@ -624,14 +624,14 @@ class TestNWBImporter:
         """Test saving to NWB file and re-reading data for AnalogData, without trial definition."""
 
         numChannels = 64
-        adata = white_noise(nChannels=numChannels, nSamples= 1000)
+        adata = white_noise(nTrials = 1, nChannels=numChannels, nSamples= 1000)
 
         assert isinstance(adata, spy.AnalogData)
         assert len(adata.channel) == numChannels
 
         with tempfile.TemporaryDirectory() as tdir:
             outpath = os.path.join(tdir, 'test_save_analog2nwb.nwb')
-            adata.save_nwb(outpath=outpath)
+            adata.save_nwb(outpath=outpath, with_trialdefinition=False)
 
             data_instances_reread = load_nwb(outpath)
             assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"

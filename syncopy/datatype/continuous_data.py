@@ -486,6 +486,8 @@ class AnalogData(ContinuousData):
 
         # See https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html
 
+        # It is also worth veryfying that the web tool nwbexplorer can read the produced files, see http://nwbexplorer.opensourcebrain.org/.
+
         if nwbfile is None:
 
             # Please make sure you understand the interpretation of the following fields, as described in the NWB documentation
@@ -548,11 +550,13 @@ class AnalogData(ContinuousData):
         # Now that we have an NWBFile and channels, we can add the data.
         time_series_with_rate = ElectricalSeries(
             name="ElectricalSeries",
-            data=self.data,
+            data=self.data[()],
             electrodes=all_table_region,
             starting_time=0.0,
-            rate=self.samplerate, # Fixes sampling rate.
-            description="Electrical time series dataset",)
+            rate=self.samplerate, # Fixed sampling rate.
+            description="Electrical time series dataset",
+            comments="Exported by Syncopy",
+        )
 
         if is_raw:  # raw measurements from instruments, not to be changed. Not downsampled, detrended, or anything.
             nwbfile.add_acquisition(time_series_with_rate)
