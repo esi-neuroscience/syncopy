@@ -638,6 +638,7 @@ class TestNWBImporter:
             adata_reread = list(data_instances_reread.values())[0]
             assert isinstance(adata_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata_reread)}"
             assert len(adata_reread.channel) == numChannels, f"Expected {numChannels} channels, got {len(adata_reread.channel)}"
+            assert len(adata.trials) == 1
             assert np.allclose(adata.data, adata_reread.data)
 
     def test_save_nwb_with_trialdef(self):
