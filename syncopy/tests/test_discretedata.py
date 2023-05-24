@@ -396,7 +396,7 @@ class TestEventData():
         evt_dummy.definetrial(start=[2, 2, 1], stop=[1, 2, 0])
         assert np.array_equal(evt_dummy.sampleinfo, sinfo3)
 
-        # Attach computed sampleinfo to AnalogData (data and data3 must yield identical resutls)
+        # Attach computed sampleinfo to AnalogData (data and data3 must yield identical results)
         evt_dummy = EventData(data=self.data, samplerate=sr_e)
         evt_dummy.definetrial(pre=pre, post=post, trigger=1)
         ang_dummy = AnalogData(self.adata, samplerate=sr_a)
@@ -425,8 +425,6 @@ class TestEventData():
         data4 = np.vstack([data3, smp])
         evt_dummy = EventData(data=data4, dimord=self.customDimord, samplerate=sr_e)
         evt_dummy.definetrial(pre=pre, post=post, trigger=1)
-        # with pytest.raises(SPYValueError):
-        # ang_dummy.definetrial(evt_dummy)
 
         # Trimming edges produces zero-length trial
         with pytest.raises(SPYValueError):
@@ -437,8 +435,6 @@ class TestEventData():
         data4[-2, 0] = data4[-1, 0]
         evt_dummy = EventData(data=data4, dimord=self.customDimord, samplerate=sr_e)
         evt_dummy.definetrial(pre=pre, post=post, trigger=1)
-        # with pytest.raises(SPYValueError):
-        # ang_dummy.definetrial(evt_dummy)
         ang_dummy.definetrial(evt_dummy, clip_edges=True)
         assert ang_dummy.sampleinfo[-1, 1] == self.ns
 
