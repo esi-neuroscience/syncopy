@@ -85,14 +85,16 @@ def plot_multi_trial_SpikeData(data, **show_kwargs):
     ax  : `matplotlib.axes.Axes` instance (or `None` in case of errors), the plot axes.
     """
 
+    # max. number of panels/axes
+    nTrials_max = 25
 
     # attach in place selection
     data.selectdata(inplace=True, **show_kwargs)
     nTrials = len(data.selection.trials)
 
-    if nTrials > 25:
-        msg = (f"Can not plot {nTrials} at once!\n"
-               "Please select maximum 25 trials for multipanel plotting.. skipping plot"
+    if nTrials > nTrials_max:
+        msg = (f"Can not plot {nTrials} trials at once!\n"
+               f"Please select maximum {nTrials_max} trials for multipanel plotting.. skipping plot"
                )
         SPYWarning(msg)
         return None, None
@@ -105,7 +107,7 @@ def plot_multi_trial_SpikeData(data, **show_kwargs):
     # determine axes layout, prefer columns over rows due to display aspect ratio
     nrows, ncols = plot_helpers.calc_multi_layout(nTrials)
 
-    fig, axes = _plotting.mk_multi_line_figax(nrows, ncols)
+    fig, axes = _plotting.mk_multi_line_figax(nrows, ncols, x_size=2, y_size=1.4)
 
     for trl_id, ax in zip(data.selection.trial_ids, axes.flatten()):
         trl = data.selection.trials[trl_id]
@@ -113,17 +115,17 @@ def plot_multi_trial_SpikeData(data, **show_kwargs):
         offset = data.trialdefinition[trl_id][2]
         plot_single_trial(ax, trl, chan_ids, data.samplerate, trl_start - offset)
 
-    # for less than 25 channels, plot the labels
+    # for less than 20 channels, plot the labels
     # on the leftmost axes
     loc = np.arange(len(chan_labels))
     for ax in axes[:, 0]:
-        if len(chan_labels) <= 25:
+        if len(chan_labels) <= 20:
             ax.set_yticks(loc, chan_labels)
             ax.set_ylabel('')
         else:
             ax.set_ylabel('channel')
     for ax in axes.flatten():
-        if len(chan_labels) > 25:
+        if len(chan_labels) > 20:
             ax.set_yticks(())
 
     fig.tight_layout()

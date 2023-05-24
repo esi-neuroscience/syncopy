@@ -224,7 +224,7 @@ class TestSpectralPlotting():
         for sel_dict in selections:
 
             # only single trial plotting
-            # is supported until averaging is availbale
+            # is supported, use spy.mean() to average beforehand if needed 
             # take random 1st trial
             sel_dict['trials'] = sel_dict['trials'][0]
             # we have to sort the channels (hdf5 access)
@@ -384,7 +384,52 @@ class TestCrossSpectralPlotting():
             assert "frequency" in str(err)
 
 
+class TestSpikeDataPlotting:
+
+
+    cfg = spy.StructDict()
+    cfg.nTrials = 100
+    cfg.nChannels = 80
+    cfg.nSpikes = 100_000
+    cfg.intensity = 0.2
+    cfg.nUnits = 10
+    cfg.samplerate = 10_000
+
+    spd = synthdata.poisson_noise(cfg, seed=42)
+
+    def test_spike_plotting(self):
+
+        # singleplot is for single trial
+        fig1, ax1 = self.spd.singlepanelplot(trials=11)
+        # channel labels for < 20 channels selected     
+        fig2, ax2 = self.spd.singlepanelplot(trials=11, channel=np.arange(self.cfg.nChannels, step=4))
+
+
+        # can plot max. 25 trials
+        fig3, axs1 = self.spd.multipanelplot(trials=np.arange(30, step=2))
+
+        fig4, axs2 = self.spd.multipanelplot(channel=np.arange(6,13), unit=[0, 4, 9],
+                                             trials=np.arange(30, step=2))
+        fig4.suptitle("Only channel 6-13 and units 0,4,9")
+
+        # time selection
+        fig, ax = self.spd.singlepanelplot(latency=[0.2, 0.3], trials=77, channel=np.arange(10))
+        ax.set_title("spikes between 0.2 and 0.3 seconds")
+
+    def test_spike_exceptions(self):
+        """
+        Not much to test, mismatching show kwargs get catched by `selectdata` anyways
+        """
+
+        with pytest.raises(SPYValueError, match="expected all array elements to be bounded"):
+            self.spd.singlepanelplot(trials=9999)
+
+        with pytest.raises(SPYValueError, match="expected start of latency window"):
+            self.spd.singlepanelplot(trials=99, latency=[10, 11])
+
+
 if __name__ == '__main__':
     T1 = TestAnalogPlotting()
     T2 = TestSpectralPlotting()
     T3 = TestCrossSpectralPlotting()
+    T5 = TestSpikeDataPlotting()
