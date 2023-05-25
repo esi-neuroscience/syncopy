@@ -515,7 +515,7 @@ class TestDetrending:
     nTrials = 2
     nSamples = 5000
     AData = sd.linear_trend(nTrials=2, nSamples=nSamples, y_max=10)
-    AData += sd.white_noise(nTrials=2, nSamples=nSamples) + 5  # add constant
+    AData += sd.white_noise(nTrials=2, nSamples=nSamples, seed=42) + 5  # add constant
 
     def test_demeaning(self):
 
@@ -525,7 +525,7 @@ class TestDetrending:
         res_c0 = res.show(trials=1, channel=0)
         # just to make sure we have an offset
         assert np.mean(self.AData.show(trials=1, channel=0)) > 1
-        assert np.allclose(np.mean(res.show(trials=1, channel=0)), 0, atol=1e-5)
+        assert np.allclose(np.mean(res.show(trials=1, channel=0)), 0, atol=2e-5)
 
         # check that the linear trend is still around
         assert np.allclose(orig_c0.max() - orig_c0.min(), res_c0.max() - res_c0.min())

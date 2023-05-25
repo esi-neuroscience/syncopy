@@ -46,6 +46,8 @@ numpydoc = "^1.4.0"
 ipdb = "^0.13.9"
 memory-profiler = "^0.60.0"
 flake8 = "^3.9"
+asv = "^0.5.1"
+virtualenv = "^20.23.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
