@@ -12,7 +12,6 @@ from collections import OrderedDict
 # Local imports
 from syncopy import __tbcount__
 from syncopy.shared.log import get_logger, get_parallel_logger, loglevels
-import syncopy
 
 # Custom definition of bold ANSI for formatting errors/warnings in iPython/Jupyter
 ansiBold = "\033[1m"
@@ -324,7 +323,7 @@ def SPYWarning(msg, caller=None):
     logger = get_logger()
     logger.warning(PrintMsg.format(coloron=warnCol,
                           bold=boldEm,
-                          caller=" <" + caller + ">" if len(caller) else caller,
+                          caller=_get_caller(caller),
                           msg=msg,
                           coloroff=normCol))
 
@@ -346,8 +345,16 @@ def SPYParallelLog(msg, loglevel="INFO", caller=None):
     PrintMsg = "{caller:s} {msg:s}"
     logger = get_parallel_logger()
     logfunc = getattr(logger, loglevel.lower())
-    logfunc(PrintMsg.format(caller=" <" + caller + ">" if len(caller) else caller,
+    logfunc(PrintMsg.format(caller=_get_caller(caller),
                           msg=msg))
+
+def _get_caller(caller):
+    try:
+        ret_caller = " <" + caller + ">" if len(caller) else caller
+    except TypeError:
+        ret_caller = caller.__name__
+    return ret_caller
+
 
 def SPYLog(msg, loglevel="INFO", caller=None):
     """Log a message in sequential code.
@@ -366,7 +373,7 @@ def SPYLog(msg, loglevel="INFO", caller=None):
     PrintMsg = "{caller:s} {msg:s}"
     logger = get_logger()
     logfunc = getattr(logger, loglevel.lower())
-    logfunc(PrintMsg.format(caller=" <" + caller + ">" if len(caller) else caller,
+    logfunc(PrintMsg.format(caller=_get_caller(caller),
                           msg=msg))
 
 def log(msg, level="IMPORTANT", par=False, caller=None):
@@ -434,7 +441,7 @@ def SPYInfo(msg, caller=None, tag="INFO"):
     logger = get_logger()
     logger.info(PrintMsg.format(coloron=infoCol,
                           bold=boldEm,
-                          caller=" <" + caller + ">" if len(caller) else caller,
+                          caller=_get_caller(caller),
                           tag=tag,
                           msg=msg,
                           coloroff=normCol))

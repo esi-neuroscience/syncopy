@@ -1,5 +1,6 @@
 .. _synthdata:
-   
+
+==============
 Synthetic Data
 ==============
 
@@ -10,7 +11,7 @@ For testing and educational purposes it is always good to work with synthetic da
 
 
 Built-in Generators
--------------------
+===================
 
 These functions return a multi-trial :class:`~syncopy.AnalogData` object representing multi-channel time series data:
 
@@ -20,14 +21,14 @@ These functions return a multi-trial :class:`~syncopy.AnalogData` object represe
    syncopy.synthdata.white_noise
    syncopy.synthdata.red_noise
    syncopy.synthdata.linear_trend
-   syncopy.synthdata.phase_diffusion   
+   syncopy.synthdata.phase_diffusion
    syncopy.synthdata.ar2_network
 
 With the help of basic arithmetical operations we can combine different synthetic signals to arrive at more complex ones. Let's look at an example::
 
   import syncopy as spy
 
-  # set up cfg 
+  # set up cfg
   cfg = spy.StructDict()
   cfg.nTrials = 40
   cfg.samplerate = 500
@@ -42,7 +43,7 @@ With the help of basic arithmetical operations we can combine different syntheti
 
   # plot all channels for a single trial
   sdata.singlepanelplot(trials=10)
-  
+
   # compute spectrum and plot trial average of 2 channels
   spec = spy.freqanalysis(sdata, keeptrials=False)
   spec.singlepanelplot(channel=[0, 2], frequency=[0,100])
@@ -52,11 +53,65 @@ With the help of basic arithmetical operations we can combine different syntheti
 
 .. image:: /_static/synth_data1_spec.png
    :height: 300px
-	    
+
 .. _gen_synth_recipe:
 
-General Recipe
---------------
+Phase diffusion
+---------------
+
+A diffusing phase can be modeled by adding white noise :math:`\xi(t)` to a fixed angular frequency:
+
+.. math::
+   \omega(t) = \omega + \epsilon \xi(t),
+
+with the instantaneous frequency :math:`\omega(t)`.
+
+Integration then yields the phase trajectory:
+
+.. math::
+   \phi(t) = \int_0^t \omega(t) = \omega t + \epsilon W(t).
+
+Here :math:`W(t)` being the `Wiener process <https://en.wikipedia.org/wiki/Wiener_process>`_, or simply a one dimensional diffusion process. Note that for the trivial case :math:`\epsilon = 0`, so no noise got added, the phase describes a linear constant motion with the `phase velocity` :math:`\omega = 2\pi f`. This is just a harmonic oscillation with frequency :math:`f`. Finally, by wrapping the phase trajectory into a :math:`2\pi` periodic `waveform` function, we arrive at a time series (or signal). The simplest waveform is just the cosine, so we have:
+
+.. math::
+   x(t) = cos(\phi(t))
+
+This is exactly what the :func:`~syncopy.synthdata.phase_diffusion` function provides.
+
+Phase diffusing models have some interesting properties, let's have a look at the power spectrum::
+
+  import syncopy as spy
+
+  cfg = spy.StructDict()
+  cfg.nTrials = 250
+  cfg.nChannels = 2
+  cfg.samplerate = 500
+  cfg.nSamples = 2000
+
+  # harmonic frequency is 60Hz, phase diffusion strength is 0.01
+  signals = spy.synthdata.phase_diffusion(freq=60, eps=0.01, cfg=cfg)
+
+  # add harmonic frequency with 20Hz, there is no phase diffusion
+  signals += spy.synthdata.harmonic(freq=20, cfg=cfg)
+
+  # freqanalysis without tapering and absolute power
+
+  cfg_freq = spy.StructDict()
+  cfg_freq.keeptrials = False
+  cfg_freq.foilim = [2, 100]
+  cfg_freq.output = 'abs'
+  cfg_freq.taper = None
+
+  spec = spy.freqanalysis(signals, cfg=cfg_freq)
+  spec.singlepanelplot(channel=0)
+
+.. image:: /_static/synth_data_pdiff_spec.png
+   :height: 300px
+
+We see a natural (no tapering) spectral broadening for the phase diffusing signal at 60Hz, reflecting the fluctuations in instantaneous frequency.
+
+General Recipe for custom Synthetic Data
+=========================================
 
 We can easily create custom synthetic datasets using basic `NumPy <https://numpy.org>`_ functionality and Syncopy's :class:`~syncopy.AnalogData`.
 
@@ -73,11 +128,11 @@ In (pseudo-)Python code:
    def generate_trial(nSamples, nChannels):
 
 	trial = .. something fancy ..
-	
+
 	# These should evaluate to True
 	isinstance(trial, np.ndarray)
-	trial.shape == (nSamples, nChannels)	
-	
+	trial.shape == (nSamples, nChannels)
+
 	return trial
 
    # collect the trials
@@ -102,7 +157,7 @@ In (pseudo-)Python code:
     Syncopy data objects also accept Python generators as ``data``, allowing to stream
     in trial arrays one by one. In effect this allows creating datasets which are larger
     than the systems memory. This is also how the build in generators of ``syncopy.synthdata`` (see above) work under the hood.
-    
+
 
 Example: Noisy Harmonics
 ---------------------------
@@ -119,13 +174,9 @@ Now we can directly run a multi-tapered FFT analysis and plot the power spectra 
 
    spectrum = spy.freqanalysis(synth_data, foilim=[0,80], tapsmofrq=2, keeptrials=False)
    spectrum.singlepanelplot()
-   
+
 
 .. image:: /_static/synth_data_spec.png
    :height: 300px
 
 As constructed, we have two harmonic peaks at the respective frequencies (20Hz and 50Hz) and the white noise floor on all channels.
-    
-
-
-

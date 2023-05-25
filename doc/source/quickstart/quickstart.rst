@@ -35,7 +35,7 @@ By construction, we made the (white) noise of the same strength as the signal, h
 To recap: we have generated a synthetic dataset white noise on both channels, and channel1 additionally carries the damped harmonic signal.
 
 .. hint::
-   Further details about artificial data generation can be found at the :ref:`synth_data` section.
+   Further details about artificial data generation can be found at the :ref:`synthdata` section.
 
 
 Data Object Inspection

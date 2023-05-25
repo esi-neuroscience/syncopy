@@ -35,7 +35,7 @@ def normalize_csd_cF(csd_av_dat,
                      chunkShape=None,
                      noCompute=False):
 
-    """
+    r"""
     Given the trial averaged cross spectral densities,
     calculates the normalizations to arrive at the
     channel x channel coherencies. If ``S_ij(f)`` is the

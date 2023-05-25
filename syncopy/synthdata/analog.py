@@ -101,15 +101,14 @@ def phase_diffusion(freq,
                     return_phase=False,
                     seed=None):
 
-    """
+    r"""
     Linear (harmonic) phase evolution plus a Brownian noise term
     inducing phase diffusion around the deterministic phase velocity (angular frequency).
 
     The linear phase increments are given by
 
     .. math::
-
-        \Delta \phi = 2\pi  \frac{freq}{samplerate}.
+        \Delta \phi = 2\pi \frac{freq}{samplerate}
 
     The Brownian increments are scaled with `eps` relative to these
     phase increments, meaning the relative phase diffusion is frequency
@@ -142,6 +141,17 @@ def phase_diffusion(freq,
     phases : :class:`syncopy.AnalogData` or numpy.ndarray
         Synthetic `nSamples` x `nChannels` data array simulating noisy phase
         evolution/diffusion
+
+    Examples
+    --------
+    Weak phase diffusion around the 60Hz harmonic:
+
+    >>> signals = spy.synthdata.phase_diffusion(freq=60, eps=0.01)
+
+    Return the unwrapped phase directly:
+
+    >>> phases = spy.synthdata.phase_diffusion(freq=60, eps=0.01, return_phase=True)
+
     """
 
     # white noise
