@@ -25,6 +25,7 @@ from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, log
 from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
+from syncopy.io.nwb import _get_nwbfile_template, _add_electrodes
 from .util import TimeIndexer
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 from pynwb.ecephys import LFP, ElectricalSeries
@@ -452,6 +453,8 @@ class AnalogData(ContinuousData):
         providing a generic function to save Syncopy data in NWB format is possible only if you know who will read it.
         Depending on your target software, you may need to manually format the data using pynwb before writing it to disk, or manually
         open it using pynwb before using it with the target software.
+
+        Selections are ignored, the full data is exported. Create a new Syncopy data object before calling this function if you want to export a subset only.
         """
         nwbfile = self._to_nwbfile(nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
         # Write the file to disk.
@@ -490,68 +493,18 @@ class AnalogData(ContinuousData):
 
         if nwbfile is None:
 
-            # Please make sure you understand the interpretation of the following fields, as described in the NWB documentation
-            # or for pynwb here: https://pynwb.readthedocs.io/en/stable/tutorials/general/file.html
-            # Most importantly, quoting from pynwm docs:
-            #  "An NWBFile represents a single session of an experiment. Each NWBFile must have a session
-            #  description, identifier, and session start time. Importantly, the session start time is the
-            #  reference time for all timestamps in the file. For instance, an event with a timestamp of
-            #  0 in the file means the event occurred exactly at the session start time."
+            nwbfile = _get_nwbfile_template()
 
-            start_time_no_tz = datetime.now()
-            tz = pytz.timezone('Europe/Berlin')
-            start_time = tz.localize(start_time_no_tz)
-
-            # See https://nwbinspector.readthedocs.io/en/dev/best_practices/nwbfile_metadata.html#file-metadata for details.
-            nwbfile = NWBFile(
-                session_description="unknown",          # required
-                identifier=str(uuid4()),                # required
-                session_start_time=start_time,      # required and relevant, use something like `datetime(2018, 4, 25, 2, 30, 3, tzinfo=tz.gettz("US/Pacific"))` for real data.
-                session_id="session_0001",              # optional. remember that one file is for one session.
-                experimenter=[ "unknown", ],            # optional, name of experimenters
-                lab="unknown",                          # optional, the research lab where the experiment was performed
-                institution="unknown",                  # optional
-                experiment_description="unknown",       # optional
-                related_publications="",                # put a DOI here, if any. e.g., "https://doi.org/###"
-            )
-            # When creating your own NWBFile, you can also add subject information by setting `nwbfile.subject` to a `pynwb.file.Subject` instance, see docs.
-
-        # Add the channel information.
-        ## First add the recording array
-        device = nwbfile.create_device(name="array", description="Unknown array", manufacturer="Unknown manufacturer")
-        nwbfile.add_electrode_column(name="label", description="label of electrode")
-
-        nshanks = 1     # the number of shanks in the array, each is placed in a separate electrode group. We assume 1 shank.
-        nchannels_per_shank = len(self.channel)  # number of channels. This is the number of electrodes in each shank.
-        electrode_counter = 0  # Total number of electectrodes in the electrode table. This is used to create the electrode table region.
-
-        for ishank in range(nshanks):
-            # create an electrode group for this shank
-            electrode_group = nwbfile.create_electrode_group(
-                name="shank{}".format(ishank),
-                description="electrode group for shank {}".format(ishank),
-                device=device,
-                location="unknown brain area",
-            )
-            # add electrodes to the electrode table
-            for ielec in range(nchannels_per_shank):
-                nwbfile.add_electrode(
-                    group=electrode_group,
-                    label="shank{}elec{}".format(ishank, ielec),
-                    location="unknown brain area (shank {}, elec {})".format(ishank, ielec),
-                )
-                electrode_counter += 1
-
-        all_table_region = nwbfile.create_electrode_table_region(
-            region=list(range(electrode_counter)),  # reference row indices 0 to N-1 in the electrode table.
-            description="all electrodes",
-            )   # this is a reference to all electrodes in the electrode table
+        if nwbfile.electrodes is None or len(nwbfile.electrodes.colnames) == 0:
+           nwbfile, electrode_region = _add_electrodes(nwbfile, len(self.channel))
+        else:
+            electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(self.channel))), description="All electrodes.")
 
         # Now that we have an NWBFile and channels, we can add the data.
         time_series_with_rate = ElectricalSeries(
             name="ElectricalSeries",
-            data=self.data[()],
-            electrodes=all_table_region,
+            data=self.data,
+            electrodes=electrode_region,
             starting_time=0.0,
             rate=self.samplerate, # Fixed sampling rate.
             description="Electrical time series dataset",
