@@ -28,3 +28,6 @@ for _ in range(nTrials):
 
 # instantiate Syncopy data object
 data = spy.AnalogData(trials, samplerate=samplerate)
+
+# set the log level
+spy.set_loglevel("INFO")

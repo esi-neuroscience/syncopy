@@ -88,7 +88,7 @@ Here we quickly want to showcase two important methods for (time-)frequency anal
 Multitapered Fourier Analysis
 ------------------------------
 
-`Multitaper methods <https://en.wikipedia.org/wiki/Multitaper>`_ allow for frequency smoothing of Fourier spectra. Syncopy implements the standard `Slepian/DPSS tapers <https://en.wikipedia.org/wiki/Window_function#DPSS_or_Slepian_window>`_ and provides a convenient parameter, the *taper smoothing frequency* ``tapsmofrq`` to control the amount of one-sided spectral smoothing in Hz. To perform a multi-tapered Fourier analysis with 2Hz spectral smoothing, we simply do:
+`Multitaper methods <https://en.wikipedia.org/wiki/Multitaper>`_ allow for frequency smoothing of Fourier spectra. Syncopy implements the standard `Slepian/DPSS tapers <https://en.wikipedia.org/wiki/Window_function#DPSS_or_Slepian_window>`_ and provides a convenient parameter, the *taper smoothing frequency* ``tapsmofrq`` to control the amount of one-sided spectral smoothing in Hz. To perform a multi-tapered Fourier analysis with 2Hz spectral smoothing (1Hz two sided), we simply do:
 
 .. code-block::
 
@@ -96,18 +96,22 @@ Multitapered Fourier Analysis
 
 The parameter ``foilim`` controls the *frequencies of interest  limits*, so in this case we are interested in the range 0-60Hz. Starting the computation interactively will show additional information::
 
-  Syncopy <validate_taper> INFO: Using 7 taper(s) for multi-tapering
+  Syncopy <validate_taper> INFO: Using 3 taper(s) for multi-tapering
 
-informing us, that for this dataset a total spectral smoothing of 2Hz required 7 Slepian tapers.
+informing us, that for this dataset a total spectral smoothing of 2Hz required 3 Slepian tapers.
 
 The resulting new dataset ``fft_spectra`` is of type :class:`syncopy.SpectralData`, which is the general datatype storing the results of a time-frequency analysis.
 
 .. hint::
    Try typing ``fft_spectra.log`` into your interpreter and have a look at :doc:`Trace Your Steps: Data Logs </user/logging>` to learn more about Syncopy's logging features
 
-To quickly have something for the eye we can plot the power spectrum of a single trial using the generic :func:`syncopy.singlepanelplot`::
+To quickly have something for the eye we can compute the trial average and plot the power spectrum using the generic :func:`syncopy.singlepanelplot`::
 
-  fft_spectra.singlepanelplot(trials=3)
+  # compute trial average
+  fft_avg = spy.mean(fft_spectra, dim='trials')
+
+  # plot frequency range between 10Hz and 50Hz
+  fft_avg.singlepanelplot(frequency=[10, 50])
 
 .. image:: mtmfft_spec.png
    :height: 260px
@@ -157,17 +161,19 @@ An improved method, the superlet transform, providing super-resolution time-freq
 Preprocessing
 =============
 
-Raw data often contains unwanted signal components: offsets, trends or even oscillatory nuisance signals. Syncopy has a dedicated :func:`~syncopy.preprocessing` function to deal with all of those. Let's start by creating confounding components for our synthetic dataset:
+Raw data often contains unwanted signal components: offsets, trends or even oscillatory nuisance signals. Syncopy has a dedicated :func:`~syncopy.preprocessing` function to deal with all of those. Let's start by creating a new synthetic signal with confounding components:
 
 .. literalinclude:: /quickstart/add_nuisance.py
 
+Here we used a ``cfg`` dictionary to assemble all needed parameters, a concept we adopted from `FieldTrip <https://www.fieldtriptoolbox.org/>`_		    
+		    
 Dataset Arithmetics
 -------------------
 
 If the *shape* of different Syncopy objects match exactly (``nSamples``, ``nChannels`` and ``nTrials`` are all the same), we can use **standard Python arithmetic operators** like **+**, **-**, ***** and **/** directly. Here we want a linear superposition, so we simply add everything together::
 
-  # add the trend and the nuisance harmonic
-  data_nui = data + lin_trend + harm50
+  # add noise, trend and the nuisance harmonic
+  data_nui = harm + wn + lin_trend + harm50
   # also works for scalars
   data_nui = data_nui + 5
 
@@ -179,8 +185,6 @@ If we now do a spectral analysis, the power spectra are confounded by all our ne
   cfg.polyremoval = None
   cfg.keeptrials = False   # trial averaging
   fft_nui_spectra = spy.freqanalysis(data_nui, cfg)
-
-Here we used a ``cfg`` structure to assemble all needed parameters for our analysis, a concept we adopted from `FieldTrip <https://www.fieldtriptoolbox.org/>`_
 
 .. note::
    We explicitly set ``polyremoval=None`` to see the full effect of our confounding signal components. The default for :func:`~syncopy.freqanalysis` is ``polyremoval=0``, which removes polynoms of 0th order: constant offsets (*de-meaning*).
