@@ -25,7 +25,7 @@ from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, log
 from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
-from syncopy.io.nwb import _get_nwbfile_template, _add_electrodes
+from syncopy.io.nwb import _get_nwbfile_template, _add_electrodes, _analog_timelocked_to_nwbfile
 from .util import TimeIndexer
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 from pynwb.ecephys import LFP, ElectricalSeries
@@ -456,83 +456,10 @@ class AnalogData(ContinuousData):
 
         Selections are ignored, the full data is exported. Create a new Syncopy data object before calling this function if you want to export a subset only.
         """
-        nwbfile = self._to_nwbfile(nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
+        nwbfile = _analog_timelocked_to_nwbfile(self, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:
             io.write(nwbfile)
-
-
-    def _to_nwbfile(self, nwbfile=None, with_trialdefinition=True, is_raw=True):
-        """Convert AnalogData into pynwb.NWBFile instance, for writing to files in Neurodata Without Borders (NWB) file format.
-        An NWBFile represents a single session of an experiment.
-
-        Parameters
-        ----------
-        nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
-         your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
-
-        with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
-
-        is_raw : Boolean, whether this is raw data (that should never change), as opposed to LFP data that originates from some processing, e.g., down-sampling and
-         detrending. Determines where data is stored in the NWB container, to make it easier for other software to interprete what the data represents. If `is_raw` is `True`,
-         the `ElectricalSeries` is stored directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a processing group called `ecephys`.
-         Note that for the Syncopy NWB reader, the data should be stored as raw, so this is currently the default.
-
-        Returns
-        -------
-        :class:`pynwb.NWBFile` object, the NWBFile instance that contains the data.
-
-        Notes
-        -----
-        This internal function is provided such that you can use it to create an NWBFile instance, and then modify it before writing it to disk.
-        """
-
-        # See https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html
-
-        # It is also worth veryfying that the web tool nwbexplorer can read the produced files, see http://nwbexplorer.opensourcebrain.org/.
-
-        if nwbfile is None:
-
-            nwbfile = _get_nwbfile_template()
-
-        if nwbfile.electrodes is None or len(nwbfile.electrodes.colnames) == 0:
-           nwbfile, electrode_region = _add_electrodes(nwbfile, len(self.channel))
-        else:
-            electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(self.channel))), description="All electrodes.")
-
-        # Now that we have an NWBFile and channels, we can add the data.
-        time_series_with_rate = ElectricalSeries(
-            name="ElectricalSeries",
-            data=self.data,
-            electrodes=electrode_region,
-            starting_time=0.0,
-            rate=self.samplerate, # Fixed sampling rate.
-            description="Electrical time series dataset",
-            comments="Exported by Syncopy",
-        )
-
-        if is_raw:  # raw measurements from instruments, not to be changed. Not downsampled, detrended, or anything.
-            nwbfile.add_acquisition(time_series_with_rate)
-        else: # LFP, data used for analysis.
-            lfp = LFP(electrical_series=time_series_with_rate)
-            ecephys_module = nwbfile.create_processing_module(
-                name="ecephys", description="processed extracellular electrophysiology data"
-            )
-            ecephys_module.add(lfp)
-
-
-        # Add trial definition.
-        if with_trialdefinition and self.trialdefinition is not None:
-            # Add the trial definition, if any.
-            nwbfile.add_trial_column(
-                name="offset",
-                description="The offset of the trial.",
-            )
-            for trial_idx in range(self.trialdefinition.shape[0]):
-                td = self.trialdefinition[trial_idx, :].astype(np.float64) / self.samplerate # Compute time from sample number.
-                nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[2])
-
-        return nwbfile
 
 
 
@@ -929,3 +856,39 @@ class TimeLockData(ContinuousData):
 
         figax = mp_plotting.plot_AnalogData(self, **show_kwargs)
         return figax
+
+    def save_nwb(self, outpath, nwbfile=None, with_trialdefinition=True, is_raw=True):
+        """Save TimeLockData in Neurodata Without Borders (NWB) file format.
+        An NWBFile represents a single session of an experiment.
+
+        Parameters
+        ----------
+        outpath : str, path-like. Where to save the NWB file, including file name and `.nwb` extension. All directories in the path must exist. Example: `'mydata.nwb'`.
+
+        nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
+         your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
+
+        with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
+
+        is_raw : Boolean, whether this is raw data (that should never change), as opposed to LFP data that originates from some processing, e.g., down-sampling and
+         detrending. Determines where data is stored in the NWB container, to make it easier for other software to interprete what the data represents. If `is_raw` is `True`,
+         the `ElectricalSeries` is stored directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a processing group called `ecephys`.
+         Note that for the Syncopy NWB reader, the data should be stored as raw, so this is currently the default.
+
+        Returns
+        -------
+        None, called for side effect of writing the NWB file to disk.
+
+        Notes
+        -----
+        Due to the very general architecture of the NWB format, many fields need to be interpreted by software reading the format. Thus,
+        providing a generic function to save Syncopy data in NWB format is possible only if you know who will read it.
+        Depending on your target software, you may need to manually format the data using pynwb before writing it to disk, or manually
+        open it using pynwb before using it with the target software.
+
+        Selections are ignored, the full data is exported. Create a new Syncopy data object before calling this function if you want to export a subset only.
+        """
+        nwbfile = _analog_timelocked_to_nwbfile(self, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
+        # Write the file to disk.
+        with NWBHDF5IO(outpath, "w") as io:
+            io.write(nwbfile)
