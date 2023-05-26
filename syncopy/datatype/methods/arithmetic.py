@@ -9,14 +9,10 @@ import h5py
 import dask.distributed as dd
 
 # Local imports
-from syncopy import __acme__
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import process_io, detect_parallel_client
-
-if __acme__:
-    import dask.distributed as dd
 
 __all__ = []
 
@@ -368,7 +364,7 @@ def _perform_computation(baseObj,
     else:
         raise SPYValueError("supported arithmetic operator", actual=operator)
 
-    # If ACME is available, try to attach (already running) parallel computing client
+    # try to attach (already running) parallel computing client
     parallel = False
     try:
         dd.get_client()

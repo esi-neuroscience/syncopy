@@ -269,9 +269,8 @@ class TestBaseData():
             complexArr = np.complex64(dummy.trials[0])
             complexNum = 3 + 4j
 
-            print(dummy.trials[0].shape, dclass)
+            # -- test that NumPy broadcasting rules are respected --
 
-            # test that NumPy broadcasting rules are respected
             trl_shape = dummy.trials[0].shape
             # 1st dimension is different from last in `self.data`
             assert trl_shape[0] != trl_shape[-1]
@@ -291,6 +290,8 @@ class TestBaseData():
 
             # everything zeroed
             assert np.allclose(res.data[()], 0)
+
+            # -- test exceptions  --
 
             # Start w/the one operator that does not handle zeros well...
             with pytest.raises(SPYValueError) as spyval:
