@@ -222,11 +222,10 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
         if nwbfile is None:
             nwbfile = _get_nwbfile_template(num_channels=len(sdata.channel))
 
-        electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
-
         # Now that we have an NWBFile and channels, we can add the data.
         # cf. https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212 to be
         # compatible with Neurosuite/Pynapple.
+        electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
         num_units = sdata.shape[sdata.dimord.index("unit")]
         for unit_idx in range(num_units):
             nwbfile.add_unit(

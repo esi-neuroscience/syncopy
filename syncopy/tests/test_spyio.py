@@ -28,6 +28,7 @@ from syncopy.shared.errors import (
 import syncopy.datatype as swd
 from syncopy.tests.misc import generate_artificial_data
 from syncopy.synthdata.analog import white_noise
+from syncopy.synthdata.spikes import poisson_noise
 
 
 # Decorator to detect if test data dir is available
@@ -619,6 +620,7 @@ class TestNWBImporter:
 
             assert np.allclose(lfp.data, lfp2.data)
 
+class TestNWBExporter():
 
     def test_save_nwb_analog_no_trialdef(self):
         """Test saving to NWB file and re-reading data for AnalogData, without trial definition."""
@@ -696,8 +698,38 @@ class TestNWBImporter:
             assert np.allclose(adata.data, adata_reread.data)
 
 
+    def test_save_nwb_spikedata(self):
+        """Test exporting SpikeData to NWB format.
+
+        The data in the NWB file is arranged in a way that is compatible with Pynapple.
+        """
+        nTrials=10
+        nSpikes=20_000
+        samplerate=10_000
+        nChannels = 3
+        spdata = poisson_noise(nTrials=nTrials, nSpikes=nSpikes, samplerate=samplerate, nChannels=nChannels)
+
+        assert isinstance(spdata, spy.SpikeData)
+
+        with tempfile.TemporaryDirectory() as tdir:
+            outpath = os.path.join(tdir, 'test_save_spike2nwb.nwb')
+            spdata.save_nwb(outpath=outpath)
+
+            data_instances_reread = load_nwb(outpath)
+            assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"
+            spdata_reread = list(data_instances_reread.values())[0]
+            assert isinstance(spdata_reread, spy.SpikeData), f"Expected SpikeData, got {type(spdata_reread)}"
+            assert len(spdata_reread.channel) == nChannels, f"Expected {nChannels} channels, got {len(spdata_reread.channel)}"
+            assert len(spdata_reread.trials) == nTrials
+            assert np.allclose(spdata.data, spdata_reread.data)
+
+        # TODO: Should we add pynapple as an optional or dev dependency and actually try to load the data in pynapple?
+
+
+
 if __name__ == '__main__':
     T0 = TestSpyIO()
     T1 = TestFTImporter()
     T2 = TestTDTImporter()
     T3 = TestNWBImporter()
+    T4 = TestNWBExporter()
