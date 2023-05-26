@@ -17,6 +17,10 @@ from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError
 from syncopy.shared.tools import best_match
 
+from syncopy.io.nwb import _spikedata_to_nwbfile
+from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+
+
 __all__ = ["SpikeData", "EventData"]
 
 
@@ -278,6 +282,9 @@ class DiscreteData(BaseData, ABC):
             if self.sampleinfo is None:
                 # Fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
+
+    def save_nwb(self, **kwargs):
+        raise NotImplementedError("Saving of this datatype to NWB files is not supported.")
 
 
 class SpikeData(DiscreteData):
@@ -571,6 +578,42 @@ class SpikeData(DiscreteData):
             self.unit = unit
         elif data is not None:
             self.unit = self._default_unit_labels()
+
+    def save_nwb(self, outpath, nwbfile=None, with_trialdefinition=True, is_raw=True):
+        """Save SpikeData in Neurodata Without Borders (NWB) file format.
+        An NWBFile represents a single session of an experiment.
+
+        Parameters
+        ----------
+        outpath : str, path-like. Where to save the NWB file, including file name and `.nwb` extension. All directories in the path must exist. Example: `'mydata.nwb'`.
+
+        nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
+         your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
+
+        with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
+
+        is_raw : Boolean, whether this is raw data (that should never change), as opposed to LFP data that originates from some processing, e.g., down-sampling and
+         detrending. Determines where data is stored in the NWB container, to make it easier for other software to interprete what the data represents. If `is_raw` is `True`,
+         the `ElectricalSeries` is stored directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a processing group called `ecephys`.
+         Note that for the Syncopy NWB reader, the data should be stored as raw, so this is currently the default.
+
+        Returns
+        -------
+        None, called for side effect of writing the NWB file to disk.
+
+        Notes
+        -----
+        Due to the very general architecture of the NWB format, many fields need to be interpreted by software reading the format. Thus,
+        providing a generic function to save Syncopy data in NWB format is possible only if you know who will read it.
+        Depending on your target software, you may need to manually format the data using pynwb before writing it to disk, or manually
+        open it using pynwb before using it with the target software.
+
+        Selections are ignored, the full data is exported. Create a new Syncopy data object before calling this function if you want to export a subset only.
+        """
+        nwbfile = _spikedata_to_nwbfile(self, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
+        # Write the file to disk.
+        with NWBHDF5IO(outpath, "w") as io:
+            io.write(nwbfile)
 
 
 class EventData(DiscreteData):

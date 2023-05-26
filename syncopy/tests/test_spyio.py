@@ -579,7 +579,7 @@ class TestNWBImporter:
             nwb_filename = nwbfile
             break
 
-    def test_load_nwb(self):
+    def test_load_nwb_analog(self):
 
         if self.nwb_filename is None:
             pytest.skip("Demo NWB file not found on current system.")
@@ -620,7 +620,7 @@ class TestNWBImporter:
             assert np.allclose(lfp.data, lfp2.data)
 
 
-    def test_save_nwb_no_trialdef(self):
+    def test_save_nwb_analog_no_trialdef(self):
         """Test saving to NWB file and re-reading data for AnalogData, without trial definition."""
 
         numChannels = 64
@@ -638,10 +638,10 @@ class TestNWBImporter:
             adata_reread = list(data_instances_reread.values())[0]
             assert isinstance(adata_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata_reread)}"
             assert len(adata_reread.channel) == numChannels, f"Expected {numChannels} channels, got {len(adata_reread.channel)}"
-            assert len(adata.trials) == 1
+            assert len(adata_reread.trials) == 1
             assert np.allclose(adata.data, adata_reread.data)
 
-    def test_save_nwb_with_trialdef(self):
+    def test_save_nwb_analog_with_trialdef(self):
         """Test saving to NWB file and re-reading data for AnalogData with a trial definition."""
 
         numChannels = 64
@@ -661,7 +661,38 @@ class TestNWBImporter:
             adata_reread = list(data_instances_reread.values())[0]
             assert isinstance(adata_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata_reread)}"
             assert len(adata_reread.channel) == numChannels, f"Expected {numChannels} channels, got {len(adata_reread.channel)}"
-            assert len(adata.trials) == numTrials
+            assert len(adata_reread.trials) == numTrials
+            assert np.allclose(adata.data, adata_reread.data)
+
+    def test_save_nwb_timelock_with_trialdef(self):
+        """Test saving to NWB file and re-reading data for TimeLockData with a trial definition.
+        Currently, when the file is bering re-read, it results in an AnalogData object, not a TimeLockData object.
+        """
+
+        numChannels = 64
+        numTrials = 5
+        adata = white_noise(nTrials = numTrials, nChannels=numChannels, nSamples= 1000)
+
+        # Create TimeLockData object from AnalogData object (note: this method loads all data into memory)
+        tldata = spy.TimeLockData(adata.data[()], samplerate=adata.samplerate, channel=adata.channel, trialdefinition=adata.trialdefinition)
+
+        assert isinstance(adata, spy.AnalogData)
+        assert isinstance(tldata, spy.TimeLockData)
+        assert len(adata.channel) == numChannels
+        assert len(adata.trials) == numTrials
+        assert len(tldata.channel) == numChannels
+        assert len(tldata.trials) == numTrials
+
+        with tempfile.TemporaryDirectory() as tdir:
+            outpath = os.path.join(tdir, 'test_save_timelock2nwb.nwb')
+            adata.save_nwb(outpath=outpath)
+
+            data_instances_reread = load_nwb(outpath)
+            assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"
+            adata_reread = list(data_instances_reread.values())[0]
+            assert isinstance(adata_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata_reread)}"
+            assert len(adata_reread.channel) == numChannels, f"Expected {numChannels} channels, got {len(adata_reread.channel)}"
+            assert len(adata_reread.trials) == numTrials
             assert np.allclose(adata.data, adata_reread.data)
 
 

@@ -8,20 +8,25 @@ import numpy as np
 from datetime import datetime
 from uuid import uuid4
 import pytz
-
+import syncopy as spy
 from pynwb import NWBHDF5IO, NWBFile, TimeSeries
 from pynwb.ecephys import LFP, ElectricalSeries, EventWaveform, SpikeEventSeries
+from pynwb.core import DynamicTableRegion
 
 # Local imports
 
 __all__ = []
 
 
-def _get_nwbfile_template():
+def _get_nwbfile_template(num_channels=None):
     """
     Get a template NWBFile object with some basic metadata. No data or electrodes are added.
 
     This NWBFile object is not tied to any filesystem file.
+
+    Parameters
+    ----------
+    num_channels: int, number of channels, used for adding electrodes. If None, no electrodes are added. In that case, the correct amount of electrodes for the data's channel count must already exist.
     """
     start_time_no_tz = datetime.now()
     tz = pytz.timezone('Europe/Berlin')
@@ -39,6 +44,11 @@ def _get_nwbfile_template():
                 related_publications="",                # put a DOI here, if any. e.g., "https://doi.org/###"
             )
             # When creating your own NWBFile, you can also add subject information by setting `nwbfile.subject` to a `pynwb.file.Subject` instance, see docs.
+
+
+    if num_channels is not None:
+        assert nwbfile.electrodes is None or len(nwbfile.electrodes.colnames) == 0
+        nwbfile, _ = _add_electrodes(nwbfile, num_channels)
     return nwbfile
 
 
@@ -89,8 +99,9 @@ def _add_electrodes(nwbfile, nchannels_per_shank, nshanks = 1):
         )
     return nwbfile, electrodes
 
+
 def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=True, is_raw=True):
-        """Convert AnalogData into pynwb.NWBFile instance, for writing to files in Neurodata Without Borders (NWB) file format.
+        """Convert `AnalogData` or `TimeLockData` into a `pynwb.NWBFile` instance, for writing to files in Neurodata Without Borders (NWB) file format.
         An NWBFile represents a single session of an experiment.
 
         Parameters
@@ -120,13 +131,10 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
 
 
         if nwbfile is None:
+            nwbfile = _get_nwbfile_template(num_channels=len(atdata.channel))
 
-            nwbfile = _get_nwbfile_template()
+        electrode_region = DynamicTableRegion('electrodes', list(range(len(atdata.channel))), 'All electrodes.', nwbfile.electrodes)
 
-        if nwbfile.electrodes is None or len(nwbfile.electrodes.colnames) == 0:
-           nwbfile, electrode_region = _add_electrodes(nwbfile, len(atdata.channel))
-        else:
-            electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(atdata.channel))), description="All electrodes.")
 
         # Now that we have an NWBFile and channels, we can add the data.
         time_series_with_rate = ElectricalSeries(
@@ -149,20 +157,42 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
             ecephys_module.add(lfp)
 
 
-        # Add trial definition.
-        if with_trialdefinition and atdata.trialdefinition is not None:
-            # Add the trial definition, if any.
-            nwbfile.add_trial_column(
-                name="offset",
-                description="The offset of the trial.",
-            )
-            for trial_idx in range(atdata.trialdefinition.shape[0]):
-                td = atdata.trialdefinition[trial_idx, :].astype(np.float64) / atdata.samplerate # Compute time from sample number.
-                nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[2])
-                nwbfile.add_epoch(start_time=td[0], stop_time=td[1])
-
+        # Add trial definition, if possible and requested.
+        _add_trials_to_nwbfile(nwbfile, atdata.trialdefinition, atdata.samplerate, do_add=with_trialdefinition)
 
         return nwbfile
+
+
+def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True):
+    """Add trial definition to an existing NWBFile.
+
+    Parameters
+    ----------
+    nwbfile : :class:`pynwb.NWBFile` object, the NWBFile instance that contains the data.
+
+    trialdefinition : :class:`numpy.ndarray` of shape (N, 3), the trial definition. Each row contains the start time, stop time, and offset of a trial.
+
+    samplerate: float, the sampling rate of the data in Hz
+
+    do_add : Boolean, whether to add the trial definition to the NWB file. If `False`, the trial definition is only returned, but not added to the NWB file.
+
+    Returns
+    -------
+    :class:`pynwb.epoch.TimeIntervals` object, the trial definition.
+    """
+    # Add the trial definition, if any.
+    if trialdefinition is None or not do_add:
+        return
+
+    nwbfile.add_trial_column(
+        name="offset",
+        description="The offset of the trial.",
+    )
+    for trial_idx in range(trialdefinition.shape[0]):
+        td = trialdefinition[trial_idx, :].astype(np.float64) / samplerate # Compute time from sample number.
+        if do_add:
+            nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[2])
+            nwbfile.add_epoch(start_time=td[0], stop_time=td[1])
 
 
 def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
@@ -189,15 +219,10 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
         # See https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html
         # It is also worth veryfying that the web tool nwbexplorer can read the produced files, see http://nwbexplorer.opensourcebrain.org/.
 
-
         if nwbfile is None:
+            nwbfile = _get_nwbfile_template(num_channels=len(sdata.channel))
 
-            nwbfile = _get_nwbfile_template()
-
-        if nwbfile.electrodes is None or len(nwbfile.electrodes.colnames) == 0:
-           nwbfile, electrode_region = _add_electrodes(nwbfile, len(sdata.channel))
-        else:
-            electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
+        electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
 
         # Now that we have an NWBFile and channels, we can add the data.
         # cf. https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212 to be
@@ -210,17 +235,8 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
                 electrodes=electrode_region
                 )
 
-        # Add trial definition.
-        if with_trialdefinition and sdata.trialdefinition is not None:
-            # Add the trial definition, if any.
-            nwbfile.add_trial_column(
-                name="offset",
-                description="The offset of the trial.",
-            )
-            for trial_idx in range(sdata.trialdefinition.shape[0]):
-                td = sdata.trialdefinition[trial_idx, :].astype(np.float64) / sdata.samplerate # Compute time from sample number.
-                nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[2])
-                nwbfile.add_epoch(start_time=td[0], stop_time=td[1], tags="trial")
+        # Add trial definition, if possible and requested.
+        _add_trials_to_nwbfile(nwbfile, sdata.trialdefinition, sdata.samplerate, do_add=with_trialdefinition)
 
         return nwbfile
 
