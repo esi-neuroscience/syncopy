@@ -294,6 +294,13 @@ class SpikeData(DiscreteData):
     stored as a two-dimensional [nSpikes x 3] array on disk with the columns
     being ``["sample", "channel", "unit"]``.
 
+    The "unit" is the neuron a spike originated from. Note that in the raw data,
+    a signal from one neuron may show up in several (nearby) channels, with different strengths. The waveform
+    of the action potential is used as a signature to identify the signal of a neuron
+    across channels. Once this has been done, it is known which neuron spiked when, and the
+    channel information is typically no longer of interest. I.e., with spike data that
+    is ready for the scientific analysis, there typically is only one channel. 
+
     Data is only read from disk on demand, similar to HDF5 files.
     """
 
