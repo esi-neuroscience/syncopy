@@ -707,7 +707,8 @@ class TestNWBExporter():
         nSpikes=20_000
         samplerate=10_000
         nChannels = 3
-        spdata = poisson_noise(nTrials=nTrials, nSpikes=nSpikes, samplerate=samplerate, nChannels=nChannels)
+        nUnits = 5
+        spdata = poisson_noise(nTrials=nTrials, nSpikes=nSpikes, samplerate=samplerate, nChannels=nChannels, nUnits=nUnits)
 
         assert isinstance(spdata, spy.SpikeData)
 

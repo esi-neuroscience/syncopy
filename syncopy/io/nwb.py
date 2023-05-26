@@ -152,7 +152,7 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
         else: # LFP, data used for analysis.
             lfp = LFP(electrical_series=time_series_with_rate)
             ecephys_module = nwbfile.create_processing_module(
-                name="ecephys", description="processed extracellular electrophysiology data"
+                name="ecephys", description=atdata.log
             )
             ecephys_module.add(lfp)
 
@@ -163,7 +163,7 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
         return nwbfile
 
 
-def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True):
+def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True, save_as="both"):
     """Add trial definition to an existing NWBFile.
 
     Parameters
@@ -175,6 +175,8 @@ def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True):
     samplerate: float, the sampling rate of the data in Hz
 
     do_add : Boolean, whether to add the trial definition to the NWB file. If `False`, the trial definition is only returned, but not added to the NWB file.
+
+    save_as : str, how to store the trials in the NWB file. Must be one of `'both'`, `'epochs'`, or `'trials'`.
 
     Returns
     -------
@@ -190,8 +192,9 @@ def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True):
     )
     for trial_idx in range(trialdefinition.shape[0]):
         td = trialdefinition[trial_idx, :].astype(np.float64) / samplerate # Compute time from sample number.
-        if do_add:
+        if save_as == "both" or save_as == "trials":
             nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[2])
+        if save_as == "both" or save_as == "epochs":
             nwbfile.add_epoch(start_time=td[0], stop_time=td[1])
 
 
@@ -227,11 +230,15 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
         # compatible with Neurosuite/Pynapple.
         electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
         num_units = sdata.shape[sdata.dimord.index("unit")]
+
+        # units = sd._get_unit(list(range(len(sd.trials))), units=[1,2])
+
         for unit_idx in range(num_units):
             nwbfile.add_unit(
                 id=unit_idx,
                 spike_times = sdata.data[unit_idx],
                 electrodes=electrode_region
+
                 )
 
         # Add trial definition, if possible and requested.

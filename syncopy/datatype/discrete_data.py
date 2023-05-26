@@ -579,7 +579,7 @@ class SpikeData(DiscreteData):
         elif data is not None:
             self.unit = self._default_unit_labels()
 
-    def save_nwb(self, outpath, nwbfile=None, with_trialdefinition=True, is_raw=True):
+    def save_nwb(self, outpath, nwbfile=None, with_trialdefinition=True):
         """Save SpikeData in Neurodata Without Borders (NWB) file format.
         An NWBFile represents a single session of an experiment.
 
@@ -591,11 +591,6 @@ class SpikeData(DiscreteData):
          your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
 
         with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
-
-        is_raw : Boolean, whether this is raw data (that should never change), as opposed to LFP data that originates from some processing, e.g., down-sampling and
-         detrending. Determines where data is stored in the NWB container, to make it easier for other software to interprete what the data represents. If `is_raw` is `True`,
-         the `ElectricalSeries` is stored directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a processing group called `ecephys`.
-         Note that for the Syncopy NWB reader, the data should be stored as raw, so this is currently the default.
 
         Returns
         -------
@@ -610,7 +605,7 @@ class SpikeData(DiscreteData):
 
         Selections are ignored, the full data is exported. Create a new Syncopy data object before calling this function if you want to export a subset only.
         """
-        nwbfile = _spikedata_to_nwbfile(self, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
+        nwbfile = _spikedata_to_nwbfile(self, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition)
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:
             io.write(nwbfile)
