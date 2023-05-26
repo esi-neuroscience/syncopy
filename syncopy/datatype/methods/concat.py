@@ -35,14 +35,17 @@ def concat(spy_obj1, spy_obj2, dim='channel'):
        The concatenation dimension
     """
 
+    # -- sanity checks --
+
     if not issubclass(spy_obj1.__class__, ContinuousData):
         raise SPYTypeError(spy_obj1, 'spy_obj1', 'continuous data type')
 
     data_parser(spy_obj1, empty=False)
     data_parser(spy_obj2, empty=False)
 
+    # catches also differing classes
     if spy_obj1.dimord != spy_obj2.dimord:
-        raise SPYValueError("objects with same dimensional layout", 'spy object dimensions',
+        raise SPYValueError("objects with equal dimensional layout", 'spy object dimensions',
                             f"{spy_obj1.dimord} and {spy_obj2.dimord}")
 
     if dim not in spy_obj1.dimord:
@@ -53,6 +56,15 @@ def concat(spy_obj1, spy_obj2, dim='channel'):
 
     concat_axis = spy_obj1.dimord.index(dim)
 
+    # check shapes
+    shape_zip = zip(spy_obj1.data.shape, spy_obj2.data.shape)
+    for axis, (s1, s2) in enumerate(shape_zip):
+        if axis != concat_axis and s1 != s2:
+            raise SPYValueError("objects with matching shapes", 'spy objects',
+                                f"{spy_obj1.data.shape}  and {spy_obj2.data.shape}"
+                                )
+
+    # new size of the concatenation axis/dimension
     # this works for `time`, `channel`, `freq` and even `trials`
     new_size = len(getattr(spy_obj1, dim)) + len(getattr(spy_obj2, dim))
 
