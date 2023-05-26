@@ -19,6 +19,7 @@ dependencies:
   - fooof >= 1.0
   - pynwb >= 2.3
   - bokeh >= 3.1.1
+
   # Optional packages required for running the test-suite and building the HTML docs
   - ipdb
   - memory_profiler

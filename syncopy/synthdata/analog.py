@@ -35,7 +35,7 @@ def white_noise(nSamples=1000, nChannels=2, seed=None):
     """
 
     rng = np.random.default_rng(seed)
-    signal = rng.normal(size=(nSamples, nChannels))
+    signal = rng.normal(size=(nSamples, nChannels)).astype('f4')
     return signal
 
 
@@ -58,7 +58,7 @@ def linear_trend(y_max, nSamples=1000, nChannels=2):
     --------
     trend : :class:`syncopy.AnalogData` or numpy.ndarray
     """
-    trend = np.linspace(0, y_max, nSamples)
+    trend = np.linspace(0, y_max, nSamples, dtype='f4')
     return np.column_stack([trend for _ in range(nChannels)])
 
 
@@ -86,7 +86,7 @@ def harmonic(freq, samplerate, nSamples=1000, nChannels=2):
     # the sampling times vector needed for construction
     tvec = np.arange(nSamples) * 1 / samplerate
     # the  harmonic
-    harm = np.cos(2 * np.pi * freq * tvec)
+    harm = np.cos(2 * np.pi * freq * tvec, dtype='f4')
     return np.column_stack([harm for _ in range(nChannels)])
 
 
@@ -157,14 +157,14 @@ def phase_diffusion(freq,
     # white noise
     wn = white_noise(nSamples=nSamples, nChannels=nChannels, seed=seed, nTrials=None)
 
-    tvec = np.linspace(0, nSamples / samplerate, nSamples)
+    tvec = np.linspace(0, nSamples / samplerate, nSamples, dtype='f4')
     omega0 = 2 * np.pi * freq
     lin_phase = np.tile(omega0 * tvec, (nChannels, 1)).T
 
     # randomize initial phase
     if rand_ini:
         rng = np.random.default_rng(seed)
-        ps0 = 2 * np.pi * rng.uniform(size=nChannels)
+        ps0 = 2 * np.pi * rng.uniform(size=nChannels).astype('f4')
         lin_phase += ps0
 
     # relative Brownian increments

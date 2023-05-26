@@ -72,3 +72,7 @@ requirements-test.txt
 
 # Mac OS related stuff
 .DS_Store
+
+# airspeed velocity virtual environments for performance testing
+.asv/env/
+
