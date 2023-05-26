@@ -301,6 +301,9 @@ class SpikeData(DiscreteData):
     channel information is typically no longer of interest. I.e., with spike data that
     is ready for the scientific analysis, there typically is only one channel.
 
+    Note that this means that "channel x unit z" is the same neuron as "channel y unit z", since
+    the unit should identify the same neuron, regardless of the channel.
+
     Often, the raw data around individual spikes is save along with the spikes, so that
     one can later infer the type of neuron (e.g., inhibitory/excitatory) from it. We support
     this with the 'waveform' attribute of spy.SpikeData.
