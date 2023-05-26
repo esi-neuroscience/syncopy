@@ -228,17 +228,17 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
         # Now that we have an NWBFile and channels, we can add the data.
         # cf. https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212 to be
         # compatible with Neurosuite/Pynapple.
-        electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
-        num_units = sdata.shape[sdata.dimord.index("unit")]
+        #electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
+        electrode_region = DynamicTableRegion('electrodes', list(range(len(sdata.channel))), 'All electrodes.', nwbfile.electrodes)
+        num_units = sdata.data.shape[sdata.dimord.index("channel")]
 
         # units = sd._get_unit(list(range(len(sd.trials))), units=[1,2])
 
         for unit_idx in range(num_units):
             nwbfile.add_unit(
                 id=unit_idx,
-                spike_times = sdata.data[unit_idx],
-                electrodes=electrode_region
-
+                spike_times = sdata.data[:, unit_idx],
+                electrodes=list(range(len(sdata.channel)))
                 )
 
         # Add trial definition, if possible and requested.

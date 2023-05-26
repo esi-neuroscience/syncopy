@@ -93,7 +93,8 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
     ttlDtypes = []
 
     # If the file contains `epochs`, use it to infer trial information
-    hasTrials = "epochs" in nwbfile.fields.keys()
+    hasEpochs = "epochs" in nwbfile.fields.keys()
+    hasTrials = "trials" in nwbfile.fields.keys()
 
     # Access all (supported) `acquisition` fields in the file
     for acqName, acqValue in nwbfile.acquisition.items():
@@ -136,9 +137,13 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
             lgl = "supported NWB data class"
             raise SPYValueError(lgl, varname=acqName, actual=str(acqValue.__class__))
 
+    # TODO: Parse Spike Data (units and maybe waveforms) here.
+
     # If the NWB data is split up in "trials" (i.e., epochs), ensure things don't
     # get too wild (uniform sampling rates and timing offsets)
-    if hasTrials:
+    if hasTrials or hasEpochs:
+        if len(tStarts) < 1 or len(sRates) < 1:
+            raise SPYError("Found trials but no valid data in NWB file. Data in file not supported.")
         if all(tStarts) is None or all(sRates) is None:
             lgl = "acquisition timings defined by `starting_time` and `rate`"
             act = "`starting_time` or `rate` not set"
@@ -147,9 +152,26 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
             lgl = "acquisitions with unique `starting_time` and `rate`"
             act = "`starting_time` or `rate` different across acquisitions"
             raise SPYValueError(lgl, varname="starting_time/rate", actual=act)
-        epochs = nwbfile.epochs[:]
-        trl = np.zeros((epochs.shape[0], 3), dtype=np.intp)
-        trl[:, :2] = (epochs - tStarts[0]) * sRates[0]
+        time_intervals_source = "trials"
+        if hasTrials:
+            time_intervals = nwbfile.trials[:]
+        else:
+            time_intervals = nwbfile.epochs[:]
+            time_intervals_source = "epochs"
+        SPYWarning(f"time_intervals taken from {time_intervals_source} has shape {time_intervals.shape}.")
+        trl = np.zeros((time_intervals.shape[0], 3), dtype=np.intp) # TODO: check dtype?
+        SPYWarning(f"tStarts: {tStarts}.")
+        SPYWarning(f"sRates: {sRates}.")
+        trial_start_stop = (time_intervals - tStarts[0]) * sRates[0]  # use offset relative to first acquisition
+        SPYWarning(f"trial_start_stop has shape {trial_start_stop.shape}.")
+        trl[:, :2] = trial_start_stop
+
+        # If we found trials, we may be able to load the offset field from the trials
+        # table. This is not guaranteed to work, though, as the offset field is only present if the
+        # file was exported by Syncopy.
+        if hasTrials and "offset" in nwbfile.trials.colnames:
+            trl[:, 3] = nwbfile.trials["offset"] * sRates[0]
+
         msg = "Found {} trials".format(trl.shape[0])
     else:
         trl = np.array([[0, nSamples, 0]])
