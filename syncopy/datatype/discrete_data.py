@@ -299,7 +299,11 @@ class SpikeData(DiscreteData):
     of the action potential is used as a signature to identify the signal of a neuron
     across channels. Once this has been done, it is known which neuron spiked when, and the
     channel information is typically no longer of interest. I.e., with spike data that
-    is ready for the scientific analysis, there typically is only one channel. 
+    is ready for the scientific analysis, there typically is only one channel.
+
+    Often, the raw data around individual spikes is save along with the spikes, so that
+    one can later infer the type of neuron (e.g., inhibitory/excitatory) from it. We support
+    this with the 'waveform' attribute of spy.SpikeData.
 
     Data is only read from disk on demand, similar to HDF5 files.
     """
