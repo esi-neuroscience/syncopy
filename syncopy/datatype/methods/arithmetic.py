@@ -179,7 +179,7 @@ def _parse_input(obj1, obj2, operator):
         opres_type = np.result_type(*(trl.dtype for trl in baseTrials), operand.dtype)
 
         # Ensure shapes of all trials match up, according to NumPy broadcasting rules
-        for trl in baseTrials:        
+        for trl in baseTrials:
             try:
                 np.broadcast_shapes(trl.shape, operand.shape)
             except ValueError:
@@ -190,11 +190,6 @@ def _parse_input(obj1, obj2, operator):
         # No more info needed, the array is the only quantity we need
         operand_dat = operand
         operand_idxs = None
-
-        # All good, nevertheless warn of potential havoc this operation may cause...
-        msg = "Performing arithmetic with NumPy arrays may cause inconsistency " +\
-            "in Syncopy objects (channels, samplerate, trialdefintions etc.)"
-        SPYWarning(msg, caller=operator)
 
     # Operand is another Syncopy object
     elif "BaseData" in str(operand.__class__.__mro__):
