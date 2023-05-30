@@ -374,7 +374,7 @@ class SpikeData(DiscreteData):
 
         # channel entries in self.data are 0-based
         chan_max = self.channel_idx.max()
-        channel_labels = np.array(["channel" + str(int(i + 1)).zfill(len(str(chan_max)) + 1)
+        channel_labels = np.array(["channel" + str(int(i + 1)).zfill(len(str(chan_max)))
                                    for i in self.channel_idx])
         return channel_labels
 
@@ -427,7 +427,7 @@ class SpikeData(DiscreteData):
         """
 
         unit_max = self.unit_idx.max()
-        return np.array(["unit" + str(int(i + 1)).zfill(len(str(unit_max)) + 1)
+        return np.array(["unit" + str(int(i + 1)).zfill(len(str(unit_max)))
                          for i in self.unit_idx])
 
     # Helper function that extracts by-trial unit-indices
