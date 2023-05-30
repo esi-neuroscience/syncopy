@@ -246,7 +246,7 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
         for unit_idx in units:
             nwbfile.add_unit(
                 id=unit_idx,
-                spike_times = data_single_channel[np.where(data_single_channel[:, 1] == unit_idx), 0].flatten(),
+                spike_times = data_single_channel[np.where(data_single_channel[:, 1] == unit_idx), 0].flatten() / sdata.samplerate,
                 electrodes=list(range(num_channels))
                 )
 
