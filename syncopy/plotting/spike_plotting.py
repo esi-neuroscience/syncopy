@@ -18,15 +18,16 @@ from syncopy.plotting.config import pltErrMsg, pltConfig
 
 
 @plot_helpers.revert_selection
-def plot_single_trial_SpikeData(data, **show_kwargs):
+def plot_single_trial_SpikeData(data, mode='unit', **show_kwargs):
     """
     Plot a single trial of a SpikeData object as a spike raster plot.
-    Refers to `plot_single_trial` after `show_kwargs`
-    validation.
+    Use `mode` to index spikes either by channel or unit.
 
     Parameters
     ----------
     data : :class:`~syncopy.datatype.SpikeData`
+    mode : {'unit', 'channel'}
+        Plot spikes indexed either by unit or channel
     show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
 
     Returns
@@ -40,43 +41,48 @@ def plot_single_trial_SpikeData(data, **show_kwargs):
         SPYWarning("Please select a single trial for plotting.")
         return None, None
 
+    if mode not in ('channel', 'unit'):
+        raise SPYValueError("`'channel'` or `'unit'`", 'mode', mode)
+
     # attach in place selection and get the only trial
     data.selectdata(inplace=True, **show_kwargs)
     trl = next(iter(data.selection.trials))
     offset = data.selection.trialdefinition[0, 2]
     trl_start = data.selection.trialdefinition[0, 0]
 
-    # that's the integer values encoding the channels in the data
-    chan_ids = np.arange(len(data.channel))[data.selection.channel]
-    # the associated string labels
-    chan_labels = data.channel[chan_ids]
+    ids, labels = _extract_ids_labels(data, mode, show_kwargs)
 
-    fig, ax = _plotting.mk_line_figax(ylabel='channel')
+    fig, ax = _plotting.mk_line_figax(ylabel=mode)
 
-    plot_single_trial(ax, trl, chan_ids, data.samplerate, trl_start - offset)
+    id_axis = data.dimord.index(mode)
 
-    # for less than 25 channels, plot the labels
-    if len(chan_labels) <= 25:
-        loc = np.arange(len(chan_labels))
-        ax.set_yticks(loc, chan_labels)
+    plot_single_trial(ax, trl, ids,
+                      id_axis,
+                      data.samplerate,
+                      trl_start - offset)
+
+    # for less than 25 units/channels, plot the labels
+    if len(labels) <= 25:
+        loc = np.arange(len(labels))
+        ax.set_yticks(loc, labels)
         ax.set_ylabel('')
     else:
         ax.set_yticks(())
-    fig.tight_layout()
 
     return fig, ax
 
 
 @plot_helpers.revert_selection
-def plot_multi_trial_SpikeData(data, **show_kwargs):
+def plot_multi_trial_SpikeData(data, mode='unit', **show_kwargs):
     """
     Plot a few trials (max. 25) of a SpikeData object as a multi-axis figure of
-    spike raster plots. Refers to `plot_single_trial` after `show_kwargs`
-    validation.
+    spike raster plots. Use `mode` to index spikes either by channel or unit.
 
     Parameters
     ----------
     data : :class:`~syncopy.datatype.SpikeData`
+    mode : {'unit', 'channel'}
+        Plot spikes indexed either by unit or channel
     show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
 
     Returns
@@ -99,40 +105,41 @@ def plot_multi_trial_SpikeData(data, **show_kwargs):
         SPYWarning(msg)
         return None, None
 
-    # that's the integer values encoding the channels in the data
-    chan_ids = np.arange(len(data.channel))[data.selection.channel]
-    # the associated string labels
-    chan_labels = data.channel[chan_ids]
-
     # determine axes layout, prefer columns over rows due to display aspect ratio
     nrows, ncols = plot_helpers.calc_multi_layout(nTrials)
 
     fig, axes = _plotting.mk_multi_line_figax(nrows, ncols, x_size=2, y_size=1.4)
 
+    ids, labels = _extract_ids_labels(data, mode, show_kwargs)
+    id_axis = data.dimord.index(mode)
+
     for trl_id, ax in zip(data.selection.trial_ids, axes.flatten()):
         trl = data.selection.trials[trl_id]
         trl_start = data.trialdefinition[trl_id][0]
         offset = data.trialdefinition[trl_id][2]
-        plot_single_trial(ax, trl, chan_ids, data.samplerate, trl_start - offset)
+        plot_single_trial(ax, trl, ids,
+                          id_axis,
+                          data.samplerate,
+                          trl_start - offset)
 
     # for less than 20 channels, plot the labels
     # on the leftmost axes
-    loc = np.arange(len(chan_labels))
+    loc = np.arange(len(labels))
     for ax in axes[:, 0]:
-        if len(chan_labels) <= 20:
-            ax.set_yticks(loc, chan_labels)
+        if len(labels) <= 20:
+            ax.set_yticks(loc, labels)
             ax.set_ylabel('')
         else:
-            ax.set_ylabel('channel')
+            ax.set_ylabel(mode)
     for ax in axes.flatten():
-        if len(chan_labels) > 20:
+        if len(labels) > 20:
             ax.set_yticks(())
 
     fig.tight_layout()
     return fig, axes
 
 
-def plot_single_trial(ax, trl, chan_ids, samplerate, sample_shift):
+def plot_single_trial(ax, trl, ids, id_axis, samplerate, sample_shift):
     """
     Plot a single multi-channel trial of SpikeData as a spike raster plot.
 
@@ -141,27 +148,63 @@ def plot_single_trial(ax, trl, chan_ids, samplerate, sample_shift):
     ax : Matplotlib axis object
     trl : np.ndarray
         The single trial to plot as NumPy array
-    chan_ids : np.ndarray
-        Integer array with the channel ids (integers)
+    ids : np.ndarray
+        Integer array with the channel/unit ids (integers)
         to plot
+    id_axis : int
+        Which axis of the triak array to match agains the `ids`
     samplerate : float
         The sampling rate
     sample_shift : int
         Sample number to be subtracted from absolute samples
-        to arrive at a offset relative spike time
+        to arrive at offset relative spike times
     """
 
 
-    # for itrial,trl in enumerate(data.trials):
-
-    # collect each channel spike times
-    chan_spikes = []
-    for chan_id in chan_ids:
+    # collect each channel/unit spike times
+    all_spikes = []
+    for _id in ids:
 
         # grab the individual channels by boolean indexing
         # includes all units of the original selection (`show_kwargs`)
-        spikes = trl[trl[:, 1] == chan_id][:, 0]  # in absolute samples
+        spikes = trl[trl[:, id_axis] == _id][:, 0]  # in absolute samples
         spikes = spikes - sample_shift
-        chan_spikes.append(spikes / samplerate)
+        all_spikes.append(spikes / samplerate)
 
-    ax.eventplot(chan_spikes, alpha=0.7, lineoffsets=1, linelengths=0.8)
+    ax.eventplot(all_spikes, alpha=0.7, lineoffsets=1, linelengths=0.8, color='k')
+
+
+def _extract_ids_labels(data, mode, show_kwargs):
+    """
+    Helper to extract the integer ids and labels of
+    the units/channels to plot
+    """
+
+    if mode == 'channel':
+        # that are the integer values encoding the channels in the data
+        ids = np.arange(len(data.channel))[data.selection.channel]
+        # the associated string labels
+        labels = data.channel[ids]
+
+    elif mode == 'unit':
+
+        # unit selections are "special" (see `SpikeData._get_unit`)
+        # and we need to digest manually to get the ids
+        unit_sel = show_kwargs.get('unit')
+        if unit_sel is None:
+            unit_sel = slice(None)
+        # single number/string
+        elif not np.shape(unit_sel):
+            if isinstance(unit_sel, str):
+                unit_sel = np.where(data.unit == unit_sel)[0][0]
+        # sequence
+        else:
+            if isinstance(unit_sel[0], str):
+                unit_sel = [np.where(data.unit == unit)[0][0] for unit in unit_sel]
+
+        # that are the integer values encoding the units in the data
+        ids = np.arange(len(data.unit))[unit_sel]
+        # the associated string labels
+        labels = data.unit[ids]
+
+    return ids, labels
