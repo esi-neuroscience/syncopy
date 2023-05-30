@@ -38,11 +38,11 @@ def plot_single_trial_SpikeData(data, mode='unit', **show_kwargs):
 
     trl_sel = show_kwargs.get('trials')
     if not isinstance(trl_sel, Number) and len(data.trials) > 1:
-        SPYWarning("Please select a single trial for plotting.")
+        SPYWarning("Please select a single trial for plotting.. skipping plot!")
         return None, None
 
     if mode not in ('channel', 'unit'):
-        raise SPYValueError("`'channel'` or `'unit'`", 'mode', mode)
+        raise SPYValueError("either 'channel' or 'unit'", 'mode', mode)
 
     # attach in place selection and get the only trial
     data.selectdata(inplace=True, **show_kwargs)
@@ -69,6 +69,7 @@ def plot_single_trial_SpikeData(data, mode='unit', **show_kwargs):
     else:
         ax.set_yticks(())
 
+    fig.tight_layout()
     return fig, ax
 
 
@@ -100,10 +101,13 @@ def plot_multi_trial_SpikeData(data, mode='unit', **show_kwargs):
 
     if nTrials > nTrials_max:
         msg = (f"Can not plot {nTrials} trials at once!\n"
-               f"Please select maximum {nTrials_max} trials for multipanel plotting.. skipping plot"
+               f"Please select maximum {nTrials_max} trials for multipanel plotting.. skipping plot!"
                )
         SPYWarning(msg)
         return None, None
+
+    if mode not in ('channel', 'unit'):
+        raise SPYValueError("either 'channel' or 'unit'", 'mode', mode)
 
     # determine axes layout, prefer columns over rows due to display aspect ratio
     nrows, ncols = plot_helpers.calc_multi_layout(nTrials)
