@@ -48,8 +48,8 @@ class TestSpikeData():
         # data and no labels triggers default labels
         dummy = SpikeData(data=4  * np.ones((2, 3), dtype=int))
         # labels are 0-based
-        assert dummy.channel == 'channel05'
-        assert dummy.unit == 'unit05'
+        assert dummy.channel == 'channel5'
+        assert dummy.unit == 'unit5'
 
         # data and fitting labels is fine
         assert isinstance(SpikeData(data=np.ones((2, 3), dtype=int), channel=['only_channel']),

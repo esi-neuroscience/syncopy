@@ -441,7 +441,7 @@ class TestSpikeSelections:
         valid_selections = [
             (
                 # units get apparently indexed on a per trial basis
-                {'trials': np.arange(1, 4), 'channel': ['channel03', 'channel01'], 'unit': [2, 0]},
+                {'trials': np.arange(1, 4), 'channel': ['channel3', 'channel1'], 'unit': [2, 0]},
                 {'trials': [1, 2, 3], 'channel': [2, 0], 'unit': [[], [], [1, 5]]},
             ),
             # 2nd selection
