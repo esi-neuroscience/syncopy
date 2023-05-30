@@ -152,25 +152,30 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
             lgl = "acquisitions with unique `starting_time` and `rate`"
             act = "`starting_time` or `rate` different across acquisitions"
             raise SPYValueError(lgl, varname="starting_time/rate", actual=act)
-        time_intervals_source = "trials"
+
         if hasTrials:
             time_intervals = nwbfile.trials[:]
+            time_intervals_source = "trials"
         else:
             time_intervals = nwbfile.epochs[:]
             time_intervals_source = "epochs"
-        SPYWarning(f"time_intervals taken from {time_intervals_source} has shape {time_intervals.shape}.")
+        SPYWarning(f"time_intervals taken from {time_intervals_source} has shape {time_intervals.shape} and type {type(time_intervals)}.")
+        if not type(time_intervals) is np.ndarray:
+            time_intervals = time_intervals.to_numpy()
+            SPYWarning("converted to numpy")
         trl = np.zeros((time_intervals.shape[0], 3), dtype=np.intp) # TODO: check dtype?
         SPYWarning(f"tStarts: {tStarts}.")
         SPYWarning(f"sRates: {sRates}.")
         trial_start_stop = (time_intervals - tStarts[0]) * sRates[0]  # use offset relative to first acquisition
-        SPYWarning(f"trial_start_stop has shape {trial_start_stop.shape}.")
-        trl[:, :2] = trial_start_stop
+        SPYWarning(f"trial_start_stop has shape {trial_start_stop.shape}: {trial_start_stop}.")
+        trl[:, 0:2] = trial_start_stop[:, 0:2]
 
         # If we found trials, we may be able to load the offset field from the trials
         # table. This is not guaranteed to work, though, as the offset field is only present if the
-        # file was exported by Syncopy.
+        # file was exported by Syncopy. Ff the field is not present, we do not do anything here, we just
+        # proceed with the default zero offset.
         if hasTrials and "offset" in nwbfile.trials.colnames:
-            trl[:, 3] = nwbfile.trials["offset"] * sRates[0]
+            trl[:, 2] = nwbfile.trials["offset"] * sRates[0]
 
         msg = "Found {} trials".format(trl.shape[0])
     else:
