@@ -95,6 +95,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
     # If the file contains `epochs`, use it to infer trial information
     hasEpochs = "epochs" in nwbfile.fields.keys()
     hasTrials = "trials" in nwbfile.fields.keys()
+    hasSpikedata = "" in nwbfile.fields.keys()
 
     # Access all (supported) `acquisition` fields in the file
     for acqName, acqValue in nwbfile.acquisition.items():

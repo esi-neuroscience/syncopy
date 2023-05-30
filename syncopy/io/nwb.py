@@ -213,7 +213,9 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
 
         Returns
         -------
-        :class:`pynwb.NWBFile` object, the NWBFile instance that contains the data.
+        :class:`pynwb.NWBFile` object, the NWBFile instance that contains the data. Note that channel information is lost, as it is
+        not stored in the NWB file. With spike data, the channel is not relevant anymore, as spike sorting has already been performed
+        and thus neurons have been identified. The unit (neuron) is the relevant entity here.
 
         Notes
         -----
@@ -222,23 +224,30 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
         # See https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html
         # It is also worth veryfying that the web tool nwbexplorer can read the produced files, see http://nwbexplorer.opensourcebrain.org/.
 
+
+        num_channels = 1
+
         if nwbfile is None:
-            nwbfile = _get_nwbfile_template(num_channels=len(sdata.channel))
+            nwbfile = _get_nwbfile_template(num_channels=num_channels)
 
         # Now that we have an NWBFile and channels, we can add the data.
         # cf. https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212 to be
         # compatible with Neurosuite/Pynapple.
         #electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
-        electrode_region = DynamicTableRegion('electrodes', list(range(len(sdata.channel))), 'All electrodes.', nwbfile.electrodes)
-        num_units = sdata.data.shape[sdata.dimord.index("channel")]
+        electrode_region = DynamicTableRegion('electrodes', list(range(num_channels)), 'All electrodes.', nwbfile.electrodes)
 
-        # units = sd._get_unit(list(range(len(sd.trials))), units=[1,2])
+        data_single_channel = np.delete(sdata.data, obj=1, axis=1) # Delete unused channel column.
 
-        for unit_idx in range(num_units):
+        units = np.unique(data_single_channel[:, 1])
+
+        # TODO: should we store this is units or in an acquisition of type SpikeEventSeries?
+        # https://pynwb.readthedocs.io/en/stable/pynwb.ecephys.html#pynwb.ecephys.SpikeEventSeries
+
+        for unit_idx in units:
             nwbfile.add_unit(
                 id=unit_idx,
-                spike_times = sdata.data[:, unit_idx],
-                electrodes=list(range(len(sdata.channel)))
+                spike_times = data_single_channel[np.where(data_single_channel[:, 1] == unit_idx), 0].flatten(),
+                electrodes=list(range(num_channels))
                 )
 
         # Add trial definition, if possible and requested.
