@@ -100,7 +100,7 @@ def plot_multi_trial_SpikeData(data, mode='unit', **show_kwargs):
     nTrials = len(data.selection.trials)
 
     if nTrials > nTrials_max:
-        msg = (f"Can not plot {nTrials} trials at once!\n"
+        msg = (f"Cannot plot {nTrials} trials at once!\n"
                f"Please select maximum {nTrials_max} trials for multipanel plotting.. skipping plot!"
                )
         SPYWarning(msg)
