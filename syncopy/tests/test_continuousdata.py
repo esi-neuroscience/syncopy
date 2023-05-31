@@ -397,8 +397,7 @@ class TestAnalogData():
     def test_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
         client = dd.Client(testcluster)
-        slow_tests = ["test_dataselection",
-                      "test_ang_arithmetic"]
+        slow_tests = ["test_ang_arithmetic"]
         for test in slow_tests:
             getattr(self, test)()
             flush_local_cluster(testcluster)
