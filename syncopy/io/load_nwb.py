@@ -322,7 +322,6 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         objectDict[os.path.basename(angData.filename)] = angData
 
     if hasSpikedata and spikes_by_unit is not None:
-        SPYWarning("TODO: add SpikeData instance here.")
         dsetname = "nwbspike"  # TODO: Can we get a name for this somwhere in the NWB file?
         if container is not None:
             filename = filebase + "_" + dsetname + ".spike"
@@ -339,7 +338,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         spike_units = np.concatenate([np.array([i] * len(spikes_by_unit[i])) for i in spikes_by_unit.keys()])
         spike_channels = np.array([0] * len(spike_times))  # single channel
 
-        #spike_data_timepoints = np.column_stack((spike_times, spike_channels, spike_units))
+        #spike_data_timepoints = np.column_stack((spike_times, spike_channels, spike_units))  # Not needed, we just want indices for Syncopy.
 
         samplerate = 20_000.0 # samplerate = sRates[0]  # TODO: get this from the NWB file
         spike_data_sampleidx = np.rint(np.column_stack((spike_times * samplerate, spike_channels, spike_units)))

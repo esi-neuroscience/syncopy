@@ -712,6 +712,8 @@ class TestNWBExporter():
 
         assert isinstance(spdata, spy.SpikeData)
 
+        nChannelsExpectedOnRead = 1  # The NWB format does not store channels for spike data, only units, so we get a single channel back.
+
         with tempfile.TemporaryDirectory() as tdir:
             outpath = os.path.join(tdir, 'test_save_spike2nwb.nwb')
             spdata.save_nwb(outpath=outpath)
@@ -720,8 +722,9 @@ class TestNWBExporter():
             assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"
             spdata_reread = list(data_instances_reread.values())[0]
             assert isinstance(spdata_reread, spy.SpikeData), f"Expected SpikeData, got {type(spdata_reread)}"
-            assert len(spdata_reread.channel) == nChannels, f"Expected {nChannels} channels, got {len(spdata_reread.channel)}"
+            assert len(spdata_reread.channel) == nChannelsExpectedOnRead, f"Expected {nChannelsExpectedOnRead} channels, got {len(spdata_reread.channel)}"
             assert len(spdata_reread.trials) == nTrials
+            assert spdata.data.shape == spdata_reread.data.shape, f"Expected identical shapes, got original={spdata.data.shape}, reread={spdata_reread.data.shape}"
             assert np.allclose(spdata.data, spdata_reread.data)
 
         # TODO: Should we add pynapple as an optional or dev dependency and actually try to load the data in pynapple?
