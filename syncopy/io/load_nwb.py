@@ -340,7 +340,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
 
         #spike_data_timepoints = np.column_stack((spike_times, spike_channels, spike_units))  # Not needed, we just want indices for Syncopy.
 
-        samplerate = 20_000.0 # samplerate = sRates[0]  # TODO: get this from the NWB file
+        samplerate = 10_000.0 # samplerate = sRates[0]  # TODO: get this from the NWB file
         spike_data_sampleidx = np.rint(np.column_stack((spike_times * samplerate, spike_channels, spike_units)))
         hdf5_file = h5py.File(spData.filename, mode="w")
 

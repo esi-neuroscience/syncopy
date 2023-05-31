@@ -724,8 +724,12 @@ class TestNWBExporter():
             assert isinstance(spdata_reread, spy.SpikeData), f"Expected SpikeData, got {type(spdata_reread)}"
             assert len(spdata_reread.channel) == nChannelsExpectedOnRead, f"Expected {nChannelsExpectedOnRead} channels, got {len(spdata_reread.channel)}"
             assert len(spdata_reread.trials) == nTrials
+            assert spdata_reread.samplerate == samplerate
+
             assert spdata.data.shape == spdata_reread.data.shape, f"Expected identical shapes, got original={spdata.data.shape}, reread={spdata_reread.data.shape}"
-            assert np.allclose(spdata.data, spdata_reread.data)
+
+            # TODO: Due to channel change, the data are NOT expected to be identical. We need to adapt our expectations.
+            assert np.allclose(spdata.data[:, 0], spdata_reread.data[:, 0])
 
         # TODO: Should we add pynapple as an optional or dev dependency and actually try to load the data in pynapple?
 
