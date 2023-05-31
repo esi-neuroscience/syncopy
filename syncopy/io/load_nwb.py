@@ -334,7 +334,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         # Determine total spike count.
         #total_spike_count = sum(len(spikelist) for spikelist in spikes_by_unit.values())
         #spike_times = np.array([np.nan] * total_spike_count, dtype=np.float64)
-        spike_times = np.concatenate([np.array(i) for i in spikes_by_unit.values()])
+        spike_times = np.sort(np.concatenate([np.array(i) for i in spikes_by_unit.values()]))
         spike_units = np.concatenate([np.array([i] * len(spikes_by_unit[i])) for i in spikes_by_unit.keys()])
         spike_channels = np.array([0] * len(spike_times))  # single channel
 
