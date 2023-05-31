@@ -117,7 +117,7 @@ Now we want to see differential causality, so we plot more channel combinations:
 This reveals the coupling structure we put into this synthetic data set: ``channel1`` influences ``channel2``, but in the other direction there is no interaction. The oscillations in ``channel3`` are completely uncoupled.
 
 .. image:: ar2_granger.png
-   :height: 260px
+   :height: 300px
 
 As a spectral method, we did not need to filter out any 1/f component to uncover the coupling topology.
 
