@@ -323,27 +323,31 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
 
     if hasSpikedata and spikes_by_unit is not None:
         SPYWarning("TODO: add SpikeData instance here.")
+        dsetname = "nwbspike"  # TODO: Can we get a name for this somwhere?
         if container is not None:
-            filename = filebase + "_" + acqValue.name + ".spike"
+            filename = filebase + "_" + dsetname + ".spike"
         else:
             filename = None
 
         spData = SpikeData(filename=filename)
 
-        # Create dataset with correct shape and dtype
-        spShape = [None, None]
-        spShape[spData.dimord.index("time")] = acqValue.data.shape[0]
-        spShape[spData.dimord.index("channel")] = 1  # single channel
-        hdf5_file = h5py.File(angData.filename, mode="w")
-        spDset = hdf5_file.create_dataset("data", dtype=np.result_type(*dTypes), shape=spShape)
-        # Now fill the data with correct values from the NWB file units in spikes_by_unit.
+        # Create dataset with correct shape and dtype.
+        # Determine total spike count.
+        #total_spike_count = sum(len(spikelist) for spikelist in spikes_by_unit.values())
+        #spike_times = np.array([np.nan] * total_spike_count, dtype=np.float64)
+        spike_times = np.concatenate([np.array(i) for i in spikes_by_unit.values()])
+        spike_units = np.concatenate([np.array([i] * len(spikes_by_unit[i])) for i in spikes_by_unit.keys()])
+        spike_channels = np.array([0] * len(spike_times))  # single channel
+        spike_data_times = np.column_stack((spike_times, spike_channels, spike_units))
+        hdf5_file = h5py.File(spData.filename, mode="w")
+        # TODO: compute the spike indices from the spike times and the sampling rate.
+        spDset = hdf5_file.create_dataset("data", data=spike_data, dtype=np.float64)
 
         # Finally, assign the dataset to the SpikeData object.
         spData.data = spDset
 
-
         # Fill other fields
-        spData.channel = None   # No channel information is saved in NWB files for spyking data, only unit information.
+        spData.channel = None   # No channel information is saved in NWB files for spike data, only unit information.
         spData.samplerate = sRates[0]
         spData.trialdefinition = trl
         spData.info = {'starting_time' : tStarts[0]}
