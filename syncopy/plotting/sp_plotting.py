@@ -194,7 +194,10 @@ def plot_SpectralData(data, logscale=True, **show_kwargs):
         fig, ax = _plotting.mk_line_figax(xlabel='frequency (Hz)',
                                           ylabel=ylabel)
 
-        _plotting.plot_lines(ax, data_x, data_y, label=labels)
+        _plotting.plot_lines(ax, data_x, data_y,
+                             label=labels,
+                             lw=1.5,
+                             alpha=0.8)
         fig.tight_layout()
 
     return fig, ax
