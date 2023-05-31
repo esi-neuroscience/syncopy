@@ -14,7 +14,7 @@ from tqdm import tqdm
 # Local imports
 from syncopy import __nwb__
 from syncopy.datatype.continuous_data import AnalogData
-from syncopy.datatype.discrete_data import EventData
+from syncopy.datatype.discrete_data import EventData, SpikeData
 from syncopy.shared.errors import SPYError, SPYTypeError, SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import io_parser, scalar_parser, filename_parser
 
@@ -142,7 +142,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
     # TODO: Parse Spike Data (units and maybe waveforms) here.
     spikes_by_unit = None
     if hasSpikedata:
-        SPYWarning("Spike data found in NWB file. This data is not yet supported by Syncopy.")
+        SPYWarning("Spike data found in NWB file.")
         units = nwbfile.units.to_dataframe()
         spikes_by_unit = {
                 n: units.loc[n, "spike_times"] for n in units.index
@@ -323,6 +323,33 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
 
     if hasSpikedata and spikes_by_unit is not None:
         SPYWarning("TODO: add SpikeData instance here.")
+        if container is not None:
+            filename = filebase + "_" + acqValue.name + ".spike"
+        else:
+            filename = None
+
+        spData = SpikeData(filename=filename)
+
+        # Create dataset with correct shape and dtype
+        spShape = [None, None]
+        spShape[spData.dimord.index("time")] = acqValue.data.shape[0]
+        spShape[spData.dimord.index("channel")] = 1  # single channel
+        hdf5_file = h5py.File(angData.filename, mode="w")
+        spDset = hdf5_file.create_dataset("data", dtype=np.result_type(*dTypes), shape=spShape)
+        # Now fill the data with correct values from the NWB file units in spikes_by_unit.
+
+        # Finally, assign the dataset to the SpikeData object.
+        spData.data = spDset
+
+
+        # Fill other fields
+        spData.channel = None   # No channel information is saved in NWB files for spyking data, only unit information.
+        spData.samplerate = sRates[0]
+        spData.trialdefinition = trl
+        spData.info = {'starting_time' : tStarts[0]}
+        spData.log = log_msg
+
+        objectDict[os.path.basename(spData.filename)] = spData
 
     # Close NWB file
     nwbio.close()
