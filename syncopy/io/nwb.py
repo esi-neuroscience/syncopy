@@ -236,7 +236,7 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
         # cf. https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212 to be
         # compatible with Neurosuite/Pynapple.
         #electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
-        electrode_region = DynamicTableRegion('electrodes', list(range(num_channels)), 'All electrodes.', nwbfile.electrodes)
+        #electrode_region = DynamicTableRegion('electrodes', list(range(num_channels)), 'All electrodes.', nwbfile.electrodes)
 
         data_single_channel = np.delete(sdata.data, obj=1, axis=1) # Delete unused channel column.
 
