@@ -95,7 +95,8 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
     # If the file contains `epochs`, use it to infer trial information
     hasEpochs = "epochs" in nwbfile.fields.keys()
     hasTrials = "trials" in nwbfile.fields.keys()
-    hasSpikedata = "unit" in nwbfile.fields.keys()
+    hasSpikedata = "units" in nwbfile.fields.keys()
+    hasAcquisitions = "acquisition" in nwbfile.fields.keys()
 
     # Access all (supported) `acquisition` fields in the file
     for acqName, acqValue in nwbfile.acquisition.items():
@@ -139,14 +140,24 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
             raise SPYValueError(lgl, varname=acqName, actual=str(acqValue.__class__))
 
     # TODO: Parse Spike Data (units and maybe waveforms) here.
+    spikes_by_unit = None
     if hasSpikedata:
         SPYWarning("Spike data found in NWB file. This data is not yet supported by Syncopy.")
+        units = nwbfile.units.to_dataframe()
+        spikes_by_unit = {
+                n: units.loc[n, "spike_times"] for n in units.index
+        }
+        # see https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L289
 
-    # If the NWB data is split up in "trials" (i.e., epochs), ensure things don't
-    # get too wild (uniform sampling rates and timing offsets)
+    # If the NWB data is split up in "trials" (or epochs), ensure things don't
+    # get too wild (uniform sampling rates and timing offsets).
     if hasTrials or hasEpochs:
         if len(tStarts) < 1 or len(sRates) < 1:
-            raise SPYError("Found trials but no valid data in NWB file. Data in file not supported.")
+            if hasSpikedata and not hasAcquisitions:
+                tStarts.append(0.0)  # TODO: unclear where to get this from, fill in defaults for now.
+                sRates.append(20000.0)
+            else:
+                raise SPYError("Found acquisitions and trials but no valid timing/samplerate data in NWB file. Data in file not supported.")
         if all(tStarts) is None or all(sRates) is None:
             lgl = "acquisition timings defined by `starting_time` and `rate`"
             act = "`starting_time` or `rate` not set"
@@ -175,10 +186,12 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
 
         # If we found trials, we may be able to load the offset field from the trials
         # table. This is not guaranteed to work, though, as the offset field is only present if the
-        # file was exported by Syncopy. Ff the field is not present, we do not do anything here, we just
+        # file was exported by Syncopy. If the field is not present, we do not do anything here, we just
         # proceed with the default zero offset.
         if hasTrials and "offset" in nwbfile.trials.colnames:
-            trl[:, 2] = nwbfile.trials["offset"] * sRates[0]
+            df = nwbfile.trials.to_dataframe()
+            SPYWarning(f"Type of nwbfile.trials[offset] is {type(nwbfile.trials['offset'])}")
+            trl[:, 2] = df["offset"] * sRates[0]
 
         msg = "Found {} trials".format(trl.shape[0])
     else:
@@ -307,6 +320,9 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         angData.info = {'starting_time' : tStarts[0]}
         angData.log = log_msg
         objectDict[os.path.basename(angData.filename)] = angData
+
+    if hasSpikedata and spikes_by_unit is not None:
+        SPYWarning("TODO: add SpikeData instance here.")
 
     # Close NWB file
     nwbio.close()

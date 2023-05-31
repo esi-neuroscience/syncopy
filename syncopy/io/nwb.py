@@ -198,7 +198,7 @@ def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True, sa
             nwbfile.add_epoch(start_time=td[0], stop_time=td[1])
 
 
-def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
+def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_info=None):
         """Convert SpikeData into pynwb.NWBFile instance, for writing to files in Neurodata Without Borders (NWB) file format.
         An NWBFile represents a single session of an experiment.
 
@@ -210,6 +210,8 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
          your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
 
         with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
+
+        unit_info : dict of dicts, outer one can have keys 'location' and 'group'. Inner dicts are of type `int, str` and map unit ids to their location and group, respectively.
 
         Returns
         -------
@@ -240,14 +242,26 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True):
 
         units = np.unique(data_single_channel[:, 1])
 
+        if unit_info is None:
+            unit_info = { 'location' : dict(), 'group' : dict() }
+
         # TODO: should we store this is units or in an acquisition of type SpikeEventSeries?
         # https://pynwb.readthedocs.io/en/stable/pynwb.ecephys.html#pynwb.ecephys.SpikeEventSeries
+        #
+        # see how they do in Pynapple for compatibility:
+        # https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212
+
+        # Extra fields for Pynapple compatibility
+        nwbfile.add_unit_column("location", "the anatomical location of this unit")
+        nwbfile.add_unit_column("group", "the group of the unit")
 
         for unit_idx in units:
             nwbfile.add_unit(
                 id=unit_idx,
                 spike_times = data_single_channel[np.where(data_single_channel[:, 1] == unit_idx), 0].flatten() / sdata.samplerate,
-                electrodes=list(range(num_channels))
+                electrodes=list(range(num_channels)),
+                location=unit_info['location'].get(unit_idx, "unknown"),
+                group=unit_info['group'].get(unit_idx, "unknown"),
                 )
 
         # Add trial definition, if possible and requested.
