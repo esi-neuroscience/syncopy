@@ -7,11 +7,12 @@
 import numpy as np
 # syncopy imports
 from syncopy import SpikeData
-
+from syncopy.shared.kwarg_decorators import unwrap_cfg
 
 # ---- Synthetic SpikeData ----
 
 
+@unwrap_cfg
 def poisson_noise(nTrials=10,
                   nSpikes=10000,
                   nChannels=3,

@@ -1,6 +1,18 @@
 # Changelog of SyNCoPy
 All notable changes to this project will be documented in this file.
 
+
+## Current WIP
+
+### NEW
+- Add spike plotting, implements #434
+
+### Changed
+
+### Fixed
+- Fix SpikeData string rep, #511
+
+
 ## [2023.05]
 
 ### NEW

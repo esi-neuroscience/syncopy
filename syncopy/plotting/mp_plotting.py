@@ -63,14 +63,14 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
 
     if nAx < 2:
         SPYWarning("Please select at least two channels for a multipanelplot!")
-        return
+        return None, None
 
     elif nAx > pltConfig['mMaxAxes']:
         SPYWarning(f"Please select max. {pltConfig['mMaxAxes']} channels for a multipanelplot!")
-        return
-    else:
-        # determine axes layout, prefer columns over rows due to display aspect ratio
-        nrows, ncols = plot_helpers.calc_multi_layout(nAx)
+        return None, None
+
+    # determine axes layout, prefer columns over rows due to display aspect ratio
+    nrows, ncols = plot_helpers.calc_multi_layout(nAx)
 
     fig, axs = _plotting.mk_multi_line_figax(nrows, ncols)
 
@@ -207,69 +207,3 @@ def plot_SpectralData(data, **show_kwargs):
         fig.tight_layout()
 
     return fig, axs
-
-
-@plot_helpers.revert_selection
-def plot_CrossSpectralData(data, **show_kwargs):
-    """
-    Plot 2d-line plots for the different connectivity measures.
-
-    Parameters
-    ----------
-    data : :class:`~syncopy.datatype.CrossSpectralData`
-    show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
-    """
-
-    if not __plt__:
-        SPYWarning(pltErrMsg)
-        return
-
-    # right now we have to enforce
-    # single trial selection only
-    trl = show_kwargs.get('trials', None)
-    if not isinstance(trl, int) and len(data.trials) > 1:
-        SPYWarning("Please select a single trial for plotting!")
-        return
-    elif len(data.trials) == 1:
-        trl = 0
-
-    # what channel combination
-    if 'channel_i' not in show_kwargs or 'channel_j' not in show_kwargs:
-        SPYWarning("Please select a channel combination for plotting!")
-        return
-    chi, chj = show_kwargs['channel_i'], show_kwargs['channel_j']
-
-    # what data do we have?
-    method = plot_helpers.get_method(data, 'connectivityanalysis')
-    output = plot_helpers.get_output(data, 'connectivityanalysis')
-
-    if method == 'granger':
-        xlabel = 'frequency (Hz)'
-        ylabel = 'Granger causality'
-        label = rf"channel{chi} $\rightarrow$ channel{chj}"
-        data_x = plot_helpers.parse_foi(data, show_kwargs)
-    elif method == 'coh':
-        xlabel = 'frequency (Hz)'
-        ylabel = f'{output} coherence'
-        label = rf"channel{chi} - channel{chj}"
-        data_x = plot_helpers.parse_foi(data, show_kwargs)
-    elif method == 'corr':
-        xlabel = 'lag'
-        ylabel = 'correlation'
-        label = rf"channel{chi} - channel{chj}"
-        data_x = plot_helpers.parse_toi(data, show_kwargs)
-    # that's all the methods we got so far
-    else:
-        raise NotImplementedError
-
-    # get the data to plot
-    data_y = data.show(**show_kwargs)
-
-    # Create the axes and figure if needed.
-    # Persistent axes allow for plotting different
-    # channel combinations into the same figure.
-    if not hasattr(data, 'ax'):
-        fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
-    _plotting.plot_lines(data.ax, data_x, data_y, label=label)
-
-    return fig, data.ax

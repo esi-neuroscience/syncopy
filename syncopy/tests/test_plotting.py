@@ -224,7 +224,7 @@ class TestSpectralPlotting():
         for sel_dict in selections:
 
             # only single trial plotting
-            # is supported until averaging is availbale
+            # is supported, use spy.mean() to average beforehand if needed
             # take random 1st trial
             sel_dict['trials'] = sel_dict['trials'][0]
             # we have to sort the channels (hdf5 access)
@@ -384,7 +384,89 @@ class TestCrossSpectralPlotting():
             assert "frequency" in str(err)
 
 
+class TestSpikeDataPlotting:
+
+
+    cfg = spy.StructDict()
+    cfg.nTrials = 100
+    cfg.nChannels = 80
+    cfg.nSpikes = 100_000
+    cfg.intensity = 0.2
+    cfg.nUnits = 40
+    cfg.samplerate = 10_000
+
+    spd = synthdata.poisson_noise(cfg, seed=42)
+
+    def test_spike_plotting(self):
+
+        # singleplot is for single trial
+        fig1, ax1 = self.spd.singlepanelplot(trials=11)
+        assert len(ax1.get_yticklabels()) == 0
+        assert ax1.get_ylabel() == 'unit'
+
+        # unit labels for < 20 units selected
+        unit_sel = np.arange(self.cfg.nUnits, step=2)
+        fig2, ax2 = self.spd.singlepanelplot(trials=11, unit=unit_sel)
+        assert len(ax2.get_yticklabels()) == len(unit_sel)
+        assert ax2.get_ylabel() == ''
+
+        # channel labels for < 20 channels selected
+        chan_sel = [0, 3, 11, self.cfg.nChannels - 1]
+        fig3, ax3 = self.spd.singlepanelplot(trials=11, mode='channel',
+                                             channel=chan_sel)
+        assert len(ax3.get_yticklabels()) == len(chan_sel)
+        assert ax3.get_ylabel() == ''
+
+        # can plot max. 25 trials
+        fig4, axs1 = self.spd.multipanelplot(trials=np.arange(30, step=2))
+
+        fig5, axs2 = self.spd.multipanelplot(channel=np.arange(6,13), unit=[0, 4, 9],
+                                             trials=np.arange(30, step=2))
+        fig5.suptitle("Only units 0,4,9 and channel 6-13")
+
+        # time selection
+        fig, ax = self.spd.singlepanelplot(latency=[0.2, 0.3], trials=77)
+        ax.set_title("spikes between 0.2 and 0.3 seconds in trial 77")
+
+        # -- test unit selection as this is special --
+        _, axs = self.spd.multipanelplot(trials=[11, 34, self.cfg.nTrials - 1],
+                                         unit=[0, self.cfg.nUnits - 1]
+                                         )
+
+        labels = [lbl._text for lbl in axs[0][0].get_yticklabels()]
+        assert labels == [self.spd.unit[0], self.spd.unit[-1]]
+
+        _, axs = self.spd.multipanelplot(trials=[11, 34, self.cfg.nTrials - 1],
+                                         unit=['unit04', 'unit12', 'unit40']
+                                         )
+
+        assert len(axs[0][0].get_yticklabels()) == 3
+
+    def test_spike_exceptions(self):
+        """
+        Not much to test, mismatching show kwargs get catched by `selectdata` anyways
+        """
+
+        with pytest.raises(SPYValueError, match="expected either 'channel' or 'unit'"):
+            self.spd.singlepanelplot(trials=10, mode='chunit')
+
+        with pytest.raises(SPYValueError, match="expected either 'channel' or 'unit'"):
+            self.spd.multipanelplot(trials=[10, 12], mode='chunit')
+
+        # -- indirectly test Warnings which return (None, None) instead of fig, ax --
+
+        # this gives a warning that only 1 trials can be selected
+        fig, ax = self.spd.singlepanelplot(trials=[0, 3])
+        assert fig is None
+        assert ax is None
+
+        # we can plot max. 25 trials
+        fig, ax = self.spd.multipanelplot()
+        assert fig is None
+        assert ax is None
+
 if __name__ == '__main__':
     T1 = TestAnalogPlotting()
     T2 = TestSpectralPlotting()
     T3 = TestCrossSpectralPlotting()
+    T5 = TestSpikeDataPlotting()

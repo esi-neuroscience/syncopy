@@ -16,6 +16,7 @@ from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError
 from syncopy.shared.tools import best_match
+from syncopy.plotting import spike_plotting
 
 __all__ = ["SpikeData", "EventData"]
 
@@ -147,13 +148,14 @@ class DiscreteData(BaseData, ABC):
             sidx = self.dimord.index("sample")
             self._trialdefinition = np.array([[np.nanmin(self.data[:, sidx]),
                                                np.nanmax(self.data[:, sidx]), 0]])
+            self._trial_ids = [0]
         else:
             array_parser(trldef, varname="trialdefinition", dims=2)
             array_parser(trldef[:, :2], varname="sampleinfo", hasnan=False,
                          hasinf=False, ntype="int_like", lims=[0, np.inf])
 
             self._trialdefinition = trldef.copy()
-
+            self._triald_ids = np.arange(self.sampleinfo.shape[0])
             # Compute trial-IDs by matching data samples with provided trial-bounds
             samples = self.data[:, self.dimord.index("sample")]
             idx = np.searchsorted(samples, self.sampleinfo.ravel())
@@ -163,6 +165,8 @@ class DiscreteData(BaseData, ABC):
             self.trialid = np.full((samples.shape), -1, dtype=int)
             for itrl, itrl_slice in enumerate(self._trialslice):
                 self.trialid[itrl_slice] = itrl
+
+            self._trial_ids = np.arange(self.sampleinfo.shape[0])
 
     @property
     def time(self):
@@ -178,6 +182,10 @@ class DiscreteData(BaseData, ABC):
 
     @trialid.setter
     def trialid(self, trlid):
+        """
+        1d-array of the size of the total number of samples,
+        encoding which sample belongs to which trial.
+        """
         if trlid is None:
             self._trialid = None
             return
@@ -280,6 +288,14 @@ class DiscreteData(BaseData, ABC):
                 definetrial(self, kwargs.get("trialdefinition"))
 
 
+    # plotting, only virtual in the abc
+    def singlepanelplot(self):
+        raise NotImplementedError
+
+    def multipanelplot(self):
+        raise NotImplementedError
+
+
 class SpikeData(DiscreteData):
     """Spike times of multi- and/or single units
 
@@ -358,7 +374,7 @@ class SpikeData(DiscreteData):
 
         # channel entries in self.data are 0-based
         chan_max = self.channel_idx.max()
-        channel_labels = np.array(["channel" + str(int(i + 1)).zfill(len(str(chan_max)) + 1)
+        channel_labels = np.array(["channel" + str(int(i + 1)).zfill(len(str(chan_max)))
                                    for i in self.channel_idx])
         return channel_labels
 
@@ -411,7 +427,7 @@ class SpikeData(DiscreteData):
         """
 
         unit_max = self.unit_idx.max()
-        return np.array(["unit" + str(int(i + 1)).zfill(len(str(unit_max)) + 1)
+        return np.array(["unit" + str(int(i + 1)).zfill(len(str(unit_max)))
                          for i in self.unit_idx])
 
     # Helper function that extracts by-trial unit-indices
@@ -571,6 +587,18 @@ class SpikeData(DiscreteData):
             self.unit = unit
         elif data is not None:
             self.unit = self._default_unit_labels()
+
+    # implement plotting
+    def singlepanelplot(self, **show_kwargs):
+
+        figax = spike_plotting.plot_single_trial_SpikeData(self, **show_kwargs)
+        return figax
+
+    # implement plotting
+    def multipanelplot(self, **show_kwargs):
+
+        figax = spike_plotting.plot_multi_trial_SpikeData(self, **show_kwargs)
+        return figax
 
 
 class EventData(DiscreteData):

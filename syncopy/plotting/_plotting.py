@@ -42,7 +42,9 @@ def mk_line_figax(xlabel='time (s)', ylabel='signal (a.u.)'):
 
 
 @matplotlib.rc_context(rc_props)
-def mk_multi_line_figax(nrows, ncols, xlabel='time (s)', ylabel='signal (a.u.)'):
+def mk_multi_line_figax(nrows, ncols,
+                        xlabel='time (s)', ylabel='signal (a.u.)',
+                        x_size=None, y_size=None):
 
     """
     Create the figure and axes for a
@@ -50,9 +52,15 @@ def mk_multi_line_figax(nrows, ncols, xlabel='time (s)', ylabel='signal (a.u.)')
     """
 
     # ncols and nrows get
-    # restricted via the plotting frontend
-    x_size = ncols * pltConfig['mXSize']
-    y_size = nrows * pltConfig['mYSize']
+    # restricted via the plotting frontends
+    if x_size is None:
+        x_size = ncols * pltConfig['mXSize']
+    else:
+        x_size = ncols * x_size
+    if y_size is None:
+        y_size = ncols * pltConfig['mYSize']
+    else:
+        y_size = ncols * y_size
 
     fig, axs = ppl.subplots(nrows, ncols, figsize=(x_size, y_size),
                             sharex=True, sharey=True, squeeze=False)
