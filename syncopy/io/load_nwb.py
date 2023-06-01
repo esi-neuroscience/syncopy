@@ -172,12 +172,8 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
                         tStarts.append(0.0)
                     else:
                         raise SPYError("Could not read samplerate for spike data from NWB file. Please provide a samplerate manually via parameter 'default_spike_data_samplerate'.")
-            #raise SPYError("Found acquisitions and trials but no valid timing/samplerate data in NWB file. Data in file not supported.")
-            #if hasSpikedata and not hasAcquisitions:
-            #    tStarts.append(0.0)  # TODO: unclear where to get this from, fill in defaults for now.
-            #    sRates.append(20000.0)
-            #else:
-            #    raise SPYError("Found acquisitions and trials but no valid timing/samplerate data in NWB file. Data in file not supported.")
+            else:
+                raise SPYError("Found acquisitions and trials but no valid timing/samplerate data in NWB file. Data in file not supported.")
         if all(tStarts) is None or all(sRates) is None:
             lgl = "acquisition timings defined by `starting_time` and `rate`"
             act = "`starting_time` or `rate` not set"
