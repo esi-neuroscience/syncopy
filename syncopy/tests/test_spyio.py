@@ -29,7 +29,7 @@ import syncopy.datatype as swd
 from syncopy.tests.misc import generate_artificial_data
 from syncopy.synthdata.analog import white_noise
 from syncopy.synthdata.spikes import poisson_noise
-
+from syncopy.io.load_nwb import _is_valid_nwb_file
 
 # Decorator to detect if test data dir is available
 on_esi = os.path.isdir('/cs/slurm/syncopy')
@@ -581,6 +581,7 @@ class TestNWBImporter:
             break
 
     def test_load_nwb_analog(self):
+        """Test loading of an NWB file containing acquistion data into a Syncopy AnalogData object."""
 
         if self.nwb_filename is None:
             pytest.skip("Demo NWB file not found on current system.")
@@ -622,6 +623,8 @@ class TestNWBImporter:
 
 class TestNWBExporter():
 
+    do_validate_NWB = True
+
     def test_save_nwb_analog_no_trialdef(self):
         """Test saving to NWB file and re-reading data for AnalogData, without trial definition."""
 
@@ -634,6 +637,10 @@ class TestNWBExporter():
         with tempfile.TemporaryDirectory() as tdir:
             outpath = os.path.join(tdir, 'test_save_analog2nwb.nwb')
             adata.save_nwb(outpath=outpath, with_trialdefinition=False)
+
+            if self.do_validate_NWB:
+                is_valid, err = _is_valid_nwb_file(outpath)
+                assert is_valid, f"Exported NWB file failed validation: {err}"
 
             data_instances_reread = load_nwb(outpath)
             assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"
@@ -658,6 +665,10 @@ class TestNWBExporter():
             outpath = os.path.join(tdir, 'test_save_analog2nwb.nwb')
             adata.save_nwb(outpath=outpath)
 
+            if self.do_validate_NWB:
+                is_valid, err = _is_valid_nwb_file(outpath)
+                assert is_valid, f"Exported NWB file failed validation: {err}"
+
             data_instances_reread = load_nwb(outpath)
             assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"
             adata_reread = list(data_instances_reread.values())[0]
@@ -669,6 +680,7 @@ class TestNWBExporter():
     def test_save_nwb_timelock_with_trialdef(self):
         """Test saving to NWB file and re-reading data for TimeLockData with a trial definition.
         Currently, when the file is bering re-read, it results in an AnalogData object, not a TimeLockData object.
+        This is fine with us,
         """
 
         numChannels = 64
@@ -688,6 +700,10 @@ class TestNWBExporter():
         with tempfile.TemporaryDirectory() as tdir:
             outpath = os.path.join(tdir, 'test_save_timelock2nwb.nwb')
             adata.save_nwb(outpath=outpath)
+
+            if self.do_validate_NWB:
+                is_valid, err = _is_valid_nwb_file(outpath)
+                assert is_valid, f"Exported NWB file failed validation: {err}"
 
             data_instances_reread = load_nwb(outpath)
             assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"
@@ -717,6 +733,15 @@ class TestNWBExporter():
         with tempfile.TemporaryDirectory() as tdir:
             outpath = os.path.join(tdir, 'test_save_spike2nwb.nwb')
             spdata.save_nwb(outpath=outpath)
+
+            if self.do_validate_NWB:
+                is_valid, err = _is_valid_nwb_file(outpath)
+                assert is_valid, f"Exported NWB file failed validation: {err}"
+
+            # Save another copy to home directory for manual inspection and
+            # upload to nwbexplorer at http://nwbexplorer.opensourcebrain.org
+            from os.path import expanduser
+            spdata.save_nwb(outpath=os.path.join(expanduser("~"), 'spikes.nwb'))
 
             data_instances_reread = load_nwb(outpath)
             assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"

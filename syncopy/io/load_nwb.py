@@ -33,6 +33,15 @@ nwbErrMsg = "\nSyncopy <core> WARNING: Could not import 'pynwb'. \n" +\
 __all__ = ["load_nwb"]
 
 
+def _is_valid_nwb_file(filename):
+    try:
+        this_python = os.path.join(os.path.dirname(sys.executable),'python')
+        subprocess.run([this_python, "-m", "pynwb.validate", filename], check=True)
+        return True, None
+    except subprocess.CalledProcessError as exc:
+        err = f"NWB file validation failed. Original error message: {str(exc)}"
+        return False, err
+
 def load_nwb(filename, memuse=3000, container=None, validate=False):
     """
     Read contents of NWB files
@@ -67,14 +76,11 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
     # Ensure `memuse` makes sense`
     scalar_parser(memuse, varname="memuse", lims=[0, np.inf])
 
-    # First, perform some basal validation w/NWB
+    # First, perform some basal validation w/NWB if requested.
     if validate:
-        try:
-            this_python = os.path.join(os.path.dirname(sys.executable),'python')
-            subprocess.run([this_python, "-m", "pynwb.validate", nwbFullName], check=True)
-        except subprocess.CalledProcessError as exc:
-            err = "NWB file validation failed. Original error message: {}"
-            raise SPYError(err.format(str(exc)))
+        is_valid, err = _is_valid_nwb_file(nwbFullName)
+        if not is_valid:
+            raise SPYError(err)
 
     # Load NWB meta data from disk
     nwbio = pynwb.NWBHDF5IO(nwbFullName, "r", load_namespaces=True)
@@ -139,15 +145,13 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
             lgl = "supported NWB data class"
             raise SPYValueError(lgl, varname=acqName, actual=str(acqValue.__class__))
 
-    # TODO: Parse Spike Data (units and maybe waveforms) here.
+    # Load Spike Data from units. The data gets turned into a SpikeData object later.
     spikes_by_unit = None
     if hasSpikedata:
-        SPYWarning("Spike data found in NWB file.")
         units = nwbfile.units.to_dataframe()
         spikes_by_unit = {
                 n: units.loc[n, "spike_times"] for n in units.index
         }
-        # see https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L289
 
     # If the NWB data is split up in "trials" (or epochs), ensure things don't
     # get too wild (uniform sampling rates and timing offsets).
@@ -330,18 +334,13 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
 
         spData = SpikeData(dimord=SpikeData._defaultDimord, filename=filename)
 
-        # Create dataset with correct shape and dtype.
-        # Determine total spike count.
-        #total_spike_count = sum(len(spikelist) for spikelist in spikes_by_unit.values())
-        #spike_times = np.array([np.nan] * total_spike_count, dtype=np.float64)
+        # Convert spike times to Syncopy format: load one vector for time, unit, and channel, repectively.
         spike_times = np.sort(np.concatenate([np.array(i) for i in spikes_by_unit.values()]))
         spike_units = np.concatenate([np.array([i] * len(spikes_by_unit[i])) for i in spikes_by_unit.keys()])
-        spike_channels = np.array([0] * len(spike_times))  # single channel
-
-        #spike_data_timepoints = np.column_stack((spike_times, spike_channels, spike_units))  # Not needed, we just want indices for Syncopy.
+        spike_channels = np.array([0] * len(spike_times))  # single channel, map all to channel 0.
 
         samplerate = 10_000.0 # samplerate = sRates[0]  # TODO: get this from the NWB file
-        spike_data_sampleidx = np.rint(np.column_stack((spike_times * samplerate, spike_channels, spike_units)))
+        spike_data_sampleidx = np.column_stack((np.rint(spike_times * samplerate), spike_channels, spike_units))
         hdf5_file = h5py.File(spData.filename, mode="w")
 
 
@@ -357,6 +356,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         spData.info = {'starting_time' : tStarts[0]}
         spData.log = log_msg
 
+        # Add loaded Syncopy data object to list of objects to return
         objectDict[os.path.basename(spData.filename)] = spData
 
     # Close NWB file
