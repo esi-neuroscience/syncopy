@@ -146,6 +146,7 @@ class ContinuousData(BaseData, ABC):
         # if data exists but no user-defined channel labels, create them on the fly
         if self._channel is None and self._data is not None:
             nChannel = self.data.shape[self.dimord.index("channel")]
+            # default labels
             return np.array(["channel" + str(i + 1).zfill(len(str(nChannel)))
                            for i in range(nChannel)])
         return self._channel
