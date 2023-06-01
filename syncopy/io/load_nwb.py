@@ -42,7 +42,7 @@ def _is_valid_nwb_file(filename):
         err = f"NWB file validation failed. Original error message: {str(exc)}"
         return False, err
 
-def load_nwb(filename, memuse=3000, container=None, validate=False):
+def load_nwb(filename, memuse=3000, container=None, validate=False, default_spike_data_samplerate=None):
     """
     Read contents of NWB files
 
@@ -54,6 +54,11 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         Approximate in-memory cache size (in MB) for reading data from disk
     container : str
         Name of syncopy container folder to create the syncopy data in
+    default_spike_data_samplerate : float, optional
+        The samplerate for spike data, in Hz. If not provided, the samplerate is read from the NWB file, but
+        this is not guaranteed to work as some NWB files which contain only spike data do not store a
+        samplerate. If this is `None` and no samplerate is found in the file, this function will raise an
+        error, and you will have to provide the samplerate manually.
 
     Returns
     -------
@@ -147,6 +152,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
 
     # Load Spike Data from units. The data gets turned into a SpikeData object later.
     spikes_by_unit = None
+    units = None
     if hasSpikedata:
         units = nwbfile.units.to_dataframe()
         spikes_by_unit = {
@@ -157,11 +163,21 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
     # get too wild (uniform sampling rates and timing offsets).
     if hasTrials or hasEpochs:
         if len(tStarts) < 1 or len(sRates) < 1:
-            if hasSpikedata and not hasAcquisitions:
-                tStarts.append(0.0)  # TODO: unclear where to get this from, fill in defaults for now.
-                sRates.append(20000.0)
-            else:
-                raise SPYError("Found acquisitions and trials but no valid timing/samplerate data in NWB file. Data in file not supported.")
+            if hasSpikedata and not hasAcquisitions:  # There may be no samplerate read from acquisitions because there are no acquisitions, but only spike data.
+                samplerate = default_spike_data_samplerate
+                if samplerate is None:
+                    if 'samplerate' in units.columns:
+                        samplerate = units.loc[:,"samplerate"].unique()[0]
+                        sRates.append(samplerate)
+                        tStarts.append(0.0)
+                    else:
+                        raise SPYError("Could not read samplerate for spike data from NWB file. Please provide a samplerate manually via parameter 'default_spike_data_samplerate'.")
+            #raise SPYError("Found acquisitions and trials but no valid timing/samplerate data in NWB file. Data in file not supported.")
+            #if hasSpikedata and not hasAcquisitions:
+            #    tStarts.append(0.0)  # TODO: unclear where to get this from, fill in defaults for now.
+            #    sRates.append(20000.0)
+            #else:
+            #    raise SPYError("Found acquisitions and trials but no valid timing/samplerate data in NWB file. Data in file not supported.")
         if all(tStarts) is None or all(sRates) is None:
             lgl = "acquisition timings defined by `starting_time` and `rate`"
             act = "`starting_time` or `rate` not set"
@@ -173,19 +189,12 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
 
         if hasTrials:
             time_intervals = nwbfile.trials[:]
-            time_intervals_source = "trials"
         else:
             time_intervals = nwbfile.epochs[:]
-            time_intervals_source = "epochs"
-        SPYWarning(f"time_intervals taken from {time_intervals_source} has shape {time_intervals.shape} and type {type(time_intervals)}.")
         if not type(time_intervals) is np.ndarray:
             time_intervals = time_intervals.to_numpy()
-            SPYWarning("converted to numpy")
-        trl = np.zeros((time_intervals.shape[0], 3), dtype=np.intp) # TODO: check dtype?
-        SPYWarning(f"tStarts: {tStarts}.")
-        SPYWarning(f"sRates: {sRates}.")
+        trl = np.zeros((time_intervals.shape[0], 3), dtype=np.intp)
         trial_start_stop = (time_intervals - tStarts[0]) * sRates[0]  # use offset relative to first acquisition
-        SPYWarning(f"trial_start_stop has shape {trial_start_stop.shape}: {trial_start_stop}.")
         trl[:, 0:2] = trial_start_stop[:, 0:2]
 
         # If we found trials, we may be able to load the offset field from the trials
@@ -194,7 +203,6 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         # proceed with the default zero offset.
         if hasTrials and "offset" in nwbfile.trials.colnames:
             df = nwbfile.trials.to_dataframe()
-            SPYWarning(f"Type of nwbfile.trials[offset] is {type(nwbfile.trials['offset'])}")
             trl[:, 2] = df["offset"] * sRates[0]
 
         msg = "Found {} trials".format(trl.shape[0])
@@ -339,7 +347,9 @@ def load_nwb(filename, memuse=3000, container=None, validate=False):
         spike_units = np.concatenate([np.array([i] * len(spikes_by_unit[i])) for i in spikes_by_unit.keys()])
         spike_channels = np.array([0] * len(spike_times))  # single channel, map all to channel 0.
 
-        samplerate = 10_000.0 # samplerate = sRates[0]  # TODO: get this from the NWB file
+
+        # Try to get the samplerate from the NWB file
+        samplerate = sRates[0]
         spike_data_sampleidx = np.column_stack((np.rint(spike_times * samplerate), spike_channels, spike_units))
         hdf5_file = h5py.File(spData.filename, mode="w")
 

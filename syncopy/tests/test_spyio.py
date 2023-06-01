@@ -738,10 +738,10 @@ class TestNWBExporter():
                 is_valid, err = _is_valid_nwb_file(outpath)
                 assert is_valid, f"Exported NWB file failed validation: {err}"
 
-            # Save another copy to home directory for manual inspection and
-            # upload to nwbexplorer at http://nwbexplorer.opensourcebrain.org
-            from os.path import expanduser
-            spdata.save_nwb(outpath=os.path.join(expanduser("~"), 'spikes.nwb'))
+            ##  Save another copy to home directory for manual inspection and
+            ##   upload to nwbexplorer at http://nwbexplorer.opensourcebrain.org
+            #from os.path import expanduser
+            #spdata.save_nwb(outpath=os.path.join(expanduser("~"), 'spikes.nwb'))
 
             data_instances_reread = load_nwb(outpath)
             assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"

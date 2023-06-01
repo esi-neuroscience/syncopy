@@ -255,6 +255,9 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
         nwbfile.add_unit_column("location", "the anatomical location of this unit")
         nwbfile.add_unit_column("group", "the group of the unit")
 
+        # Extra fields for Syncopy compatibility
+        nwbfile.add_unit_column("samplerate", "the samplerate of the unit. this is the same as the samplerate of the data, and identical across all units.")
+
         for unit_idx in units:
             nwbfile.add_unit(
                 id=unit_idx,
@@ -262,6 +265,7 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
                 electrodes=list(range(num_channels)),
                 location=unit_info['location'].get(unit_idx, "unknown"),
                 group=unit_info['group'].get(unit_idx, "unknown"),
+                samplerate=sdata.samplerate,
                 )
 
         # Add trial definition, if possible and requested.
