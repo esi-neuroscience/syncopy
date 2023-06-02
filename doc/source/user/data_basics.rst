@@ -88,5 +88,5 @@ Syncopy supports export of data to `NWB <https://www.nwb.org/>`_ format for obje
     syncopy.TimeLockData.save_nwb
     syncopy.SpikeData.save_nwb
 
-Note that NWB is a very general container format, and in general, loading an NWB container created in one software package into the internal data structures used by another software package requires some interpretation of the fields, which users many need to do manually.
+Note that NWB is a very general container format, and thus loading an NWB container created in one software package into the internal data structures used by another software package requires some interpretation of the fields, which users many need to do manually. One can inspect NWB files online using tools like the `NWB Explorer <https://nwbexplorer.opensourcebrain.org>`_.
 
