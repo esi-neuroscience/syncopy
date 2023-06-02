@@ -1,16 +1,25 @@
 # -*- coding: utf-8 -*-
 #
-# Load data from NWB file
+# Common routines for saving Syncopy data objects to Neurodata Withour Borders (NWB) files.
 #
+# Note that NWB is a very general container format, and that a software can read NBW files does
+# not mean that it can interpret the data stored by a different software into an NWB file.
+#
+# The NWB format is documented at https://pynwb.readthedocs.io/en/stable/
+#
+# We have support for exporting a subset of the Syncopy data objects to NWB files. Specifically,
+# AnalogData, TimeLockData, and SpikeData can be exported and re-read.
+#
+# For NWB files created by other software, our loaders can be used as a rough guide, but users
+# will have to adapt the code to their specific needs and files.
 
 # Builtin/3rd party package imports
 import numpy as np
 from datetime import datetime
 from uuid import uuid4
 import pytz
-import syncopy as spy
-from pynwb import NWBHDF5IO, NWBFile, TimeSeries
-from pynwb.ecephys import LFP, ElectricalSeries, EventWaveform, SpikeEventSeries
+from pynwb import NWBFile
+from pynwb.ecephys import LFP, ElectricalSeries
 from pynwb.core import DynamicTableRegion
 
 # Local imports
