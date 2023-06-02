@@ -31,11 +31,14 @@ def _get_nwbfile_template(num_channels=None):
     """
     Get a template NWBFile object with some basic metadata. No data or electrodes are added.
 
-    This NWBFile object is not tied to any filesystem file.
+    This NWBFile object is not tied to any filesystem file. This template contains the value 'unknown' for most fields, but
+    users are free to modify the NWBFile object before writing it to disk, see the pynwb documentation for details.
 
     Parameters
     ----------
-    num_channels: int, number of channels, used for adding electrodes. If None, no electrodes are added. In that case, the correct amount of electrodes for the data's channel count must already exist.
+    num_channels: int, number of channels, used for adding electrodes. If None, no electrodes are added. In that case,
+    the correct amount of electrodes for the data's channel count must already exist, or be added later before
+    adding data.
     """
     start_time_no_tz = datetime.now()
     tz = pytz.timezone('Europe/Berlin')
@@ -66,6 +69,7 @@ def _add_electrodes(nwbfile, nchannels_per_shank, nshanks = 1):
 
     Parameters
     ----------
+    nwbfile: `pynwb.NWBFile` object, the NWBFile instance to which to add the channel information.
 
     nchannels_per_shank: int, number of channels per shank. If you have only one shank, this is the total number of channels.
 
@@ -73,9 +77,12 @@ def _add_electrodes(nwbfile, nchannels_per_shank, nshanks = 1):
 
     Returns
     -------
-    nwbfile: NWBFile object with the channel information added. Note that this is the same object as the input `nwbfile`.
+    nwbfile: `pynwb.NWBFile` object with the channel information added. Note that this is the same object as the input `nwbfile`.
 
-    electrodes: an `electrode_table_region` object that can be used to add data to the NWBFile object. See the NWB documentation for details.
+    electrodes: `hdmf.common.table.DynamicTableRegion`, an electrode table region object. It represents a reference to
+      the part of the electrode table that was added by this function call (the respective rows, one row per electrode).
+      We assume the table is empty before calling this function, so
+      the region spans the entire electrode table. The full table is of type `hdmf.common.table.DynamicTable`.
     """
     # Add the channel information.
     ## First add the recording array
@@ -156,7 +163,7 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
             comments="Exported by Syncopy",
         )
 
-        if is_raw:  # raw measurements from instruments, not to be changed. Not downsampled, detrended, or anything.
+        if is_raw:  # raw measurements from instruments, not to be changed. Not downsampled, detrended, or anything. This is not enforced technically, but it is a convention.
             nwbfile.add_acquisition(time_series_with_rate)
         else: # LFP, data used for analysis.
             lfp = LFP(electrical_series=time_series_with_rate)
@@ -179,17 +186,17 @@ def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True, sa
     ----------
     nwbfile : :class:`pynwb.NWBFile` object, the NWBFile instance that contains the data.
 
-    trialdefinition : :class:`numpy.ndarray` of shape (N, 3), the trial definition. Each row contains the start time, stop time, and offset of a trial.
+    trialdefinition : :class:`numpy.ndarray` of shape (N, 3), the trial definition in Syncopy format. Each row contains the start time, stop time, and offset of a trial.
 
     samplerate: float, the sampling rate of the data in Hz
 
-    do_add : Boolean, whether to add the trial definition to the NWB file. If `False`, the trial definition is only returned, but not added to the NWB file.
+    do_add : Boolean, whether to add the trial definition to the NWB file. If `False`, this function does nothing.
 
-    save_as : str, how to store the trials in the NWB file. Must be one of `'both'`, `'epochs'`, or `'trials'`.
+    save_as : str, how to store the trials in the NWB file. Must be one of `'both'`, `'epochs'`, or `'trials'`. Determines into which interval table of the NWB file the time intervals are saved: epochs table, trials table, or both.
 
     Returns
     -------
-    :class:`pynwb.epoch.TimeIntervals` object, the trial definition.
+    None
     """
     # Add the trial definition, if any.
     if trialdefinition is None or not do_add:
@@ -218,15 +225,20 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
         nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
          your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
 
-        with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
+        with_trialdefinition : Boolean, whether to save the trial definition to the NWB file.
 
-        unit_info : dict of dicts, outer one can have keys 'location' and 'group'. Inner dicts are of type `int, str` and map unit ids to their location and group, respectively.
+        unit_info : dict of dicts or None, metadata for the units (neurons). The outer dict must have the two keys 'location' and 'group', holding one dict each. Inner dicts are of type `<int, str>` and map numeric unit ids to their location and group, respectively. Both location and group are freeform strings.
 
         Returns
         -------
         :class:`pynwb.NWBFile` object, the NWBFile instance that contains the data. Note that channel information is lost, as it is
-        not stored in the NWB file. With spike data, the channel is not relevant anymore, as spike sorting has already been performed
+        not stored in unit data structure in the NWB file. With spike data, the channel is not relevant anymore, as spike sorting has already been performed
         and thus neurons have been identified. The unit (neuron) is the relevant entity here.
+
+        Also note that NWB format does not save spikes as spike indices, but as spike times. Thus, the spike times are converted to spike times before saving.
+        Due to that, the NWB file also does not save the samplerate. While this is okay for saving the data, it is not okay for reading it back in, as the
+        samplerate is needed to convert the spike times back to spike indices. Thus, the samplerate is saved as a unit metadata field, and the Syncopy NWB reader
+        will use this to convert the spike times back to spike indices when creating the `spy.SpikeData` instance.
 
         Notes
         -----
@@ -254,17 +266,14 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
         if unit_info is None:
             unit_info = { 'location' : dict(), 'group' : dict() }
 
-        # TODO: should we store this is units or in an acquisition of type SpikeEventSeries?
-        # https://pynwb.readthedocs.io/en/stable/pynwb.ecephys.html#pynwb.ecephys.SpikeEventSeries
-        #
-        # see how they do in Pynapple for compatibility:
+        # See how they do in Pynapple for compatibility:
         # https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212
 
         # Extra fields for Pynapple compatibility
         nwbfile.add_unit_column("location", "the anatomical location of this unit")
         nwbfile.add_unit_column("group", "the group of the unit")
 
-        # Extra fields for Syncopy compatibility
+        # Extra fields for Syncopy compatibility: store samplerate in file for use on loading.
         nwbfile.add_unit_column("samplerate", "the samplerate of the unit. this is the same as the samplerate of the data, and identical across all units.")
 
         for unit_idx in units:
