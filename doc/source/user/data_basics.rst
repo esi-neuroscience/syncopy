@@ -22,7 +22,7 @@ Reading and writing data with Syncopy
 
     syncopy.load
     syncopy.save
-    
+
 Functions for Inspecting/Editing Syncopy Data Objects
 -----------------------------------------------------
 Defining trials, data selection and NumPy :class:`~numpy.ndarray` interface
@@ -31,7 +31,7 @@ Defining trials, data selection and NumPy :class:`~numpy.ndarray` interface
 
     syncopy.definetrial
     syncopy.selectdata
-    syncopy.show    
+    syncopy.show
 
 Plotting Functions
 ------------------
@@ -41,14 +41,52 @@ Plotting Functions
    syncopy.singlepanelplot
    syncopy.multipanelplot
 
-Importing Data into Syncopy
----------------------------
 
-Currently, Syncopy supports importing data from `FieldTrip raw data <https://www.fieldtriptoolbox.org/development/datastructure/>`_ format, from `NWB <https://www.nwb.org/>`_ and `TDT <https://www.tdt.com/>`_: 
+Importing Data from different file formats into Syncopy
+-------------------------------------------------------
+
+Currently, Syncopy supports importing data from `FieldTrip raw data <https://www.fieldtriptoolbox.org/development/datastructure/>`_ format, from `NWB <https://www.nwb.org/>`_ and `TDT <https://www.tdt.com/>`_:
 
 .. autosummary::
 
     syncopy.io.load_ft_raw
     syncopy.io.load_nwb
     syncopy.io.load_tdt
-   
+
+
+Importing Data from NumPy
+-------------------------
+
+If you have an electrical time series as a :class:`~numpy.ndarray` and want to import it into Syncopy, you can initialize an :class:`~syncopy.AnalogData` object directly:
+
+.. autosummary::
+
+    syncopy.AnalogData
+
+
+Creating Synthetic Example Data
+-------------------------------
+
+Syncopy contains the `synthdata` module, which can be used to create synthetic data for testing and demonstration purposes.
+
+
+.. autosummary::
+
+    syncopy.synthdata
+
+
+
+Exporting Data from Syncopy
+---------------------------
+
+Syncopy supports export of data to `NWB <https://www.nwb.org/>`_ format for objects of type :class:`~syncopy.AnalogData`, :class:`~syncopy.TimeLockData` and :class:`~syncopy.SpikeData`.
+
+
+.. autosummary::
+
+    syncopy.AnalogData.save_nwb
+    syncopy.TimeLockData.save_nwb
+    syncopy.SpikeData.save_nwb
+
+Note that NWB is a very general container format, and in general, loading an NWB container created in one software package into the internal data structures used by another software package requires some interpretation of the fields, which users many need to do manually.
+
