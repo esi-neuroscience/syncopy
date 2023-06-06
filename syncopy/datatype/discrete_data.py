@@ -15,11 +15,10 @@ from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError
-from syncopy.shared.tools import best_match
 from syncopy.plotting import spike_plotting
 
 from syncopy.io.nwb import _spikedata_to_nwbfile
-from pynwb import NWBHDF5IO, NWBFile, TimeSeries
+from pynwb import NWBHDF5IO
 
 
 __all__ = ["SpikeData", "EventData"]

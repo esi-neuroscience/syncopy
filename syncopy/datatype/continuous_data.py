@@ -13,22 +13,18 @@ import inspect
 import numpy as np
 from abc import ABC
 from collections.abc import Iterator
-from datetime import datetime
-from uuid import uuid4
-import pytz
 
 # Local imports
-from .base_data import BaseData, FauxTrial, _definetrial
+from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from .base_data import BaseData
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError, log
+from syncopy.shared.errors import SPYValueError
 from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
-from syncopy.io.nwb import _get_nwbfile_template, _add_electrodes, _analog_timelocked_to_nwbfile
+from syncopy.io.nwb import _analog_timelocked_to_nwbfile
 from .util import TimeIndexer
-from pynwb import NWBHDF5IO, NWBFile, TimeSeries
-from pynwb.ecephys import LFP, ElectricalSeries
+from pynwb import NWBHDF5IO
 
 
 
