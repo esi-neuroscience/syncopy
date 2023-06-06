@@ -255,7 +255,7 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
         nwbfile.add_unit_column("location", "the anatomical location of this unit")
         nwbfile.add_unit_column("group", "the group of the unit")
 
-        # Extra fields for Syncopy compatibility
+        # Extra fields for Syncopy compatibility, so we can restore the samplerate when reading the file.
         nwbfile.add_unit_column("samplerate", "the samplerate of the unit. this is the same as the samplerate of the data, and identical across all units.")
 
         for unit_idx in units:
