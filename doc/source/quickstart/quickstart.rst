@@ -150,7 +150,11 @@ Multitapered Fourier Analysis
 
 `Multitaper methods <https://en.wikipedia.org/wiki/Multitaper>`_ allow for frequency smoothing of Fourier spectra. Syncopy implements the standard `Slepian/DPSS tapers <https://en.wikipedia.org/wiki/Window_function#DPSS_or_Slepian_window>`_ and provides a convenient parameter, the *taper smoothing frequency* ``tapsmofrq`` to control the amount of one-sided spectral smoothing in Hz. To perform a multi-tapered Fourier analysis with 2Hz spectral smoothing (1Hz two sided), we simply do::
 
-   fft_spectra = spy.freqanalysis(adata, method='mtmfft', foilim=[0, 60], tapsmofrq=1)
+  # increase log level
+  spy.set_loglevel("INFO")
+
+  # compute the spectra
+  fft_spectra = spy.freqanalysis(adata, method='mtmfft', foilim=[0, 60], tapsmofrq=1)
 
 The parameter ``foilim`` controls the *frequencies of interest  limits*, so in this case we are interested in the range 0-60Hz. Starting the computation interactively will show additional information::
 
