@@ -12,15 +12,14 @@ import numpy as np
 from tqdm import tqdm
 
 # Local imports
-from syncopy import __nwb__
 from syncopy.datatype.continuous_data import AnalogData
 from syncopy.datatype.discrete_data import EventData, SpikeData
 from syncopy.shared.errors import SPYError, SPYTypeError, SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import io_parser, scalar_parser, filename_parser
 
 # Conditional imports
-if __nwb__:
-    import pynwb
+
+import pynwb
 
 # Global consistent error message if NWB is missing
 nwbErrMsg = "\nSyncopy <core> WARNING: Could not import 'pynwb'. \n" +\
@@ -69,10 +68,6 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
         objects are returned as a dictionary whose keys are the base-names
         (sans path) of the corresponding files.
     """
-
-    # Abort if NWB is not installed
-    if not __nwb__:
-        raise SPYError(nwbErrMsg.format("read_nwb"))
 
     # Check if file exists
     nwbPath, nwbBaseName = io_parser(filename, varname="filename", isfile=True, exists=True)

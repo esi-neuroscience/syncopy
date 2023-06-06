@@ -35,8 +35,15 @@ from syncopy.io.load_nwb import _is_valid_nwb_file
 # Decorator to detect if test data dir is available
 on_esi = os.path.isdir('/cs/slurm/syncopy')
 skip_no_esi = pytest.mark.skipif(not on_esi, reason="ESI fs not available")
-skip_no_nwb = pytest.mark.skipif(not spy.__nwb__, reason="pynwb not installed")
 
+
+has_pynapple = False
+try:
+    import pynapple as nap
+    has_pynapple = True
+except ImportError:
+    pass
+skip_no_pynapple = pytest.mark.skipif(not has_pynapple, reason="pynapple not installed")
 
 class TestSpyIO():
 
@@ -755,21 +762,22 @@ class TestNWBExporter():
             assert spdata.data.shape == spdata_reread.data.shape, f"Expected identical shapes, got original={spdata.data.shape}, reread={spdata_reread.data.shape}"
             assert np.allclose(spdata.data[:, 0], spdata_reread.data[:, 0])
 
-            has_pynapple = False
-            try:
-                import pynapple as nap
-                has_pynapple = True
-            except ImportError:
-                pass
+    @skip_no_pynapple
+    def test_load_exported_nwb_spikes_pynapple(self):
+        """Test loading exported SpikeData in pynapple."""
 
-            if has_pynapple:
-                _nwb_copy_pynapple(nwb_outpath, tdir)
-                data = nap.load_session(tdir, 'neurosuite')
-                spikes = data.spikes
-                neuron_0 = spikes[0]
-                assert hasattr(neuron_0, 'times')
-                assert hasattr(data, 'epochs')
+        spdata = poisson_noise()
 
+        with tempfile.TemporaryDirectory() as tdir:
+            nwb_outpath = os.path.join(tdir, 'test_spike2nwb_pynapple.nwb')
+            spdata.save_nwb(outpath=nwb_outpath)
+
+            _nwb_copy_pynapple(nwb_outpath, tdir)
+            pyndata = nap.load_session(tdir, 'neurosuite')
+            spikes = pyndata.spikes
+            neuron_0 = spikes[0]
+            assert hasattr(neuron_0, 'times')
+            assert hasattr(pyndata, 'epochs')
 
 
 if __name__ == '__main__':
