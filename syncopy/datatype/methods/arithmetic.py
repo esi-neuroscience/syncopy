@@ -6,16 +6,13 @@
 # Builtin/3rd party package imports
 import numpy as np
 import h5py
+import dask.distributed as dd
 
 # Local imports
-from syncopy import __acme__
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.kwarg_decorators import process_io, detect_parallel_client
-
-if __acme__:
-    import dask.distributed as dd
 
 __all__ = []
 
@@ -177,20 +174,18 @@ def _parse_input(obj1, obj2, operator):
         # Determine exact numeric type of the operation's result
         opres_type = np.result_type(*(trl.dtype for trl in baseTrials), operand.dtype)
 
-        # Ensure shapes match up
-        if not all(trl.shape == operand.shape for trl in baseTrials):
-            lgl = "array of compatible shape"
-            act = "array with shape {}"
-            raise SPYValueError(lgl, varname="operand", actual=act.format(operand.shape))
+        # Ensure shapes of all trials match up, according to NumPy broadcasting rules
+        for trl in baseTrials:
+            try:
+                np.broadcast_shapes(trl.shape, operand.shape)
+            except ValueError:
+                lgl = "array of compatible trial shape"
+                act = "array with shape {}"
+                raise SPYValueError(lgl, varname="operand", actual=act.format(operand.shape))
 
         # No more info needed, the array is the only quantity we need
         operand_dat = operand
         operand_idxs = None
-
-        # All good, nevertheless warn of potential havoc this operation may cause...
-        msg = "Performing arithmetic with NumPy arrays may cause inconsistency " +\
-            "in Syncopy objects (channels, samplerate, trialdefintions etc.)"
-        SPYWarning(msg, caller=operator)
 
     # Operand is another Syncopy object
     elif "BaseData" in str(operand.__class__.__mro__):
@@ -369,14 +364,13 @@ def _perform_computation(baseObj,
     else:
         raise SPYValueError("supported arithmetic operator", actual=operator)
 
-    # If ACME is available, try to attach (already running) parallel computing client
+    # try to attach (already running) parallel computing client
     parallel = False
-    if __acme__:
-        try:
-            dd.get_client()
-            parallel = True
-        except ValueError:
-            parallel = False
+    try:
+        dd.get_client()
+        parallel = True
+    except ValueError:
+        parallel = False
 
     # Perform actual computation: instantiate `ComputationalRoutine` w/extracted info
     opMethod = SpyArithmetic(operand_dat, operand_idxs, operation=operation,

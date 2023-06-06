@@ -13,7 +13,7 @@ import matplotlib.pyplot as ppl
 import syncopy as spy
 from syncopy import synthdata
 import syncopy.tests.helpers as helpers
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYError
 
 
 class TestAnalogPlotting():
@@ -224,7 +224,7 @@ class TestSpectralPlotting():
         for sel_dict in selections:
 
             # only single trial plotting
-            # is supported until averaging is availbale
+            # is supported, use spy.mean() to average beforehand if needed
             # take random 1st trial
             sel_dict['trials'] = sel_dict['trials'][0]
             # we have to sort the channels (hdf5 access)
@@ -384,7 +384,94 @@ class TestCrossSpectralPlotting():
             assert "frequency" in str(err)
 
 
+class TestSpikeDataPlotting:
+
+    cfg = spy.StructDict()
+    cfg.nTrials = 100
+    cfg.nChannels = 80
+    cfg.nSpikes = 100_000
+    cfg.intensity = 0.2
+    cfg.nUnits = 40
+    cfg.samplerate = 10_000
+
+    spd = synthdata.poisson_noise(cfg, seed=42)
+
+    def test_trial_plotting(self):
+
+        # singleplot is for single trial or single unit
+        fig1, ax1 = self.spd.singlepanelplot(unit=11)
+        assert ax1.get_ylabel() == 'trials'
+
+        # time/latency selection
+        fig, ax = self.spd.multipanelplot(latency=[0.2, 0.3], unit=np.arange(20, 26))
+        assert ax.size == 6
+
+    def test_unit_plotting(self):
+
+        # singleplot is for single trial or single unit
+        fig1, ax1 = self.spd.singlepanelplot(trials=11, on_yaxis='unit')
+        assert ax1.get_ylabel() == 'unit'
+
+        # unit labels for < 20 units selected
+        unit_sel = np.arange(self.cfg.nUnits, step=2)
+        fig2, ax2 = self.spd.singlepanelplot(trials=11, unit=unit_sel, on_yaxis='unit')
+        assert len(ax2.get_yticklabels()) == len(unit_sel)
+        assert ax2.get_ylabel() == ''
+
+        # can plot max. 25 trials
+        fig4, axs1 = self.spd.multipanelplot(trials=np.arange(30, step=2), on_yaxis='unit')
+
+        fig5, axs2 = self.spd.multipanelplot(channel=np.arange(6,13), unit=[0, 4, 9],
+                                             trials=np.arange(30, step=2), on_yaxis='unit')
+
+        # -- test unit selection as this is special --
+        _, axs = self.spd.multipanelplot(trials=[11, 34, self.cfg.nTrials - 1],
+                                         unit=[0, self.cfg.nUnits - 1],
+                                         on_yaxis='unit'
+                                         )
+
+        labels = [lbl._text for lbl in axs[0][0].get_yticklabels()]
+        assert labels == [self.spd.unit[0], self.spd.unit[-1]]
+
+        _, axs = self.spd.multipanelplot(trials=[11, 34, self.cfg.nTrials - 1],
+                                         unit=['unit04', 'unit12', 'unit40'],
+                                         on_yaxis='unit'
+                                         )
+        assert len(axs[0][0].get_yticklabels()) == 3
+
+    def test_channel_plotting(self):
+
+        # channel labels for < 20 channels selected
+        chan_sel = [0, 3, 11, self.cfg.nChannels - 1]
+        fig3, ax3 = self.spd.singlepanelplot(trials=11, on_yaxis='channel',
+                                             channel=chan_sel)
+        assert len(ax3.get_yticklabels()) == len(chan_sel)
+        assert ax3.get_ylabel() == ''
+
+    def test_exceptions(self):
+        """
+        Not much to test, mismatching show kwargs get catched by `selectdata` anyways
+        """
+
+        with pytest.raises(SPYValueError, match="expected either 'trials', 'unit' or 'channel'"):
+            self.spd.singlepanelplot(trials=10, on_yaxis='chunit')
+
+        with pytest.raises(SPYValueError, match="expected either 'trials', 'unit' or 'channel'"):
+            self.spd.multipanelplot(trials=[10, 12], on_yaxis='chunit')
+
+        # only 1 trial can be selected with unit/channel on y-axis
+        with pytest.raises(SPYError, match="Please select a single trial"):
+            self.spd.singlepanelplot(trials=[0, 3], on_yaxis='unit')
+
+        # we can plot max. 25 trials/units
+        with pytest.raises(SPYError, match="Please select maximum 25 trials"):
+            self.spd.multipanelplot(on_yaxis='unit')
+
+        with pytest.raises(SPYError, match="Please select maximum 25 units"):
+            self.spd.multipanelplot()
+
 if __name__ == '__main__':
     T1 = TestAnalogPlotting()
     T2 = TestSpectralPlotting()
     T3 = TestCrossSpectralPlotting()
+    T5 = TestSpikeDataPlotting()

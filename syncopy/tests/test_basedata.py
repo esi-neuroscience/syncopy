@@ -269,6 +269,30 @@ class TestBaseData():
             complexArr = np.complex64(dummy.trials[0])
             complexNum = 3 + 4j
 
+            # -- test that NumPy broadcasting rules are respected --
+
+            trl_shape = dummy.trials[0].shape
+            # 1st dimension is different from last in `self.data`
+            assert trl_shape[0] != trl_shape[-1]
+
+            vec_ok = np.zeros(trl_shape[-1])
+            res = dummy * vec_ok
+            # everything zeroed
+            assert np.allclose(res.data[()], 0)
+
+            with pytest.raises(SPYValueError, match="Invalid value of `operand`"):
+                vec_not_ok = np.zeros(trl_shape[0])
+                _ = dummy * vec_not_ok
+
+            # array multiplication works as usual trial-by-trial
+            arr = np.zeros(np.prod(trl_shape)).reshape(trl_shape)
+            res = dummy * arr
+
+            # everything zeroed
+            assert np.allclose(res.data[()], 0)
+
+            # -- test exceptions  --
+
             # Start w/the one operator that does not handle zeros well...
             with pytest.raises(SPYValueError) as spyval:
                 _ = dummy / 0
