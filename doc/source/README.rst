@@ -53,7 +53,6 @@ Tutorials and in depth Guides
    Syncopy for FieldTrip Users <user/fieldtrip>
    Handling Data <user/data>
    Parallel Processing <user/parallel>
-   Selections <user/selectdata>
 
 API
 ---

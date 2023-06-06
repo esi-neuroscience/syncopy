@@ -37,7 +37,7 @@ and additive red noise acting as a 1/f surrogate::
   # red noise with seed for exact reproducibility
   noise = spy.synthdata.red_noise(cfg, alpha=0.9, seed=42)
 
-To look at a single trial we can use the ``.trials`` property of Syncopy data objects, which behaves similar to Python lists where each element is a trial represented as a :class:`~numpy.ndarray`::
+To look at a single trial we can use the ``.trials`` property of Syncopy data objects, which behaves similar to Python lists where each element is a trial represented as a :class:`numpy.ndarray`::
 
   # how many trials do we have?
   print(harm.trials)
@@ -61,7 +61,7 @@ For now we have two distinct datasets ``harm`` and ``noise``, we can combine the
   # zero out 2nd channel with a (2,) shaped array
   harm = harm * np.array([1, 0])
 
-To check that we got a damped harmonic on ``channel1`` and just zeros on ``channel2`` we can plot an arbitrary trial::
+To check that we got a damped harmonic on the first and just zeros on the second channel we can plot an arbitrary trial::
 
   # plot the 20th trial
   harm.singlepanelplot(trials=19)
@@ -89,12 +89,12 @@ Finally we can just add our red noise dataset to arrive at our final synthetic d
 
 By construction, we made the red noise of similar strength as the signal, hence by eye the oscillations present in ``channel1`` are hardly visible. The parameter ``latency`` defines a time-interval selection.
 
-.. hint::
+.. note::
    How to plot and work with subsets of Syncopy data is described in :ref:`selections`.
 
 To recap: we have generated a synthetic dataset whith red noise on both channels, and ``channel1`` additionally carries the damped harmonic signal.
 
-.. hint::
+.. note::
    Further details about artificial data generation can be found at the :ref:`synthdata` section.
 
 
@@ -183,8 +183,11 @@ We clearly see a smoothed spectral peak at 30Hz, channel 2 just contains the red
 The related short time Fourier transform can be computed via ``method='mtmconvol'``, see :func:`~syncopy.freqanalysis` for more details and examples.
 
 .. note::
-   Have a look at :ref:`workflow` to get an overview about data processing principles with Syncopy
+   Have a look at :ref:`this section <workflow>` to get an overview about data processing principles with Syncopy
 
+.. note::
+   Have a look at :ref:`data_classes` to get an overview over the different data types of Syncopy
+   
 Wavelet Analysis
 ----------------
 
@@ -193,7 +196,7 @@ Wavelet Analysis
 In Syncopy we can compute the Wavelet transform by calling :func:`~syncopy.freqanalysis` with the ``method='wavelet'`` argument::
 
   # define frequencies to scan
-  fois = np.arange(10, 60, step=2) # 2Hz stepping
+  fois = np.arange(10, 50, step=0.5) # 0.5Hz stepping
   wav_spectra = spy.freqanalysis(adata,
                                  method='wavelet',
 				 foi=fois,
@@ -201,7 +204,7 @@ In Syncopy we can compute the Wavelet transform by calling :func:`~syncopy.freqa
 
 Here we used an additional parameter supported by every Syncopy analysis method:
 
-- ``keeptrials=False`` triggers trial averaging
+- ``keeptrials=False`` trial averaging of the result
 
 .. hint::
    Have a look at the :ref:`parallel` section for information about concurrent computations with Syncopy.
@@ -213,7 +216,61 @@ To quickly inspect the results for each channel we can use::
 .. image:: wavelet_spec.png
    :height: 250px
 
-Again, we see a 30Hz signal in the 1st channel, and channel 2 is dominated by aperiodic dynamics resembling 1/f. However, in contrast to the ``method='mtmfft'`` call, now we also get information along the time axis. The dampening of the 30Hz harmonic over time in channel 1 is clearly visible.
+Again, we see a 30Hz signal in the 1st channel, and channel 2 is dominated by aperiodic dynamics resembling 1/f. However, in contrast to the ``method='mtmfft'`` call, now we also get information along the time axis. The dampening of the 30Hz harmonic over time in the first channel is clearly visible.
 
 An improved method, the superlet transform, providing super-resolution time-frequency representations can be computed via ``method='superlet'``, see :func:`~syncopy.freqanalysis` for more details.
 
+Trialdefinition
+================
+
+The ``.trialdefinition`` property controls how individual trials are defined from the underlying continuous data array. Let's have a look at the default trial definition coming from the synthetic data routines::
+
+  adata.trialdefinition
+
+This gives an output::
+
+  array([[    0.,  1000.,  -500.],
+       [ 1000.,  2000.,  -500.],
+       [ 2000.,  3000.,  -500.],
+       ...
+       ]])
+
+We see it is a ``nSamples x 3`` :class:`numpy.ndarray`, encoding ``[start, stop, offset]`` for each trial. Using NumPy we can create a new trialdefinition::
+
+  # create simple trialdefinition array
+  trl_def = np.array([[i * 2000, (i + 1) * 2000, 0] for i in range(25)]) 
+
+  # copy original dataset
+  adata2 = adata.copy()
+  adata2.trialdefinition = trl_def
+
+Here we effectively concatenated all consecutive trials, with the new trials being each 2000 samples long. If we inspect ``adata2`` now::
+
+  adata2.trials
+  >>> 25 element iterable
+
+we see that now we only have 25 trials. And the trialdefinition looks accordingly::
+
+  adata2.trialdefinition
+  >>> array([[    0,  2000,     0],
+       [ 2000,  4000,     0],
+       [ 4000,  6000,     0],
+       ...]])
+
+.. warning::
+   Data which is not covered by the trial definition gets stripped off the dataset after each and every operation (including selections!) to save disc space. Hence copying
+   before applying a new trialdefinition is highly recommended.
+
+Repeating the wavelet analysis reusing the ``fois`` defined above::
+  
+  wav_spectra2 = spy.freqanalysis(adata2,
+                                  method='wavelet',
+				  foi=fois,
+				  keeptrials=False)
+  
+  wav_spectra2.multipanelplot()
+
+.. image:: wavelet_spec2.png
+   :height: 250px
+   
+We now see the trials are 4 seconds long (2000 samples times 1/500Hz = 4s), so the **time axis automatically changed according to the new trialdefinition**. Also the trials now start at zero seconds, as we set the offsets to zero. As we have now chained two damped harmonics together, we can see 30Hz *epochs* in the first channel.

@@ -41,6 +41,10 @@ Plotting Functions
    syncopy.singlepanelplot
    syncopy.multipanelplot
 
+.. hint::
+   The :ref:`selections` section details how :func:`~syncopy.singlepanelplot` and :func:`~syncopy.show` all work based on the same :func:`~syncopy.selectdata` API.
+
+   
 Importing Data into Syncopy
 ---------------------------
 
