@@ -27,12 +27,12 @@ With this we have a dataset of type :class:`~syncopy.AnalogData`, which is inten
 .. image:: damped_signals.png
    :height: 220px
 
-By construction, we made the (white) noise of the same strength as the signal, hence by eye the oscillations present in channel1 are hardly visible. The parameter ``latency`` defines a time-interval selection here.
+By construction, we made the (white) noise of the same strength as the signal, hence by eye the oscillations present in ``channel1`` are hardly visible. The parameter ``latency`` defines a time-interval selection.
 
 .. hint::
    How to plot and work with subsets of Syncopy data is described in :ref:`selections`.
 
-To recap: we have generated a synthetic dataset white noise on both channels, and channel1 additionally carries the damped harmonic signal.
+To recap: we have generated a synthetic dataset white noise on both channels, and ``channel1`` additionally carries the damped harmonic signal.
 
 .. hint::
    Further details about artificial data generation can be found at the :ref:`synthdata` section.
