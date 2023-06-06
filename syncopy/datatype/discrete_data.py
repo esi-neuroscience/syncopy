@@ -642,13 +642,13 @@ class SpikeData(DiscreteData):
     # implement plotting
     def singlepanelplot(self, **show_kwargs):
 
-        figax = spike_plotting.plot_single_trial_SpikeData(self, **show_kwargs)
+        figax = spike_plotting.plot_single_figure_SpikeData(self, **show_kwargs)
         return figax
 
     # implement plotting
     def multipanelplot(self, **show_kwargs):
 
-        figax = spike_plotting.plot_multi_trial_SpikeData(self, **show_kwargs)
+        figax = spike_plotting.plot_multi_figure_SpikeData(self, **show_kwargs)
         return figax
 
 
