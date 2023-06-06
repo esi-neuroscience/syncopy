@@ -1,3 +1,5 @@
+.. _field_trip:
+
 Syncopy for FieldTrip Users
 ===========================
 

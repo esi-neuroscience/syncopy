@@ -6,6 +6,8 @@ Quickstart with Syncopy
 
 Here we want to quickly explore some standard analyses for analog data (e.g. MUA or LFP measurements), and how to do these in Syncopy. Explorative coding is best done interactively by using e.g. `Jupyter <https://jupyter.org>`_ or `IPython <https://ipython.org>`_. Note that for plotting also `matplotlib <https://matplotlib.org>`_ has to be installed.
 
+Users coming from `FieldTrip <https://www.fieldtriptoolbox.org/>`_ should also have a look at the :ref:`field_trip` section.
+
 .. contents:: Topics covered
    :local:
 
@@ -16,23 +18,81 @@ Here we want to quickly explore some standard analyses for analog data (e.g. MUA
 Preparations
 ============
 
-To start with a clean slate, let's construct a synthetic dataset consisting of a damped 30Hz harmonic and additive white noise:
+To start with a clean slate, let's construct a synthetic dataset consisting of a damped 30Hz harmonic
+and additive red noise acting as a 1/f surrogate::
 
-.. literalinclude:: /quickstart/damped_harm.py
+  import numpy as np
+  import syncopy as spy
 
-With this we have a dataset of type :class:`~syncopy.AnalogData`, which is intended for holding time-series data like electrophys. measurements. Let's have a look at a small snippet of the 1st trial::
+  # cfg dictionary
+  cfg = spy.StructDict()
+  cfg.nTrials = 50
+  cfg.nSamples = 1000
+  cfg.nChannels = 2
+  cfg.samplerate = 500   # in Hz
 
-  data.singlepanelplot(trials=0, latency=[0, 0.5])
+  # 30Hz undamped harmonic
+  harm = spy.synthdata.harmonic(cfg, freq=30)
+  
+  # red noise with seed for exact reproducibility
+  noise = spy.synthdata.red_noise(cfg, alpha=0.9, seed=42)
+
+To look at a single trial we can use the ``.trials`` property of Syncopy data objects, which behaves similar to Python lists where each element is a trial represented as a :class:`~numpy.ndarray`::
+
+  # how many trials do we have?
+  print(harm.trials)
+  >>> 50 element iterable
+
+  # access the 1st trial as numpy array
+  print(harm.trials[0].shape)
+  >>> (1000, 2)
+
+  # show order of dimensions
+  print(harm.dimord)
+  >>> ['time', 'channel']
+
+So we see that as defined above we indeed have 50 trials, with each having 1000 samples and 2 channels.
+
+For now we have two distinct datasets ``harm`` and ``noise``, we can combine them using standard arithmetic Python operators. But first let's actually dampen the harmonic and zero out the 2nd channel::
+
+  # pseudo 2d array with shape (1000, 1) for the dampening
+  harm = harm * np.linspace(1, 0.2, cfg.nSamples)[:, np.newaxis]
+  
+  # zero out 2nd channel with a (2,) shaped array
+  harm = harm * np.array([1, 0])
+
+To check that we got a damped harmonic on ``channel1`` and just zeros on ``channel2`` we can plot an arbitrary trial::
+
+  # plot the 20th trial
+  harm.singlepanelplot(trials=19)
+
+.. image:: damped_harm.png
+   :height: 220px
+
+Finally we can just add our red noise dataset to arrive at our final synthetic dataset::
+
+  # scale the noise up a bit
+  adata = harm + 1.2 * noise
+
+  # rename the channels
+  adata.channel = ['30Hz + noise', 'noise only']
+  
+.. note::
+   Syncopy arithmetics follow `NumPy's broadcasting rules <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ on a trial-by-trial basis. Meaning single arrays which are broadcastable to every trial OR Syncopy datasets where each trial-pair of both datasets is shape compatible are valid operands. 
+  
+``adata`` is a dataset of type :class:`~syncopy.AnalogData`, which is intended for holding time-series data like electrophys. measurements. Let's have a look at a small snippet of the 1st trial::
+
+  adata.singlepanelplot(trials=0, latency=[0, 0.5])
 
 .. image:: damped_signals.png
    :height: 220px
 
-By construction, we made the (white) noise of the same strength as the signal, hence by eye the oscillations present in ``channel1`` are hardly visible. The parameter ``latency`` defines a time-interval selection.
+By construction, we made the red noise of similar strength as the signal, hence by eye the oscillations present in ``channel1`` are hardly visible. The parameter ``latency`` defines a time-interval selection.
 
 .. hint::
    How to plot and work with subsets of Syncopy data is described in :ref:`selections`.
 
-To recap: we have generated a synthetic dataset white noise on both channels, and ``channel1`` additionally carries the damped harmonic signal.
+To recap: we have generated a synthetic dataset whith red noise on both channels, and ``channel1`` additionally carries the damped harmonic signal.
 
 .. hint::
    Further details about artificial data generation can be found at the :ref:`synthdata` section.
@@ -45,7 +105,7 @@ We can get some basic information about any Syncopy dataset by just typing its n
 
 .. code-block:: python
 
-   data
+   adata
 
 which gives nicely formatted output:
 
@@ -56,7 +116,7 @@ which gives nicely formatted output:
             cfg : dictionary with keys ''
         channel : [2] element <class 'numpy.ndarray'>
       container : None
-           data : 50 trials of length 1000.0 defined on [50000 x 2] float32 Dataset of size 1.14 MB
+           data : 50 trials of length 1000.0 defined on [50000 x 2] float64 Dataset of size 0.76 MB
          dimord : time by channel
        filename : /xxx/xxx/.spy/spy_910e_572582c9.analog
            mode : r+
@@ -88,11 +148,9 @@ Here we quickly want to showcase two important methods for (time-)frequency anal
 Multitapered Fourier Analysis
 ------------------------------
 
-`Multitaper methods <https://en.wikipedia.org/wiki/Multitaper>`_ allow for frequency smoothing of Fourier spectra. Syncopy implements the standard `Slepian/DPSS tapers <https://en.wikipedia.org/wiki/Window_function#DPSS_or_Slepian_window>`_ and provides a convenient parameter, the *taper smoothing frequency* ``tapsmofrq`` to control the amount of one-sided spectral smoothing in Hz. To perform a multi-tapered Fourier analysis with 2Hz spectral smoothing (1Hz two sided), we simply do:
+`Multitaper methods <https://en.wikipedia.org/wiki/Multitaper>`_ allow for frequency smoothing of Fourier spectra. Syncopy implements the standard `Slepian/DPSS tapers <https://en.wikipedia.org/wiki/Window_function#DPSS_or_Slepian_window>`_ and provides a convenient parameter, the *taper smoothing frequency* ``tapsmofrq`` to control the amount of one-sided spectral smoothing in Hz. To perform a multi-tapered Fourier analysis with 2Hz spectral smoothing (1Hz two sided), we simply do::
 
-.. code-block::
-
-   fft_spectra = spy.freqanalysis(data, method='mtmfft', foilim=[0, 60], tapsmofrq=1)
+   fft_spectra = spy.freqanalysis(adata, method='mtmfft', foilim=[0, 60], tapsmofrq=1)
 
 The parameter ``foilim`` controls the *frequencies of interest  limits*, so in this case we are interested in the range 0-60Hz. Starting the computation interactively will show additional information::
 
@@ -111,12 +169,12 @@ To quickly have something for the eye we can compute the trial average and plot 
   fft_avg = spy.mean(fft_spectra, dim='trials')
 
   # plot frequency range between 10Hz and 50Hz
-  fft_avg.singlepanelplot(frequency=[10, 50])
+  fft_avg.singlepanelplot(frequency=[2, 60])
 
 .. image:: mtmfft_spec.png
    :height: 260px
 
-We clearly see a smoothed spectral peak at 30Hz, channel 2 just contains the flat white noise floor. Comparing with the signals plotted in the time domain above, we see the power of the frequency representation of an oscillatory signal.
+We clearly see a smoothed spectral peak at 30Hz, channel 2 just contains the red noise with its 1/f characteristic. Comparing with the signals plotted in the time domain above, we see the benefit of the frequency representation of an oscillatory signal.
 
 The related short time Fourier transform can be computed via ``method='mtmconvol'``, see :func:`~syncopy.freqanalysis` for more details and examples.
 
@@ -132,20 +190,17 @@ In Syncopy we can compute the Wavelet transform by calling :func:`~syncopy.freqa
 
   # define frequencies to scan
   fois = np.arange(10, 60, step=2) # 2Hz stepping
-  wav_spectra = spy.freqanalysis(data,
+  wav_spectra = spy.freqanalysis(adata,
                                  method='wavelet',
 				 foi=fois,
-				 parallel=True,
 				 keeptrials=False)
 
-Here we used two additional parameters supported by every Syncopy analysis method:
+Here we used an additional parameter supported by every Syncopy analysis method:
 
-- ``parallel=True`` invokes Syncopy's parallel processing engine
 - ``keeptrials=False`` triggers trial averaging
 
 .. hint::
-
-   If parallel processing is unavailable, have a look at :ref:`install_acme`
+   Have a look at the :ref:`parallel` section for information about concurrent computations with Syncopy.
 
 To quickly inspect the results for each channel we can use::
 
@@ -154,7 +209,7 @@ To quickly inspect the results for each channel we can use::
 .. image:: wavelet_spec.png
    :height: 250px
 
-Again, we see a strong 30Hz signal in the 1st channel, and channel 2 is devoid of any rhythms. However, in contrast to the ``method='mtmfft'`` call, now we also get information along the time axis. The dampening of the 30Hz harmonic over time in channel 1 is clearly visible.
+Again, we see a 30Hz signal in the 1st channel, and channel 2 is dominated by aperiodic dynamics resembling 1/f. However, in contrast to the ``method='mtmfft'`` call, now we also get information along the time axis. The dampening of the 30Hz harmonic over time in channel 1 is clearly visible.
 
 An improved method, the superlet transform, providing super-resolution time-frequency representations can be computed via ``method='superlet'``, see :func:`~syncopy.freqanalysis` for more details.
 
