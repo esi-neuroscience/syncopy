@@ -18,6 +18,8 @@ import numpy as np
 from datetime import datetime
 from uuid import uuid4
 import pytz
+import os
+import shutil
 from pynwb import NWBFile
 from pynwb.ecephys import LFP, ElectricalSeries
 from pynwb.core import DynamicTableRegion
@@ -211,7 +213,7 @@ def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True, sa
         if save_as == "both" or save_as == "trials":
             nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[2])
         if save_as == "both" or save_as == "epochs":
-            nwbfile.add_epoch(start_time=td[0], stop_time=td[1])
+            nwbfile.add_epoch(start_time=td[0], stop_time=td[1], tags="trial {}".format(trial_idx))
 
 
 def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_info=None):
@@ -290,5 +292,24 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
         _add_trials_to_nwbfile(nwbfile, sdata.trialdefinition, sdata.samplerate, do_add=with_trialdefinition)
 
         return nwbfile
+
+def _nwb_copy_pynapple(nwbfilepath, targetdir):
+    """
+    Copy an existing NWB file to a new directory, in which it will be placed in a new sub directory named 'pynapplenwb', as required for the Pynapple loader.
+
+    This is a convenience function so we can test the Pynapple loader for NWB files created by Syncopy.
+
+    Parameters
+    ----------
+    nwbfilepath : str, path to the NWB file to copy.
+    targetdir : str, path to the existing directory in which to create the subdirectory 'pynapplenwb'. The targetdir has to exist and be writable.
+    """
+    if not os.path.isfile(nwbfilepath):
+        raise ValueError("NWB file '{}' does not exist.".format(nwbfilepath))
+    if not os.path.isdir(targetdir):
+        raise ValueError("Target directory '{}' does not exist.".format(targetdir))
+    subdir = os.path.join(targetdir, "pynapplenwb")
+    os.makedirs(subdir, exist_ok=True)
+    shutil.copy(nwbfilepath, subdir)
 
 

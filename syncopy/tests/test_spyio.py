@@ -18,6 +18,7 @@ import matplotlib.pyplot as ppl
 import syncopy as spy
 from syncopy.datatype import AnalogData
 from syncopy.io import save, load, load_ft_raw, load_tdt, load_nwb
+from syncopy.io.nwb import _nwb_copy_pynapple
 from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.errors import (
     SPYValueError,
@@ -731,11 +732,11 @@ class TestNWBExporter():
         nChannelsExpectedOnRead = 1  # The NWB format does not store channels for spike data, only units, so we get a single channel back.
 
         with tempfile.TemporaryDirectory() as tdir:
-            outpath = os.path.join(tdir, 'test_save_spike2nwb.nwb')
-            spdata.save_nwb(outpath=outpath)
+            nwb_outpath = os.path.join(tdir, 'test_save_spike2nwb.nwb')
+            spdata.save_nwb(outpath=nwb_outpath)
 
             if self.do_validate_NWB:
-                is_valid, err = _is_valid_nwb_file(outpath)
+                is_valid, err = _is_valid_nwb_file(nwb_outpath)
                 assert is_valid, f"Exported NWB file failed validation: {err}"
 
             ##  Save another copy to home directory for manual inspection and
@@ -743,7 +744,7 @@ class TestNWBExporter():
             #from os.path import expanduser
             #spdata.save_nwb(outpath=os.path.join(expanduser("~"), 'spikes.nwb'))
 
-            data_instances_reread = load_nwb(outpath)
+            data_instances_reread = load_nwb(nwb_outpath)
             assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"
             spdata_reread = list(data_instances_reread.values())[0]
             assert isinstance(spdata_reread, spy.SpikeData), f"Expected SpikeData, got {type(spdata_reread)}"
@@ -752,11 +753,22 @@ class TestNWBExporter():
             assert spdata_reread.samplerate == samplerate
 
             assert spdata.data.shape == spdata_reread.data.shape, f"Expected identical shapes, got original={spdata.data.shape}, reread={spdata_reread.data.shape}"
-
-            # TODO: Due to channel change, the data are NOT expected to be identical. We need to adapt our expectations.
             assert np.allclose(spdata.data[:, 0], spdata_reread.data[:, 0])
 
-        # TODO: Should we add pynapple as an optional or dev dependency and actually try to load the data in pynapple?
+            has_pynapple = False
+            try:
+                import pynapple as nap
+                has_pynapple = True
+            except ImportError:
+                pass
+
+            if has_pynapple:
+                _nwb_copy_pynapple(nwb_outpath, tdir)
+                data = nap.load_session(tdir, 'neurosuite')
+                spikes = data.spikes
+                neuron_0 = spikes[0]
+                assert hasattr(neuron_0, 'times')
+                assert hasattr(data, 'epochs')
 
 
 
