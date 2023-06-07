@@ -168,19 +168,18 @@ def plot_SpectralData(spy_data, logscale=True, **show_kwargs):
         data_x = plot_helpers.parse_foi(spy_data, show_kwargs)
         output = plot_helpers.get_output(spy_data, 'freqanalysis')
 
+        pow_or_fooof = 'fooof' in output or output == 'pow'
+        
         # only log10 the absolute squared spectra
-        if output == 'pow' and logscale:
+        if pow_or_fooof and logscale:
             data_y = np.log10(spy_data.show(**show_kwargs))
             ylabel = 'power (dB)'
-        elif output == 'pow' and not logscale:
-            data_y = spy_data.show(**show_kwargs)
-            ylabel = r'power (mV^2)'
         elif output in ['fourier', 'complex']:
             SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as freqanalysis output.. aborting plotting")
             return None, None
         else:
             data_y = spy_data.show(**show_kwargs)
-            ylabel = f'{output}'
+            ylabel = f'{output} (a.u.)'
 
         # for itc.. needs to be improved
         if output is None:
