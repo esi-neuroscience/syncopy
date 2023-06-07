@@ -771,6 +771,19 @@ class TimeLockData(ContinuousData):
     def cov(self):
         return self._cov
 
+    @property
+    def is_time_locked(self):
+        if not np.unique(trldef[:, 2]).size == 1:
+             lgl = "equal offsets for timelocked data"
+             act = "different offsets"
+             raise SPYValueError(lgl, varname="trialdefinition", actual=act)
+
+        # diff-diff should give 0 -> same number of samples for each trial
+        if not np.all(np.diff(trldef, axis=0, n=2) == 0):
+            lgl = "all trials of same length for timelocked data"
+            act = "unequal sized trials defined"
+            raise SPYValueError(lgl, varname="trialdefinition", actual=act)
+
     @ContinuousData.trialdefinition.setter
     def trialdefinition(self, trldef):
         """
