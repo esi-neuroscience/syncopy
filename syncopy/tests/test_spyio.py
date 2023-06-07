@@ -771,7 +771,7 @@ class TestNWBExporter():
         if plot_spikes:
             import matplotlib.pyplot as plt
             plt.ion()
-            spdata.multipanelplot(unit=np.arange(10), on_yaxis="unit")
+            spdata.multipanelplot(unit=np.arange(10), on_yaxis="unit", trials=0)
 
         import pynapple as pna
 
@@ -781,11 +781,15 @@ class TestNWBExporter():
 
             _nwb_copy_pynapple(nwb_outpath, tdir)
             pyndata = nap.load_session(tdir, 'neurosuite')
+            assert len(pyndata.epochs) == 10 # trials
             spikes = pyndata.spikes
             assert type(spikes) == pna.core.ts_group.TsGroup, f"Expected list of SpikeData, got {type(spikes)}"
             neuron_0 = spikes[0]
             assert hasattr(neuron_0, 'times')
             assert hasattr(pyndata, 'epochs')
+
+            spikes_trial0 = pyndata.spikes.restrict(pyndata.epochs.get('trial 0'))  # select trial 0 in Pynapple.
+            spikes = spikes_trial0
 
             if plot_spikes:
                 import matplotlib.gridspec as gridspec
