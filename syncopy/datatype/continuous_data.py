@@ -790,12 +790,11 @@ class TimeLockData(ContinuousData):
 
         # now check for additional conditions
 
-        # FIXME: not clear, is timelocked data to be expected
-        # to have same offsets?!
-        # if not np.unique(trldef[:, 2]).size == 1:
-        #     lgl = "equal offsets for timelocked data"
-        #     act = "different offsets"
-        #     raise SPYValueError(lgl, varname="trialdefinition", actual=act)
+        # Timelocked data should have same offset for all trials
+        if not np.unique(trldef[:, 2]).size == 1:
+             lgl = "equal offsets for timelocked data"
+             act = "different offsets"
+             raise SPYValueError(lgl, varname="trialdefinition", actual=act)
 
         # diff-diff should give 0 -> same number of samples for each trial
         if not np.all(np.diff(trldef, axis=0, n=2) == 0):
