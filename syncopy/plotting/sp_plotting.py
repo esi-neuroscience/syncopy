@@ -169,7 +169,7 @@ def plot_SpectralData(spy_data, logscale=True, **show_kwargs):
         output = plot_helpers.get_output(spy_data, 'freqanalysis')
 
         pow_or_fooof = 'fooof' in output or output == 'pow'
-        
+
         # only log10 the absolute squared spectra
         if pow_or_fooof and logscale:
             data_y = np.log10(spy_data.show(**show_kwargs))

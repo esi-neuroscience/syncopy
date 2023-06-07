@@ -20,25 +20,32 @@ Generating Example Data
 Let us first prepare
 suitable data. FOOOF will typically be applied to trial-averaged data, as the method is
 quite sensitive to noise, so we generate an example data set consisting of 500 trials and
-a single channel here (see :ref:`the Synthetic data tutorial<synth_data>` for details on this):
+a single channel here (see :ref:`Synthetic data tutorial<_synth_data>` for details on this):
 
 .. code-block:: python
     :linenos:
 
     import numpy as np
-    from syncopy import freqanalysis, get_defaults
-    from syncopy.synthdata import ar2_network, phase_diffusion
+    import syncopy as spy
+    from syncopy.synthdata import red_noise, phase_diffusion
 
-    def get_signals(nTrials=500, nChannels = 1):
-        nSamples = 1000
-        samplerate = 1000
-        ar1_part = ar2_network(AdjMat=np.zeros(1), nSamples=nSamples, alphas=[0.9, 0], nTrials=nTrials)
-        pd1 = phase_diffusion(freq=30., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
-        pd2 = phase_diffusion(freq=50., eps=.1, samplerate=samplerate, nChannels=nChannels, nSamples=nSamples, nTrials=nTrials)
-        signal = ar1_part + .8 * pd1 + 0.6 * pd2
+    def create_trials(nTrials = 500):
+
+        cfg_synth = spy.StructDict()
+        cfg_synth.nSamples = 1000
+        cfg_synth.samplerate = 1000
+	cfg_synth.nChannels = 1
+	cfg_synth.nTrials = nTrials
+
+        ar1_traj = red_noise(cfg_synth, alpha=0.9)
+        pd1 = phase_diffusion(cfg_synth, freq=30., eps=.1)
+        pd2 = phase_diffusion(cfg_synth, freq=50., eps=.1)
+
+	# add weighted signal components together
+        signal = ar1_traj + .8 * pd1 + 0.6 * pd2
         return signal
 
-    signals = get_signals()
+    signals = create_trials()
 
 The return value `signals` is of type :class:`~syncopy.AnalogData`. Let's have a look at the signal in the time domain first::
 
@@ -53,15 +60,15 @@ of type :class:`~syncopy.SpectralData`, and can also be plotted:
 .. code-block:: python
     :linenos:
 
-    cfg = get_defaults(freqanalysis)
+    cfg = spy.StructDict()
     cfg.method = "mtmfft"
     cfg.taper = "hann"
-    cfg.select = {"channel": 0}
+    # cfg.select = {"channel": 0}
     cfg.keeptrials = False
     cfg.output = "pow"
     cfg.foilim = [10, 100]
 
-    spec = freqanalysis(cfg, signals)
+    spec = spy.freqanalysis(cfg, signals)
     spec.singlepanelplot()
 
 
@@ -80,7 +87,7 @@ from the `freqanalysis` function by setting the `output` parameter to `'fooof'`:
     :linenos:
 
     cfg.output = 'fooof'
-    spec_fooof = freqanalysis(cfg, signals)
+    spec_fooof = spy.freqanalysis(cfg, signals)
     spec_fooof.singlepanelplot()
 
 .. image:: ../_static/fooof_out_first_try.png
@@ -104,7 +111,7 @@ Here we request only the aperiodic (:math:`\sim 1/f`) part and plot it:
     :linenos:
 
     cfg.output = 'fooof_aperiodic'
-    spec_fooof_aperiodic = freqanalysis(cfg, signals)
+    spec_fooof_aperiodic = spy.freqanalysis(cfg, signals)
     spec_fooof_aperiodic.singlepanelplot()
 
 
@@ -135,7 +142,7 @@ Increasing the minimal peak width is one method to exclude them:
 
     cfg.output = 'fooof'
     cfg.fooof_opt = {'peak_width_limits': (6.0, 12.0), 'min_peak_height': 0.2}
-    spec_fooof_tuned = freqanalysis(cfg, signals)
+    spec_fooof_tuned = spy.freqanalysis(cfg, signals)
     spec_fooof_tuned.singlepanelplot()
 
 Once more, we look at the FOOOFed spectrum:
@@ -151,26 +158,26 @@ Programmatically accessing details on the FOOOF fit results
 All fitting results returned by FOOOF can be found in the `metadata` attribute of the returned `SpectralData` instance, which is a `dict`. This
 includes the following entries:
 
-* aperiodic_params
-* error
-* gaussian_params
-* n_peaks
-* r_squared
+* **aperiodic_params** (offset, exponent)
+* **peak_params** (center frequency, power above aperiodic, bandwidth)  
+* **gaussian_params** (mean, height, standard deviation) of the peaks
+* **n_peaks** (number of peaks)
+* **r_squared** (goodness of fit)
+* **error** (RMSE)
 
 Please see the `official FOOOF documentation <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_ for the meaning.
 
-Note that in Syncopy, FOOOF can be run several times in a single frontend call (e.g., if you have several trials and `cfg.keeptrials=True`).
-Therefore, you will see one instance of these fitting results *per FOOOF call* in the `metadata` dict. The trials (and chunk indices, if you used a non-default `chan_per_worker` setting)
+Note that in Syncopy, FOOOF can be run several times in a single frontend call, e.i. you work with single trial spectra and keep the default `cfg.keeptrials=True`.
+Therefore, you will see one instance of these fitting results *per trial* (that is *per FOOOF call*) in the `metadata` dict. The trials (and chunk indices, if you used a non-default `chan_per_worker` setting)
 are encoded in the keys of the metadata sub dictionaries in format `<result>__<trial>_<chunk>`. E.g., `peak_params__2__0` would be the peak params for trial 2 (and chunk 0).
 
-In the example above, the typical use case of trial averaging (`cfg.keeptrials=False`) was demonstrated, so FOOOF was called on the trial-averaged data (i.e., on a single trial), and only one entry is present:
+In the example above, the typical use case of trial averaging (`cfg.keeptrials=False`) was demonstrated, so FOOOF operated on the trial-averaged spectrum (i.e., on effectively a single trial), and only one entry is present:
 
 .. code-block:: python
     :linenos:
 
-    spec_fooof_tuned.metadata.aperiodic_params
-    # {'aperiodic_params': {'aperiodic_params__0_0': array([[0.8006], [1.4998]])}
-
+    spec_fooof_tuned.metadata
+    # {'aperiodic_params': {'aperiodic_params__0_0': array([[0.8006], [1.4998]])},
+    # ...
 
 This concludes the tutorial on using FOOOF from Syncopy. Please do not forget to cite `Donoghue et al. 2020 <https://doi.org/10.1038/s41593-020-00744-x>`_ when using FOOOF.
-
