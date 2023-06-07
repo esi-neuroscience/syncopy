@@ -29,7 +29,7 @@ from pynwb.core import DynamicTableRegion
 __all__ = []
 
 
-def _get_nwbfile_template(num_channels=None):
+def _get_nwbfile_template(channels=None):
     """
     Get a template NWBFile object with some basic metadata. No data or electrodes are added.
 
@@ -38,7 +38,7 @@ def _get_nwbfile_template(num_channels=None):
 
     Parameters
     ----------
-    num_channels: int, number of channels, used for adding electrodes. If None, no electrodes are added. In that case,
+    channels: list of str, the channel names. The length of this list determines the number of channels. The channel names are used as labels for the electrodes.
     the correct amount of electrodes for the data's channel count must already exist, or be added later before
     adding data.
     """
@@ -60,22 +60,18 @@ def _get_nwbfile_template(num_channels=None):
             # When creating your own NWBFile, you can also add subject information by setting `nwbfile.subject` to a `pynwb.file.Subject` instance, see docs.
 
 
-    if num_channels is not None:
-        assert nwbfile.electrodes is None or len(nwbfile.electrodes.colnames) == 0
-        nwbfile, _ = _add_electrodes(nwbfile, num_channels)
+    nwbfile, _ = _add_electrodes(nwbfile, channels)
     return nwbfile
 
 
-def _add_electrodes(nwbfile, nchannels_per_shank, nshanks = 1):
+def _add_electrodes(nwbfile, channels):
     """Add the channel information (an 'electrode_table_region') to the NWBFile object `nwbfile`.
 
     Parameters
     ----------
     nwbfile: `pynwb.NWBFile` object, the NWBFile instance to which to add the channel information.
 
-    nchannels_per_shank: int, number of channels per shank. If you have only one shank, this is the total number of channels.
-
-    nshanks: int, number of shanks. Default is 1.
+    channels: list of str, the channel names. The length of this list determines the number of channels. The channel names are used as labels for the electrodes.
 
     Returns
     -------
@@ -88,6 +84,9 @@ def _add_electrodes(nwbfile, nchannels_per_shank, nshanks = 1):
     """
     # Add the channel information.
     ## First add the recording array
+    nchannels_per_shank = len(channels)
+    nshanks = 1  # We assume 1 shank.
+
     device = nwbfile.create_device(name="array", description="Unknown array", manufacturer="Unknown manufacturer")
     nwbfile.add_electrode_column(name="label", description="label of electrode")
 
@@ -107,7 +106,8 @@ def _add_electrodes(nwbfile, nchannels_per_shank, nshanks = 1):
             nwbfile.add_electrode(
                 group=electrode_group,
                 label="shank{}elec{}".format(ishank, ielec),
-                location="unknown brain area (shank {}, elec {})".format(ishank, ielec),
+                #location="unknown brain area (shank {}, elec {})".format(ishank, ielec),
+                location=channels[ielec],
             )
             electrode_counter += 1
 
@@ -149,7 +149,7 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
 
 
         if nwbfile is None:
-            nwbfile = _get_nwbfile_template(num_channels=len(atdata.channel))
+            nwbfile = _get_nwbfile_template(atdata.channel)
 
         electrode_region = DynamicTableRegion('electrodes', list(range(len(atdata.channel))), 'All electrodes.', nwbfile.electrodes)
 
@@ -253,7 +253,7 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
         num_channels = 1
 
         if nwbfile is None:
-            nwbfile = _get_nwbfile_template(num_channels=num_channels)
+            nwbfile = _get_nwbfile_template(channels=["Channel0"])
 
         # Now that we have an NWBFile and channels, we can add the data.
         # cf. https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212 to be

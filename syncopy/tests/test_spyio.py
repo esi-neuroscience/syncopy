@@ -656,6 +656,7 @@ class TestNWBExporter():
             assert isinstance(adata_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata_reread)}"
             assert len(adata_reread.channel) == numChannels, f"Expected {numChannels} channels, got {len(adata_reread.channel)}"
             assert len(adata_reread.trials) == 1
+            assert all(adata_reread.channel == adata.channel) # Check that channel names are saved and re-read correctly.
             assert np.allclose(adata.data, adata_reread.data)
 
     def test_save_nwb_analog_with_trialdef(self):
@@ -683,6 +684,7 @@ class TestNWBExporter():
             assert isinstance(adata_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata_reread)}"
             assert len(adata_reread.channel) == numChannels, f"Expected {numChannels} channels, got {len(adata_reread.channel)}"
             assert len(adata_reread.trials) == numTrials
+            assert all(adata_reread.channel == adata.channel) # Check that channel names are saved and re-read correctly.
             assert np.allclose(adata.data, adata_reread.data)
 
     def test_save_nwb_timelock_with_trialdef(self):
@@ -719,6 +721,7 @@ class TestNWBExporter():
             assert isinstance(adata_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata_reread)}"
             assert len(adata_reread.channel) == numChannels, f"Expected {numChannels} channels, got {len(adata_reread.channel)}"
             assert len(adata_reread.trials) == numTrials
+            assert all(adata_reread.channel == adata.channel) # Check that channel names are saved and re-read correctly.
             assert np.allclose(adata.data, adata_reread.data)
 
 

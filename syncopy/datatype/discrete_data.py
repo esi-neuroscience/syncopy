@@ -638,6 +638,7 @@ class SpikeData(DiscreteData):
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:
             io.write(nwbfile)
+            
     # implement plotting
     def singlepanelplot(self, **show_kwargs):
 
