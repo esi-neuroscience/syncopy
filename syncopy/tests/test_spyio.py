@@ -764,7 +764,11 @@ class TestNWBExporter():
 
     @skip_no_pynapple
     def test_load_exported_nwb_spikes_pynapple(self, plot_spikes=True):
-        """Test loading exported SpikeData in pynapple."""
+        """Test loading exported SpikeData in pynapple.
+
+            Also demonstrates how to use the pynapple API to access trials
+            and plot some spike times.
+        """
 
         spdata = poisson_noise()
 
