@@ -763,10 +763,11 @@ class TestNWBExporter():
             assert np.allclose(spdata.data[:, 0], spdata_reread.data[:, 0])
 
     @skip_no_pynapple
-    def test_load_exported_nwb_spikes_pynapple(self):
+    def test_load_exported_nwb_spikes_pynapple(self, plot_spikes=True):
         """Test loading exported SpikeData in pynapple."""
 
         spdata = poisson_noise()
+        import pynapple as pna
 
         with tempfile.TemporaryDirectory() as tdir:
             nwb_outpath = os.path.join(tdir, 'test_spike2nwb_pynapple.nwb')
@@ -775,9 +776,29 @@ class TestNWBExporter():
             _nwb_copy_pynapple(nwb_outpath, tdir)
             pyndata = nap.load_session(tdir, 'neurosuite')
             spikes = pyndata.spikes
+            assert type(spikes) == pna.core.ts_group.TsGroup, f"Expected list of SpikeData, got {type(spikes)}"
             neuron_0 = spikes[0]
             assert hasattr(neuron_0, 'times')
             assert hasattr(pyndata, 'epochs')
+
+            if plot_spikes:
+                import matplotlib.pyplot as plt
+                import matplotlib.gridspec as gridspec
+                unit_count = len(spikes)
+                assert unit_count == 10, f"Expected 10 units, got {unit_count}"
+                gs = gridspec.GridSpec(unit_count, 1)
+                neuron_idx = 0
+                for ts in spikes.values():
+                    ax = plt.subplot(gs[neuron_idx, 0])
+                    if neuron_idx == 0:
+                        ax.set_title('Spike times in Pynapple')
+                    assert hasattr(ts, 'times'), f"Neuron #{ts} with has no times attribute: {type(ts)}"
+                    assert type(ts.times()) == np.ndarray, f"Expected list of SpikeData, got {type(ts.times())}"
+                    ax.vlines(ts.times(), 0, 1)
+                    ax.get_xaxis().set_label_text('Time (s)')
+                    ax.set_ylabel(f'Unit {neuron_idx}')
+                    neuron_idx = neuron_idx + 1
+                plt.show()
 
 
 if __name__ == '__main__':
