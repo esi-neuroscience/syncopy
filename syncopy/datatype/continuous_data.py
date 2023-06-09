@@ -428,17 +428,22 @@ class AnalogData(ContinuousData):
 
         Parameters
         ----------
-        outpath : str, path-like. Where to save the NWB file, including file name and `.nwb` extension. All directories in the path must exist. Example: `'mydata.nwb'`.
+        outpath : str, path-like. Where to save the NWB file, including file name and `.nwb` extension.
+            All directories in the path must exist. Example: `'mydata.nwb'`.
 
-        nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
-         your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
+        nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created.
+            It is highly recommended to create your own NWBFile object and pass it to this function,
+            as this will allow you to add metadata to the file. If this is `None`,
+            all metadata fields will be set to `'unknown'`.
 
         with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
 
-        is_raw : Boolean, whether this is raw data (that should never change), as opposed to LFP data that originates from some processing, e.g., down-sampling and
-         detrending. Determines where data is stored in the NWB container, to make it easier for other software to interprete what the data represents. If `is_raw` is `True`,
-         the `ElectricalSeries` is stored directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a processing group called `ecephys`.
-         Note that for the Syncopy NWB reader, the data should be stored as raw, so this is currently the default.
+        is_raw : Boolean, whether this is raw data (that should never change), as opposed to LFP data that
+            typically originates from some preprocessing, e.g., down-sampling and detrending. Determines where
+            data is stored in the NWB container, to make it easier for other software to interprete what
+            the data represents. If `is_raw` is `True`, the ``ElectricalSeries`` is stored directly in an
+            acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in
+            a processing group called `ecephys`.
 
         Returns
         -------
@@ -446,12 +451,16 @@ class AnalogData(ContinuousData):
 
         Notes
         -----
-        Due to the very general architecture of the NWB format, many fields need to be interpreted by software reading the format. Thus,
+        Due to the very general architecture of the NWB format, many fields need to be interpreted
+        by software reading the format. Thus,
         providing a generic function to save Syncopy data in NWB format is possible only if you know who will read it.
-        Depending on your target software, you may need to manually format the data using pynwb before writing it to disk, or manually
-        open it using pynwb before using it with the target software.
+        Depending on your target software, you may need to manually format the data using pynwb before writing
+        it to disk, or manually open it using pynwb before using it with the target software.
 
-        Selections are ignored, the full data is exported. Create a new Syncopy data object before calling this function if you want to export a subset only.
+        In place selections are ignored, the full dataset is exported. Create a new Syncopy data object from a selection
+        before calling this function if you want to export a subset only.
+
+        The Syncopy NWB reader only supports the NWB raw data format.
         """
         nwbfile = _analog_timelocked_to_nwbfile(self, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
         # Write the file to disk.
