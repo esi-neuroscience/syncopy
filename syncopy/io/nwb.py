@@ -174,7 +174,7 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
     else:  # LFP, data used for analysis.
         lfp = LFP(electrical_series=time_series_with_rate)
         ecephys_module = nwbfile.create_processing_module(
-            name="ecephys", description=atdata.log
+            name="ecephys", description=atdata._log
         )
         ecephys_module.add(lfp)
 
