@@ -10,6 +10,7 @@ import h5py
 import subprocess
 import numpy as np
 from tqdm import tqdm
+import pynwb
 
 # Local imports
 from syncopy.datatype.continuous_data import AnalogData
@@ -17,15 +18,12 @@ from syncopy.datatype.discrete_data import EventData, SpikeData
 from syncopy.shared.errors import SPYError, SPYTypeError, SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import io_parser, scalar_parser, filename_parser
 
-# Conditional imports
-import pynwb
-
 __all__ = ["load_nwb"]
 
 
 def _is_valid_nwb_file(filename):
     try:
-        this_python = os.path.join(os.path.dirname(sys.executable),'python')
+        this_python = os.path.join(os.path.dirname(sys.executable), 'python')
         subprocess.run([this_python, "-m", "pynwb.validate", filename], check=True)
         return True, None
     except subprocess.CalledProcessError as exc:
@@ -330,12 +328,10 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
         spike_units = np.concatenate([np.array([i] * len(spikes_by_unit[i])) for i in spikes_by_unit.keys()])
         spike_channels = np.array([0] * len(spike_times))  # single channel, map all to channel 0.
 
-
         # Try to get the samplerate from the NWB file
         samplerate = sRates[0]
         spike_data_sampleidx = np.column_stack((np.rint(spike_times * samplerate), spike_channels, spike_units))
         hdf5_file = h5py.File(spData.filename, mode="w")
-
 
         spDset = hdf5_file.create_dataset("data", data=spike_data_sampleidx, dtype=np.int64)
 
@@ -354,7 +350,5 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
 
     # Close NWB file
     nwbio.close()
-
-
 
     return objectDict

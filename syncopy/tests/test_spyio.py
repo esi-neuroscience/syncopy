@@ -578,7 +578,6 @@ class TestTDTImporter:
             load_tdt(self.tdt_dir, start_code=self.start_code, end_code=999999)
 
 
-
 class TestNWBImporter:
 
     nwb_filename = None
@@ -637,7 +636,7 @@ class TestNWBExporter():
         """Test saving to NWB file and re-reading data for AnalogData, without trial definition."""
 
         numChannels = 64
-        adata = white_noise(nTrials = 1, nChannels=numChannels, nSamples= 1000)
+        adata = white_noise(nTrials=1, nChannels=numChannels, nSamples= 1000)
 
         assert isinstance(adata, spy.AnalogData)
         assert len(adata.channel) == numChannels
