@@ -18,16 +18,7 @@ from syncopy.shared.errors import SPYError, SPYTypeError, SPYValueError, SPYWarn
 from syncopy.shared.parsers import io_parser, scalar_parser, filename_parser
 
 # Conditional imports
-
 import pynwb
-
-# Global consistent error message if NWB is missing
-nwbErrMsg = "\nSyncopy <core> WARNING: Could not import 'pynwb'. \n" +\
-          "{} requires a working pyNWB installation. \n" +\
-          "Please consider installing 'pynwb', e.g., via conda: \n" +\
-          "\tconda install -c conda-forge pynwb\n" +\
-          "or using pip:\n" +\
-          "\tpip install pynwb"
 
 __all__ = ["load_nwb"]
 
@@ -40,6 +31,7 @@ def _is_valid_nwb_file(filename):
     except subprocess.CalledProcessError as exc:
         err = f"NWB file validation failed. Original error message: {str(exc)}"
         return False, err
+
 
 def load_nwb(filename, memuse=3000, container=None, validate=False, default_spike_data_samplerate=None):
     """
