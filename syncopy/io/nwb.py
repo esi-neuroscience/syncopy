@@ -118,7 +118,7 @@ def _add_electrodes(nwbfile, channels):
 
 
 def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=True, is_raw=True):
-    """Convert `AnalogData` or `TimeLockData` into a `pynwb.NWBFile` instance, 
+    """Convert `AnalogData` or `TimeLockData` into a `pynwb.NWBFile` instance,
     for writing to files in Neurodata Without Borders (NWB) file format.
     An NWBFile represents a single session of an experiment.
 
@@ -126,16 +126,16 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
     ----------
     atdata : :class:`syncopy.AnalogData` or :class:`syncopy.TimeLockData`object, the data object to be converted to NWB.
 
-    nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. 
-        It is highly recommended to create your own NWBFile object and pass it to this function, 
+    nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created.
+        It is highly recommended to create your own NWBFile object and pass it to this function,
         as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
 
     with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
 
-    is_raw : Boolean, whether this is raw data (that should never change), or LFP data that originates from some preprocessing, 
-        e.g., down-sampling and detrending. Determines where data is stored in the NWB container, to make it easier for 
-        other software to interprete what the data represents. If `is_raw` is `True`, the `ElectricalSeries` is stored 
-        directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a 
+    is_raw : Boolean, whether this is raw data (that should never change), or LFP data that originates from some preprocessing,
+        e.g., down-sampling and detrending. Determines where data is stored in the NWB container, to make it easier for
+        other software to interprete what the data represents. If `is_raw` is `True`, the `ElectricalSeries` is stored
+        directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a
         processing group called `ecephys`.
         Note that for the Syncopy NWB reader, the data should be stored as raw, so this is currently the default.
 
@@ -153,7 +153,10 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
     if nwbfile is None:
         nwbfile = _get_nwbfile_template(atdata.channel)
 
-    electrode_region = DynamicTableRegion('electrodes', list(range(len(atdata.channel))), 'All electrodes.', nwbfile.electrodes)
+    electrode_region = DynamicTableRegion(name='electrodes',
+                                          data=list(range(len(atdata.channel))),
+                                          description='All electrodes.',
+                                          table=nwbfile.electrodes)
 
     # Now that we have an NWBFile and channels, we can add the data.
     time_series_with_rate = ElectricalSeries(
@@ -259,15 +262,15 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
     # Now that we have an NWBFile and channels, we can add the data.
     # cf. https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212 to be
     # compatible with Neurosuite/Pynapple.
-    #electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
-    #electrode_region = DynamicTableRegion('electrodes', list(range(num_channels)), 'All electrodes.', nwbfile.electrodes)
+    # electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
+    # electrode_region = DynamicTableRegion(name='electrodes', data=list(range(num_channels)), description='All electrodes.', table=nwbfile.electrodes)
 
-    data_single_channel = np.delete(sdata.data, obj=1, axis=1) # Delete unused channel column.
+    data_single_channel = np.delete(sdata.data, obj=1, axis=1)  # Delete unused channel column.
 
     units = np.unique(data_single_channel[:, 1])
 
     if unit_info is None:
-        unit_info = { 'location' : dict(), 'group' : dict() }
+        unit_info = {'location': dict(), 'group': dict() }
 
     # See how they do in Pynapple for compatibility:
     # https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212
