@@ -47,18 +47,17 @@ def _get_nwbfile_template(channels=None):
     start_time = tz.localize(start_time_no_tz)
 
     nwbfile = NWBFile(
-                session_description="unknown",          # required
-                identifier=str(uuid4()),                # required
-                session_start_time=start_time,      # required and relevant, use something like `datetime(2018, 4, 25, 2, 30, 3, tzinfo=tz.gettz("US/Pacific"))` for real data.
-                session_id="session_0001",              # optional. remember that one file is for one session.
-                experimenter=[ "unknown", ],            # optional, name of experimenters
-                lab="unknown",                          # optional, the research lab where the experiment was performed
-                institution="unknown",                  # optional
-                experiment_description="unknown",       # optional
-                related_publications="",                # put a DOI here, if any. e.g., "https://doi.org/###"
-            )
-            # When creating your own NWBFile, you can also add subject information by setting `nwbfile.subject` to a `pynwb.file.Subject` instance, see docs.
-
+        session_description="unknown",          # required
+        identifier=str(uuid4()),                # required
+        session_start_time=start_time,      # required and relevant, use something like `datetime(2018, 4, 25, 2, 30, 3, tzinfo=tz.gettz("US/Pacific"))` for real data.
+        session_id="session_0001",              # optional. remember that one file is for one session.
+        experimenter=[ "unknown", ],            # optional, name of experimenters
+        lab="unknown",                          # optional, the research lab where the experiment was performed
+        institution="unknown",                  # optional
+        experiment_description="unknown",       # optional
+        related_publications="",                # put a DOI here, if any. e.g., "https://doi.org/###"
+    )
+    # When creating your own NWBFile, you can also add subject information by setting `nwbfile.subject` to a `pynwb.file.Subject` instance, see docs.
 
     nwbfile, _ = _add_electrodes(nwbfile, channels)
     return nwbfile
@@ -119,66 +118,68 @@ def _add_electrodes(nwbfile, channels):
 
 
 def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=True, is_raw=True):
-        """Convert `AnalogData` or `TimeLockData` into a `pynwb.NWBFile` instance, for writing to files in Neurodata Without Borders (NWB) file format.
-        An NWBFile represents a single session of an experiment.
+    """Convert `AnalogData` or `TimeLockData` into a `pynwb.NWBFile` instance, 
+    for writing to files in Neurodata Without Borders (NWB) file format.
+    An NWBFile represents a single session of an experiment.
 
-        Parameters
-        ----------
-        atdata : :class:`syncopy.AnalogData` or :class:`syncopy.TimeLockData`object, the data object to be converted to NWB.
+    Parameters
+    ----------
+    atdata : :class:`syncopy.AnalogData` or :class:`syncopy.TimeLockData`object, the data object to be converted to NWB.
 
-        nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
-         your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
+    nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. 
+        It is highly recommended to create your own NWBFile object and pass it to this function, 
+        as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
 
-        with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
+    with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
 
-        is_raw : Boolean, whether this is raw data (that should never change), as opposed to LFP data that originates from some processing, e.g., down-sampling and
-         detrending. Determines where data is stored in the NWB container, to make it easier for other software to interprete what the data represents. If `is_raw` is `True`,
-         the `ElectricalSeries` is stored directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a processing group called `ecephys`.
-         Note that for the Syncopy NWB reader, the data should be stored as raw, so this is currently the default.
+    is_raw : Boolean, whether this is raw data (that should never change), or LFP data that originates from some preprocessing, 
+        e.g., down-sampling and detrending. Determines where data is stored in the NWB container, to make it easier for 
+        other software to interprete what the data represents. If `is_raw` is `True`, the `ElectricalSeries` is stored 
+        directly in an acquisition of the :class:`pynwb.NWBFile`. If False, it is stored inside an `LFP` instance in a 
+        processing group called `ecephys`.
+        Note that for the Syncopy NWB reader, the data should be stored as raw, so this is currently the default.
 
-        Returns
-        -------
-        :class:`pynwb.NWBFile` object, the NWBFile instance that contains the data.
+    Returns
+    -------
+    :class:`pynwb.NWBFile` object, the NWBFile instance that contains the data.
 
-        Notes
-        -----
-        This internal function is provided such that you can use it to create an NWBFile instance, and then modify it before writing it to disk.
-        """
-        # See https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html
-        # It is also worth veryfying that the web tool nwbexplorer can read the produced files, see http://nwbexplorer.opensourcebrain.org/.
+    Notes
+    -----
+    This internal function is provided such that you can use it to create an NWBFile instance, and then modify it before writing it to disk.
+    """
+    # See https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html
+    # It is also worth veryfying that the web tool nwbexplorer can read the produced files, see http://nwbexplorer.opensourcebrain.org/.
 
+    if nwbfile is None:
+        nwbfile = _get_nwbfile_template(atdata.channel)
 
-        if nwbfile is None:
-            nwbfile = _get_nwbfile_template(atdata.channel)
+    electrode_region = DynamicTableRegion('electrodes', list(range(len(atdata.channel))), 'All electrodes.', nwbfile.electrodes)
 
-        electrode_region = DynamicTableRegion('electrodes', list(range(len(atdata.channel))), 'All electrodes.', nwbfile.electrodes)
+    # Now that we have an NWBFile and channels, we can add the data.
+    time_series_with_rate = ElectricalSeries(
+        name="ElectricalSeries",
+        data=atdata.data,
+        electrodes=electrode_region,
+        starting_time=0.0,
+        rate=atdata.samplerate, # Fixed sampling rate.
+        description="Electrical time series dataset",
+        comments="Exported by Syncopy",
+    )
 
-
-        # Now that we have an NWBFile and channels, we can add the data.
-        time_series_with_rate = ElectricalSeries(
-            name="ElectricalSeries",
-            data=atdata.data,
-            electrodes=electrode_region,
-            starting_time=0.0,
-            rate=atdata.samplerate, # Fixed sampling rate.
-            description="Electrical time series dataset",
-            comments="Exported by Syncopy",
+    if is_raw:  # raw measurements from instruments, not to be changed. Not downsampled, detrended, or anything. This is not enforced technically, but it is a convention.
+        nwbfile.add_acquisition(time_series_with_rate)
+    else:  # LFP, data used for analysis.
+        lfp = LFP(electrical_series=time_series_with_rate)
+        ecephys_module = nwbfile.create_processing_module(
+            name="ecephys", description=atdata.log
         )
-
-        if is_raw:  # raw measurements from instruments, not to be changed. Not downsampled, detrended, or anything. This is not enforced technically, but it is a convention.
-            nwbfile.add_acquisition(time_series_with_rate)
-        else: # LFP, data used for analysis.
-            lfp = LFP(electrical_series=time_series_with_rate)
-            ecephys_module = nwbfile.create_processing_module(
-                name="ecephys", description=atdata.log
-            )
-            ecephys_module.add(lfp)
+        ecephys_module.add(lfp)
 
 
-        # Add trial definition, if possible and requested.
-        _add_trials_to_nwbfile(nwbfile, atdata.trialdefinition, atdata.samplerate, do_add=with_trialdefinition)
+    # Add trial definition, if possible and requested.
+    _add_trials_to_nwbfile(nwbfile, atdata.trialdefinition, atdata.samplerate, do_add=with_trialdefinition)
 
-        return nwbfile
+    return nwbfile
 
 
 def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True, save_as="both"):
@@ -217,81 +218,82 @@ def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True, sa
 
 
 def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_info=None):
-        """Convert SpikeData into pynwb.NWBFile instance, for writing to files in Neurodata Without Borders (NWB) file format.
-        An NWBFile represents a single session of an experiment.
+    """Convert SpikeData into pynwb.NWBFile instance, for writing to files in Neurodata Without Borders (NWB) file format.
+    An NWBFile represents a single session of an experiment.
 
-        Parameters
-        ----------
-        sdata : :class:`syncopy.AnalogData` or :class:`syncopy.TimeLockData`object, the data object to be converted to NWB.
+    Parameters
+    ----------
+    sdata : :class:`syncopy.AnalogData` or :class:`syncopy.TimeLockData`object, the data object to be converted to NWB.
 
-        nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
-         your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
+    nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
+     your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
 
-        with_trialdefinition : Boolean, whether to save the trial definition to the NWB file.
+    with_trialdefinition : Boolean, whether to save the trial definition to the NWB file.
 
-        unit_info : dict of dicts or None, metadata for the units (neurons). The outer dict must have the two keys 'location' and 'group', holding one dict each. Inner dicts are of type `<int, str>` and map numeric unit ids to their location and group, respectively. Both location and group are freeform strings.
+    unit_info : dict of dicts or None, metadata for the units (neurons). The outer dict must have the two keys 'location' and 'group', holding one dict each. Inner dicts are of type `<int, str>` and map numeric unit ids to their location and group, respectively. Both location and group are freeform strings.
 
-        Returns
-        -------
-        :class:`pynwb.NWBFile` object, the NWBFile instance that contains the data. Note that channel information is lost, as it is
-        not stored in unit data structure in the NWB file. With spike data, the channel is not relevant anymore, as spike sorting has already been performed
-        and thus neurons have been identified. The unit (neuron) is the relevant entity here.
+    Returns
+    -------
+    :class:`pynwb.NWBFile` object, the NWBFile instance that contains the data. Note that channel information is lost, as it is
+    not stored in unit data structure in the NWB file. With spike data, the channel is not relevant anymore, as spike sorting has already been performed
+    and thus neurons have been identified. The unit (neuron) is the relevant entity here.
 
-        Also note that NWB format does not save spikes as spike indices, but as spike times. Thus, the spike times are converted to spike times before saving.
-        Due to that, the NWB file also does not save the samplerate. While this is okay for saving the data, it is not okay for reading it back in, as the
-        samplerate is needed to convert the spike times back to spike indices. Thus, the samplerate is saved as a unit metadata field, and the Syncopy NWB reader
-        will use this to convert the spike times back to spike indices when creating the `spy.SpikeData` instance.
+    Also note that NWB format does not save spikes as spike indices, but as spike times. Thus, the spike times are converted to spike times before saving.
+    Due to that, the NWB file also does not save the samplerate. While this is okay for saving the data, it is not okay for reading it back in, as the
+    samplerate is needed to convert the spike times back to spike indices. Thus, the samplerate is saved as a unit metadata field, and the Syncopy NWB reader
+    will use this to convert the spike times back to spike indices when creating the `spy.SpikeData` instance.
 
-        Notes
-        -----
-        This internal function is provided such that you can use it to create an NWBFile instance, and then modify it before writing it to disk.
-        """
-        # See https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html
-        # It is also worth veryfying that the web tool nwbexplorer can read the produced files, see http://nwbexplorer.opensourcebrain.org/.
+    Notes
+    -----
+    This internal function is provided such that you can use it to create an NWBFile instance, and then modify it before writing it to disk.
+    """
+    # See https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html
+    # It is also worth veryfying that the web tool nwbexplorer can read the produced files, see http://nwbexplorer.opensourcebrain.org/.
 
 
-        num_channels = 1
+    num_channels = 1
 
-        if nwbfile is None:
-            nwbfile = _get_nwbfile_template(channels=["Channel0"])
+    if nwbfile is None:
+        nwbfile = _get_nwbfile_template(channels=["Channel0"])
 
-        # Now that we have an NWBFile and channels, we can add the data.
-        # cf. https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212 to be
-        # compatible with Neurosuite/Pynapple.
-        #electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
-        #electrode_region = DynamicTableRegion('electrodes', list(range(num_channels)), 'All electrodes.', nwbfile.electrodes)
+    # Now that we have an NWBFile and channels, we can add the data.
+    # cf. https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212 to be
+    # compatible with Neurosuite/Pynapple.
+    #electrode_region = nwbfile.electrodes.create_region("electrodes", region=list(range(len(sdata.channel))), description="All electrodes.")
+    #electrode_region = DynamicTableRegion('electrodes', list(range(num_channels)), 'All electrodes.', nwbfile.electrodes)
 
-        data_single_channel = np.delete(sdata.data, obj=1, axis=1) # Delete unused channel column.
+    data_single_channel = np.delete(sdata.data, obj=1, axis=1) # Delete unused channel column.
 
-        units = np.unique(data_single_channel[:, 1])
+    units = np.unique(data_single_channel[:, 1])
 
-        if unit_info is None:
-            unit_info = { 'location' : dict(), 'group' : dict() }
+    if unit_info is None:
+        unit_info = { 'location' : dict(), 'group' : dict() }
 
-        # See how they do in Pynapple for compatibility:
-        # https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212
+    # See how they do in Pynapple for compatibility:
+    # https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212
 
-        # Extra fields for Pynapple compatibility
-        nwbfile.add_unit_column("location", "the anatomical location of this unit")
-        nwbfile.add_unit_column("group", "the group of the unit")
+    # Extra fields for Pynapple compatibility
+    nwbfile.add_unit_column("location", "the anatomical location of this unit")
+    nwbfile.add_unit_column("group", "the group of the unit")
 
-        # Extra fields for Syncopy compatibility, so we can restore the samplerate when reading the file.
-        nwbfile.add_unit_column("samplerate", "the samplerate of the unit. this is the same as the samplerate of the data, and identical across all units.")
+    # Extra fields for Syncopy compatibility, so we can restore the samplerate when reading the file.
+    nwbfile.add_unit_column("samplerate", "the samplerate of the unit. this is the same as the samplerate of the data, and identical across all units.")
 
-        for unit_idx in units:
-            nwbfile.add_unit(
-                id=unit_idx,
-                spike_times = data_single_channel[np.where(data_single_channel[:, 1] == unit_idx), 0].flatten() / sdata.samplerate,
-                electrodes=list(range(num_channels)),
-                location=unit_info['location'].get(unit_idx, "unknown"),
-                group=unit_info['group'].get(unit_idx, "unknown"),
-                samplerate=sdata.samplerate,
-                )
+    for unit_idx in units:
+        nwbfile.add_unit(
+            id=unit_idx,
+            spike_times = data_single_channel[np.where(data_single_channel[:, 1] == unit_idx), 0].flatten() / sdata.samplerate,
+            electrodes=list(range(num_channels)),
+            location=unit_info['location'].get(unit_idx, "unknown"),
+            group=unit_info['group'].get(unit_idx, "unknown"),
+            samplerate=sdata.samplerate,
+            )
 
-        # Add trial definition, if possible and requested.
-        _add_trials_to_nwbfile(nwbfile, sdata.trialdefinition, sdata.samplerate, do_add=with_trialdefinition)
+    # Add trial definition, if possible and requested.
+    _add_trials_to_nwbfile(nwbfile, sdata.trialdefinition, sdata.samplerate, do_add=with_trialdefinition)
 
-        return nwbfile
+    return nwbfile
+
 
 def _nwb_copy_pynapple(nwbfilepath, targetdir):
     """
@@ -311,5 +313,3 @@ def _nwb_copy_pynapple(nwbfilepath, targetdir):
     subdir = os.path.join(targetdir, "pynapplenwb")
     os.makedirs(subdir, exist_ok=True)
     shutil.copy(nwbfilepath, subdir)
-
-
