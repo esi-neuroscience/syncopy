@@ -104,7 +104,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
 
             channels = lfp.electrodes[:].location
             if channels.unique().size == 1:
-                SPYWarning("No unique channel names found for {}".format(acqName))
+                SPYWarning("No unique channel names found for LFP.")
 
             dTypes.append(lfp.data.dtype)
             if lfp.channel_conversion is not None:
