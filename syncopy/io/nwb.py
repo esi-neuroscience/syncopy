@@ -171,7 +171,7 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
 
     if is_raw:  # raw measurements from instruments, not to be changed. Not downsampled, detrended, or anything. This is not enforced technically, but it is a convention.
         nwbfile.add_acquisition(time_series_with_rate)
-    else:  # LFP, data used for analysis.
+    else:  # LFP, data used for analysis, or the result of an analysis.
         lfp = LFP(electrical_series=time_series_with_rate)
         ecephys_module = nwbfile.create_processing_module(
             name="ecephys", description=atdata._log

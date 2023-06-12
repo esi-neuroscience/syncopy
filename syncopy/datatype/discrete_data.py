@@ -608,16 +608,13 @@ class SpikeData(DiscreteData):
         elif data is not None:
             self.unit = self._default_unit_labels()
 
-    def save_nwb(self, outpath, nwbfile=None, with_trialdefinition=True):
+    def save_nwb(self, outpath, with_trialdefinition=True):
         """Save SpikeData in Neurodata Without Borders (NWB) file format.
         An NWBFile represents a single session of an experiment.
 
         Parameters
         ----------
         outpath : str, path-like. Where to save the NWB file, including file name and `.nwb` extension. All directories in the path must exist. Example: `'mydata.nwb'`.
-
-        nwbfile : :class:`pynwb.NWBFile` object or None. If `None`, a new NWBFile will be created. It is highly recommended to create
-         your own NWBFile object and pass it to this function, as this will allow you to add metadata to the file. If this is `None`, all metadata fields will be set to `'unknown'`.
 
         with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
 
@@ -634,7 +631,7 @@ class SpikeData(DiscreteData):
 
         Selections are ignored, the full data is exported. Create a new Syncopy data object before calling this function if you want to export a subset only.
         """
-        nwbfile = _spikedata_to_nwbfile(self, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition)
+        nwbfile = _spikedata_to_nwbfile(self, nwbfile=None, with_trialdefinition=with_trialdefinition)
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:
             io.write(nwbfile)

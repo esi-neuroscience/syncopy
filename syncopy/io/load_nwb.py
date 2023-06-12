@@ -94,11 +94,9 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
     hasSpikedata = "units" in nwbfile.fields.keys()
     hasAcquisitions = "acquisition" in nwbfile.fields.keys()
 
-    # Access LFPs in ecephys processing module
-    hasLFP = False
+    # Access LFPs in ecephys processing module, if any.
     try:
         lfp = nwbfile.processing["ecephys"]["LFP"]["ElectricalSeries"]
-        hasLFP = True
 
         if isinstance(lfp, pynwb.ecephys.ElectricalSeries):
 

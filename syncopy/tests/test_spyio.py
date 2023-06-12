@@ -714,6 +714,7 @@ class TestNWBExporter():
             assert all(adata_reread.channel == adata.channel) # Check that channel names are saved and re-read correctly.
             assert np.allclose(adata.data, adata_reread.data)
 
+
     def test_save_nwb_timelock_with_trialdef(self):
         """Test saving to NWB file and re-reading data for TimeLockData with a trial definition.
         Currently, when the file is bering re-read, it results in an AnalogData object, not a TimeLockData object.
