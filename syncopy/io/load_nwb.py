@@ -94,6 +94,30 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
     hasSpikedata = "units" in nwbfile.fields.keys()
     hasAcquisitions = "acquisition" in nwbfile.fields.keys()
 
+    # Access LFPs in ecephys processing module
+    hasLFP = False
+    try:
+        lfp = nwbfile.processing["ecephys"]["LFP"]["ElectricalSeries"]
+        hasLFP = True
+
+        if isinstance(lfp, pynwb.ecephys.ElectricalSeries):
+
+            channels = lfp.electrodes[:].location
+            if channels.unique().size == 1:
+                SPYWarning("No unique channel names found for {}".format(acqName))
+
+            dTypes.append(lfp.data.dtype)
+            if lfp.channel_conversion is not None:
+                dTypes.append(lfp.channel_conversion.dtype)
+
+            tStarts.append(lfp.starting_time)
+            sRates.append(lfp.rate)
+            nSamples = max(nSamples, lfp.data.shape[0])
+            angSeries.append(lfp)
+    except KeyError:
+        pass
+
+
     # Access all (supported) `acquisition` fields in the file
     for acqName, acqValue in nwbfile.acquisition.items():
 
@@ -132,7 +156,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
 
         # Unsupported
         else:
-            lgl = "supported NWB data class"
+            lgl = "supported NWB Acquisition data class"
             raise SPYValueError(lgl, varname=acqName, actual=str(acqValue.__class__))
 
     # Load Spike Data from units. The data gets turned into a SpikeData object later.
