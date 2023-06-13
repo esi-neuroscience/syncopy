@@ -80,7 +80,7 @@ Finally we can just add our red noise dataset to arrive at our final synthetic d
 .. note::
    Syncopy arithmetics follow `NumPy's broadcasting rules <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ on a trial-by-trial basis. Meaning single arrays which are broadcastable to every trial OR Syncopy datasets where each trial-pair of both datasets is shape compatible are valid operands. 
   
-``adata`` is a dataset of type :class:`~syncopy.AnalogData`, which is intended for holding time-series data like electrophys. measurements. Let's have a look at a small snippet of the 1st trial::
+``adata`` is a dataset of type :class:`~syncopy.AnalogData`, which is intended for holding time-series data like electrophysiological measurements. Let's have a look at a small snippet of the first trial::
 
   adata.singlepanelplot(trials=0, latency=[0, 0.5])
 

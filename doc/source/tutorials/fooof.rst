@@ -10,7 +10,7 @@ Knight RT, Shestyuk A, & Voytek B (2020). Parameterizing neural power spectra in
 and aperiodic components. Nature Neuroscience, 23, 1655-1665.
 DOI: 10.1038/s41593-020-00744-x`
 
-The FOOOF method requires as input an Syncopy :class:`~syncopy.AnalogData` object, so time series data like for example a LFP signal.
+The FOOOF method requires as input an Syncopy :class:`~syncopy.AnalogData` object, so time series data like an LFP signal.
 Applying FOOOF can then be seen as a post-processing of a :ref:`multi-tapered Fourier Analysis <mtmfft>`.
 
 

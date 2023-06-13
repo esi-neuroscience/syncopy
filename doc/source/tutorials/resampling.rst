@@ -4,7 +4,7 @@ Resample data with Syncopy
 Changing the sampling rate of a dataset is a common task in digital signal processing. With :func:`~syncopy.resampledata` Syncopy offers simple *downsampling* (decimation) with or without explicit low pass filtering, and the numerically more expensive *resampling* to arbitrary new sampling rates.
 
 .. Note::
-   Our friends at FieldTrip also have a nice tutorial about resampling `here <https://www.fieldtriptoolbox.org/faq/resampling_lowpassfilter>`_
+   Our friends at FieldTrip also have a nice tutorial about resampling `here <https://www.fieldtriptoolbox.org/faq/resampling_lowpassfilter>`_.
 
 .. contents:: Topics covered
    :local:
