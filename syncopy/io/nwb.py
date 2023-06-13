@@ -117,7 +117,7 @@ def _add_electrodes(nwbfile, channels):
     return nwbfile, electrodes
 
 
-def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=True, is_raw=True):
+def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=True, is_raw=True, elec_series_name="ElectricalSeries"):
     """Convert `AnalogData` or `TimeLockData` into a `pynwb.NWBFile` instance,
     for writing to files in Neurodata Without Borders (NWB) file format.
     An NWBFile represents a single session of an experiment.
@@ -160,7 +160,7 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
 
     # Now that we have an NWBFile and channels, we can add the data.
     time_series_with_rate = ElectricalSeries(
-        name="ElectricalSeries",
+        name=elec_series_name,
         data=atdata.data,
         electrodes=electrode_region,
         starting_time=0.0,
@@ -208,10 +208,11 @@ def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True, sa
     if trialdefinition is None or not do_add:
         return
 
-    nwbfile.add_trial_column(
-        name="offset",
-        description="The offset of the trial.",
-    )
+    if nwbfile.trials is None or not "offset" in nwbfile.trials.colnames:
+        nwbfile.add_trial_column(
+            name="offset",
+            description="The offset of the trial.",
+        )
     for trial_idx in range(trialdefinition.shape[0]):
         td = trialdefinition[trial_idx, :].astype(np.float64) / samplerate # Compute time from sample number.
         if save_as == "both" or save_as == "trials":

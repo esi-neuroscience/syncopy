@@ -422,7 +422,7 @@ class AnalogData(ContinuousData):
         figax = mp_plotting.plot_AnalogData(self, **show_kwargs)
         return figax
 
-    def save_nwb(self, outpath, with_trialdefinition=True, is_raw=True):
+    def save_nwb(self, outpath, nwbfile=None, with_trialdefinition=True, is_raw=True):
         """Save AnalogData in Neurodata Without Borders (NWB) file format.
         An NWBFile represents a single session of an experiment.
 
@@ -457,7 +457,7 @@ class AnalogData(ContinuousData):
 
         The Syncopy NWB reader only supports the NWB raw data format.
         """
-        nwbfile = _analog_timelocked_to_nwbfile(self, nwbfile=None, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
+        nwbfile = _analog_timelocked_to_nwbfile(self, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:
             io.write(nwbfile)

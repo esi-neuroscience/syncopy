@@ -714,6 +714,38 @@ class TestNWBExporter():
             assert all(adata_reread.channel == adata.channel) # Check that channel names are saved and re-read correctly.
             assert np.allclose(adata.data, adata_reread.data)
 
+    def test_save_nwb_analog_2(self):
+        """Test saving to NWB file and re-reading data for 2x AnalogData."""
+
+        numChannels = 64
+        numTrials = 5
+        adata = white_noise(nTrials = numTrials, nChannels=numChannels, nSamples= 1000)
+        adata2 = white_noise(nTrials = numTrials, nChannels=numChannels, nSamples= 1000)
+
+        assert isinstance(adata, spy.AnalogData)
+        assert len(adata.channel) == numChannels
+        assert len(adata.trials) == numTrials
+
+        with tempfile.TemporaryDirectory() as tdir:
+            outpath = os.path.join(tdir, 'test_save_analog2nwb2.nwb')
+            nwbfile = adata.save_nwb(outpath=outpath, is_raw=True)
+            adata2.save_nwb(outpath=outpath, nwbfile=nwbfile, with_trialdefinition=False, is_raw=False)
+
+            if self.do_validate_NWB:
+                is_valid, err = _is_valid_nwb_file(outpath)
+                assert is_valid, f"Exported NWB file failed validation: {err}"
+
+            data_instances_reread = load_nwb(outpath)
+            assert len(list(data_instances_reread.values())) == 2, f"Expected 2 loaded data instances, got {len(list(data_instances_reread.values()))}"
+            adata_reread = list(data_instances_reread.values())[1]
+            adata2_reread = list(data_instances_reread.values())[0]
+            assert isinstance(adata_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata_reread)}"
+            assert len(adata_reread.channel) == numChannels, f"Expected {numChannels} channels, got {len(adata_reread.channel)}"
+            assert len(adata_reread.trials) == numTrials
+            assert all(adata_reread.channel == adata.channel) # Check that channel names are saved and re-read correctly.
+            assert np.allclose(adata.data, adata_reread.data)
+            assert np.allclose(adata2.data, adata2_reread.data)
+
 
     def test_save_nwb_timelock_with_trialdef(self):
         """Test saving to NWB file and re-reading data for TimeLockData with a trial definition.
