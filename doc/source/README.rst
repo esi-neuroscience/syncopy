@@ -37,22 +37,22 @@ Tutorials and in depth Guides
 -----------------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Tutorials
 
-   Resampling <tutorials/resampling>
+   Preprocessing <tutorials/preprocessing>
+   Resampling <tutorials/resampling>   
    Spectral Analysis <tutorials/freqanalysis>
-
+   Connectivity Analysis <tutorials/connectivity>
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Guides	      
    
    Basic Concepts <user/concepts>
    Syncopy for FieldTrip Users <user/fieldtrip>
    Handling Data <user/data>
    Parallel Processing <user/parallel>
-   Selections <user/selectdata>
 
 API
 ---

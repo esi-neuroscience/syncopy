@@ -171,7 +171,9 @@ try:
 except:
     sys.excepthook = SPYExceptionHandler
 
+# bring logging into global namespace
 from .shared.errors import log
+from .shared.log import set_loglevel
 
 # Manage user-exposed namespace imports
 __all__ = []

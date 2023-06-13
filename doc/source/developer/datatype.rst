@@ -27,8 +27,10 @@ classes (see also `Wikipedia
 
 The bottom classes in the class tree are for active use in analyses.
 
-Usable Syncopy Data Classes
-----------------------------
+.. _data_classes:
+
+Syncopy Data Classes
+--------------------
 The following classes can be instanced at the package-level (``spy.AnalogData(...)`` etc.)
 
 .. autosummary::
