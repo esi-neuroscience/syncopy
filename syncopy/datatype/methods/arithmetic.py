@@ -179,7 +179,7 @@ def _parse_input(obj1, obj2, operator):
             try:
                 np.broadcast_shapes(trl.shape, operand.shape)
             except ValueError:
-                lgl = "array of compatible trial shape"
+                lgl = f"array compatible to trial shape {trl.shape}"
                 act = "array with shape {}"
                 raise SPYValueError(lgl, varname="operand", actual=act.format(operand.shape))
 

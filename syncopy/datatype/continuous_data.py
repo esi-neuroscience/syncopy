@@ -689,10 +689,9 @@ class CrossSpectralData(ContinuousData):
             # set frequencies
             self.freq = freq
 
-
     def singlepanelplot(self, **show_kwargs):
 
-        sp_plotting.plot_CrossSpectralData(self, **show_kwargs)
+        return sp_plotting.plot_CrossSpectralData(self, **show_kwargs)
 
 
 class TimeLockData(ContinuousData):

@@ -4,13 +4,10 @@ Resample data with Syncopy
 Changing the sampling rate of a dataset is a common task in digital signal processing. With :func:`~syncopy.resampledata` Syncopy offers simple *downsampling* (decimation) with or without explicit low pass filtering, and the numerically more expensive *resampling* to arbitrary new sampling rates.
 
 .. Note::
-   Our friends at FieldTrip also have a nice tutorial about resampling `here <https://www.fieldtriptoolbox.org/faq/resampling_lowpassfilter>`_
+   Our friends at FieldTrip also have a nice tutorial about resampling `here <https://www.fieldtriptoolbox.org/faq/resampling_lowpassfilter>`_.
 
 .. contents:: Topics covered
    :local:
-
-Create Example Data
--------------------
 
 To start with a clean slate, let's construct a synthetic signal with two harmonics,
 one at 200Hz and one at 1300Hz:
@@ -28,13 +25,13 @@ one at 200Hz and one at 1300Hz:
     cfg.samplerate = 5000  # in Hz
 
     # add a strong harmonic with 200Hz
-    adata = 2 * synthdata.harmonic(freq=200, cfg)
+    adata = 2 * synthdata.harmonic(cfg, freq=200)
 
     # add another harmonic with 1300Hz
-    adata += synthdata.harmonic(freq=1300, cfg)
+    adata += synthdata.harmonic(cfg, freq=1300)
 
     # white noise floor
-    adata += synthdata.white_noise(nTrials, samplerate=samplerate)
+    adata += synthdata.white_noise(cfg)
 
 
 Note that our *original sampling rate* is 5000Hz, so both harmonics are well sampled as can be seen in the power spectrum::
