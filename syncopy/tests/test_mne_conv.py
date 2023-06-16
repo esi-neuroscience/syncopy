@@ -2,6 +2,7 @@
 
 import syncopy as spy
 from syncopy.synthdata.analog import white_noise
+from syncopy.synthdata.spikes import poisson_noise
 import numpy as np
 import pytest
 
@@ -57,6 +58,36 @@ class TestSpyToMNE():
         assert all(adata.channel == adata2.channel)
         assert np.allclose(adata.data, adata2.data)
         assert adata.samplerate == adata2.samplerate
+
+    @skip_no_mne
+    def test_tldata_to_mne_with_TimeLockData(self):
+        """
+        Test conversion of spy.TimeLockData to mne.io.RawArray.
+
+        This uses epoched data, i.e., data with trial definition and trials of identical length (and offset), i.e., timelocked data.
+        """
+        adata = self.adata
+        assert type(adata) == spy.AnalogData
+        tldata = spy.timelockanalysis(adata, latency="maxperiod")
+        assert type(tldata) == spy.TimeLockData
+        # Convert to MNE EpochsArray
+        epoched = spy.io.mne_conv.tldata_to_mne(tldata)
+        assert type(epoched) == mne.EpochsArray
+
+    @skip_no_mne
+    def test_tldata_to_mne_with_AnalogLockData(self):
+        """
+        Test conversion of spy.TimeLockData to mne.io.RawArray.
+
+        This uses epoched data, i.e., data with trial definition and trials of identical length (and offset), i.e., timelocked data.
+        """
+        adata = self.adata
+        assert type(adata) == spy.AnalogData
+        assert adata.is_time_locked == True
+        # Convert to MNE EpochsArray
+        epoched = spy.io.mne_conv.tldata_to_mne(adata)
+        assert type(epoched) == mne.EpochsArray
+
 
 if __name__ == '__main__':
     T0 = TestSpyToMNE()
