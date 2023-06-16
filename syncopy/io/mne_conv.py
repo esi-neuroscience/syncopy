@@ -121,8 +121,11 @@ def mne_epochs_to_tldata(ea):
     n_epochs = ea.get_data().shape[0]
     n_channels = ea.get_data().shape[1]
     spy_data = np.zeros((n_times * n_epochs, n_channels), dtype=np.float32)
-    for chan_idx in range(n_epochs):
-        spy_data[:,chan_idx] = ea.get_data()[:,chan_idx,:].flatten()
+    #for chan_idx in range(n_epochs):
+    #    spy_data[:,chan_idx] = ea.get_data()[:,chan_idx,:].flatten()
+
+    spy_data = ea.get_data().transpose(2,0,1).reshape(n_times*n_epochs, n_channels)
 
     tldata = spy.AnalogData(data=spy_data, samplerate=ea.info['sfreq'], channel=ea.ch_names)
+    # TODO: Add trialdefinition to tldata
     return tldata
