@@ -74,6 +74,15 @@ class TestSpyToMNE():
         epoched = spy.io.mne_conv.tldata_to_mne(tldata)
         assert type(epoched) == mne.EpochsArray
 
+        # Check dimensions
+        n_times = epoched.get_data().shape[2]
+        n_epochs = epoched.get_data().shape[0]
+        n_channels = epoched.get_data().shape[1]
+
+        assert n_times == tldata.trials[0].shape[0]
+        assert n_epochs == len(tldata.trials)
+        assert n_channels == len(tldata.channel)
+
     @skip_no_mne
     def test_tldata_to_mne_with_AnalogData(self):
         """
@@ -87,6 +96,15 @@ class TestSpyToMNE():
         # Convert to MNE EpochsArray
         epoched = spy.io.mne_conv.tldata_to_mne(adata)
         assert type(epoched) == mne.EpochsArray
+
+        # Check dimensions
+        n_times = epoched.get_data().shape[2]
+        n_epochs = epoched.get_data().shape[0]
+        n_channels = epoched.get_data().shape[1]
+
+        assert n_times == adata.trials[0].shape[0]
+        assert n_epochs == len(adata.trials)
+        assert n_channels == len(adata.channel)
 
     @skip_no_mne
     def test_mne_epoched_to_AnalogData(self):
@@ -102,9 +120,24 @@ class TestSpyToMNE():
         epoched = spy.io.mne_conv.tldata_to_mne(adata)
         assert type(epoched) == mne.EpochsArray
         adata2 = spy.io.mne_conv.mne_epochs_to_tldata(epoched)
-        
+
+        # Check dimensions
+        n_times = epoched.get_data().shape[2]
+        n_epochs = epoched.get_data().shape[0]
+        n_channels = epoched.get_data().shape[1]
+
+        assert n_times == adata.trials[0].shape[0]
+        assert n_epochs == len(adata.trials)
+        assert n_channels == len(adata.channel)
+
+        assert n_times == adata2.trials[0].shape[0]
+        assert n_epochs == len(adata2.trials)
+        assert n_channels == len(adata2.channel)
+
+        # check data
         assert type(adata2) == spy.AnalogData
         assert adata2.is_time_locked == True
+        assert np.allclose(adata.data[()], adata2.data[()])
         
 
 

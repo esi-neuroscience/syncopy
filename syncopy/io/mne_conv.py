@@ -120,7 +120,7 @@ def mne_epochs_to_tldata(ea):
     n_times = ea.get_data().shape[2]
     n_epochs = ea.get_data().shape[0]
     n_channels = ea.get_data().shape[1]
-    spy_data = np.zeros((n_times * n_epochs, n_channels), dtype=ea.get_data().dtype)
+    spy_data = np.zeros((n_times * n_epochs, n_channels), dtype=np.float32)
     for chan_idx in range(n_epochs):
         spy_data[:,chan_idx] = ea.get_data()[:,chan_idx,:].flatten()
 
