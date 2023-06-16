@@ -31,6 +31,8 @@ class TestSpyToMNE():
         adata = self.adata
         # Convert to MNE RawArray
         ar = spy.io.mne_conv.raw_adata_to_mne(adata)
+
+        assert type(ar) == mne.io.RawArray
         # Check that the data is the same
         assert np.allclose((adata.data[()]).T, ar.get_data())
         # Check that the channel names are the same
