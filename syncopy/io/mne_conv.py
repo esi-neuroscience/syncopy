@@ -28,7 +28,12 @@ def raw_adata_to_mne(adata):
 
 def raw_mne_to_adata(ar):
     """Convert MNE RawArray to spy.AnalogData (single-trial data)."""
-    data_parser(ar, varname="ar", dataclass="RawArray")
+    try:
+        import mne
+    except ImportError:
+        raise ImportError("MNE Python not installed, but package 'mne' is required for this function.")
+    
+    assert type(ar) == mne.io.RawArray, "Invalid input: ar must be of type mne.io.RawArray."
     adata = spy.AnalogData(data=ar.get_data().T, samplerate=ar.info['sfreq'], channel=ar.ch_names)
     return adata
 

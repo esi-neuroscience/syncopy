@@ -40,6 +40,24 @@ class TestSpyToMNE():
         # Check that the sampling rate is the same
         assert adata.samplerate == ar.info['sfreq']
 
+    @skip_no_mne
+    def test_mne_rawarray_to_spy_analog(self):
+        """
+        Test conversion of mne.io.RawArray to spy.AnalogData.
+
+        This uses raw data, i.e., data without trial definition.
+        """
+
+        adata = self.adata
+        # Convert to MNE RawArray
+        ar = spy.io.mne_conv.raw_adata_to_mne(adata)
+        # Now convert back to AnalogData
+        adata2 = spy.io.mne_conv.raw_mne_to_adata(ar)
+        assert type(adata2) == spy.AnalogData
+        assert all(adata.channel == adata2.channel)
+        assert np.allclose(adata.data, adata2.data)
+        assert adata.samplerate == adata2.samplerate
+
 if __name__ == '__main__':
     T0 = TestSpyToMNE()
 
