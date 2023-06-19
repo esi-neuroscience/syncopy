@@ -7,6 +7,7 @@
 import numpy as np
 import syncopy as spy
 from syncopy.shared.parsers import data_parser
+from syncopy.shared.errors import SPYWarning
 # See https://github.com/mne-tools/mne-python/blob/maint/1.4/mne/io/fieldtrip/fieldtrip.py
 # for how MNE handles FieldTrip data structures.
 
@@ -56,7 +57,7 @@ def raw_mne_to_adata(ar):
         import mne
     except ImportError:
         raise ImportError("MNE Python not installed, but package 'mne' is required for this function.")
-    
+
     assert type(ar) == mne.io.RawArray, "Invalid input: ar must be of type mne.io.RawArray."
     adata = spy.AnalogData(data=ar.get_data().T, samplerate=ar.info['sfreq'], channel=ar.ch_names)
     return adata
@@ -117,15 +118,23 @@ def mne_epochs_to_tldata(ea):
         raise ImportError("MNE Python not installed, but package 'mne' is required for this function.")
     assert type(ea) == mne.EpochsArray, "Invalid input: ea must be of type mne.EpochsArray."
     # ed.data has shape (n_epochs, n_channels, n_times), convert to spy_data with shape (n_times, n_channels) with epochs concatenated along the time axis
-    n_times = ea.get_data().shape[2]
     n_epochs = ea.get_data().shape[0]
     n_channels = ea.get_data().shape[1]
+    n_times = ea.get_data().shape[2]
+    SPYWarning(f"mne_epochs_to_tldata: input has shape: ({n_times} samples, {n_epochs} epochs, {n_channels} channels).")
     spy_data = np.zeros((n_times * n_epochs, n_channels), dtype=np.float32)
-    #for chan_idx in range(n_epochs):
-    #    spy_data[:,chan_idx] = ea.get_data()[:,chan_idx,:].flatten()
 
-    spy_data = ea.get_data().transpose(2,0,1).reshape(n_times*n_epochs, n_channels)
+    for chan_idx in range(n_channels):
+        spy_data[:, chan_idx] = ea.get_data()[:,chan_idx,:].flatten()
+
+    #spy_data = ea.get_data().transpose(2,0,1).reshape(n_times*n_epochs, n_channels)
 
     tldata = spy.AnalogData(data=spy_data, samplerate=ea.info['sfreq'], channel=ea.ch_names)
     # TODO: Add trialdefinition to tldata
+
+    nSamples = n_times
+    trldef = np.vstack([np.arange(0, nSamples * n_epochs, nSamples),
+                        np.arange(0, nSamples * n_epochs, nSamples) + nSamples,
+                        np.ones(n_epochs) * -1]).T
+    tldata.trialdefinition = trldef
     return tldata

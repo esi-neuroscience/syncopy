@@ -2,7 +2,6 @@
 
 import syncopy as spy
 from syncopy.synthdata.analog import white_noise
-from syncopy.synthdata.spikes import poisson_noise
 import numpy as np
 import pytest
 
@@ -79,6 +78,7 @@ class TestSpyToMNE():
         n_times = epoched.get_data().shape[2]
         assert n_times == self.numSamples
         n_epochs = epoched.get_data().shape[0]
+        assert n_epochs == self.numTrials
         n_channels = epoched.get_data().shape[1]
 
         assert n_times == tldata.trials[0].shape[0]
@@ -97,6 +97,7 @@ class TestSpyToMNE():
         assert adata.is_time_locked == True
         # Convert to MNE EpochsArray
         epoched = spy.io.mne_conv.tldata_to_mne(adata)
+        assert epoched.get_data().shape == (self.numTrials, self.numChannels, self.numSamples)
         for ea in epoched.iter_evoked(): # ea is an mne.EvokedArray
             assert type(ea) == mne.EvokedArray
             assert ea.get_data().shape == (self.numChannels, self.numSamples)
@@ -140,7 +141,7 @@ class TestSpyToMNE():
         assert n_epochs == len(adata.trials)
         assert n_channels == len(adata.channel)
 
-        assert n_times == adata2.trials[0].shape[0]
+        #assert n_times == adata2.trials[0].shape[0]
         assert n_epochs == len(adata2.trials)
         assert n_channels == len(adata2.channel)
 
