@@ -8,10 +8,8 @@ import numpy as np
 import syncopy as spy
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYWarning
-# See https://github.com/mne-tools/mne-python/blob/maint/1.4/mne/io/fieldtrip/fieldtrip.py
-# for how MNE handles FieldTrip data structures.
 
-__all__ = ["raw_adata_to_mne", "raw_mne_to_adata", "tldata_to_mne"]
+__all__ = ["raw_adata_to_mne", "raw_mne_to_adata", "tldata_to_mne", "mne_epochs_to_tldata"]
 
 
 def raw_adata_to_mne(adata):
