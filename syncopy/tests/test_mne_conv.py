@@ -77,6 +77,7 @@ class TestSpyToMNE():
 
         # Check dimensions
         n_times = epoched.get_data().shape[2]
+        assert n_times == self.numSamples
         n_epochs = epoched.get_data().shape[0]
         n_channels = epoched.get_data().shape[1]
 
@@ -96,10 +97,14 @@ class TestSpyToMNE():
         assert adata.is_time_locked == True
         # Convert to MNE EpochsArray
         epoched = spy.io.mne_conv.tldata_to_mne(adata)
+        for ea in epoched.iter_evoked(): # ea is an mne.EvokedArray
+            assert type(ea) == mne.EvokedArray
+            assert ea.get_data().shape == (self.numChannels, self.numSamples)
         assert type(epoched) == mne.EpochsArray
 
         # Check dimensions
         n_times = epoched.get_data().shape[2]
+        assert n_times == self.numSamples
         n_epochs = epoched.get_data().shape[0]
         n_channels = epoched.get_data().shape[1]
 
@@ -121,11 +126,13 @@ class TestSpyToMNE():
         epoched = spy.io.mne_conv.tldata_to_mne(adata)
         assert type(epoched) == mne.EpochsArray
         for ea in epoched.iter_evoked(): # ea is an mne.EvokedArray
+            assert type(ea) == mne.EvokedArray
             assert ea.get_data().shape == (self.numChannels, self.numSamples)
         adata2 = spy.io.mne_conv.mne_epochs_to_tldata(epoched)
 
         # Check dimensions
         n_times = epoched.get_data().shape[2]
+        assert n_times == self.numSamples
         n_epochs = epoched.get_data().shape[0]
         n_channels = epoched.get_data().shape[1]
 
