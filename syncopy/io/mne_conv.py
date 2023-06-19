@@ -16,17 +16,17 @@ __all__ = ["raw_adata_to_mne", "raw_mne_to_adata", "tldata_to_mne"]
 
 def raw_adata_to_mne(adata):
     """
-    Convert raw spy.AnalogData (single-trial data) to an MNE RawArray.
+    Convert raw spy.AnalogData (single-trial data) to an MNE Python RawArray.
 
-    This function requires MNE Python (package 'mne') and will raise an ImportError if it is not installed.
+    This function requires MNE Python (package 'mne') and will raise an `ImportError` if it is not installed.
 
     Parameters
     ----------
-    adata : AnalogData, must be single-trial data (no trial definition), as MNE RawArray does not support trials. Use function `tldata_to_mne` if you want to convert epoched or time-locked AnalogData to MNE.
+    adata : `AnalogData` instance, must be single-trial data (no trial definition), as `mne.io.RawArray` does not support trials. Use function `tldata_to_mne` if you want to convert epoched or time-locked `AnalogData` to MNE Python.
 
     Returns
     -------
-    ar : mne.io.RawArray
+    ar : `mne.io.RawArray` instance
     """
 
     try:
@@ -41,17 +41,17 @@ def raw_adata_to_mne(adata):
 
 def raw_mne_to_adata(ar):
     """
-    Convert MNE RawArray to spy.AnalogData (single-trial data).
+    Convert MNE python `mne.io.RawArray` to `spy.AnalogData` (single-trial data).
 
-    This function requires MNE Python (package 'mne') and will raise an ImportError if it is not installed.
+    This function requires MNE Python (package 'mne') and will raise an `ImportError` if it is not installed.
 
     Parameters
     ----------
-    ar : mne.io.RawArray
+    ar : `mne.io.RawArray` instance
 
     Returns
     -------
-    adata : AnalogData
+    adata : `syncopy.AnalogData` instance
     """
     try:
         import mne
@@ -65,17 +65,17 @@ def raw_mne_to_adata(ar):
 
 def tldata_to_mne(tldata):
     """
-    Convert timelocked data to MNE EpochsArray.
+    Convert Syncopy timelocked data to MNE Python `mne.EpochsArray`.
 
-    This function requires MNE Python (package 'mne') and will raise an ImportError if it is not installed.
+    This function requires MNE Python (package 'mne') and will raise an `ImportError` if it is not installed.
 
     Parameters
     ----------
-    tldata : TimeLockData or AnalogData that is timelocked. If AnalogData, the user must make sure that the data is time-locked, which can be tested via the `is_time_locked` property of `Analogdata`. Use function `raw_adata_to_mne` instead if you want to convert raw data without trials to MNE.
+    tldata : `syncopy.TimeLockData` or `AnalogData` instance that is timelocked. If `AnalogData`, the user must make sure that the data is time-locked, which can be tested via the `is_time_locked` property of `Analogdata`. Use function `raw_adata_to_mne` instead if you want to convert raw data without trials to MNE Python.
 
     Returns
     -------
-    epochs : mne.EpochsArray
+    epochs : `mne.EpochsArray` instance
     """
     try:
         import mne
@@ -100,17 +100,17 @@ def tldata_to_mne(tldata):
 
 def mne_epochs_to_tldata(ea):
     """
-    Convert MNE EpochsArray to TimeLockData.
+    Convert MNE EpochsArray to Syncopy TimeLockData.
 
-    This function requires MNE Python (package 'mne') and will raise an ImportError if it is not installed.
+    This function requires MNE Python (package 'mne') and will raise an `ImportError` if it is not installed.
 
     Parameters
     ----------
-    ea : mne.EpochsArray
+    ea : `mne.EpochsArray` instance
 
     Returns
     -------
-    tldata : TimeLockData
+    tldata : `syncopy.TimeLockData` instance
     """
     try:
         import mne
