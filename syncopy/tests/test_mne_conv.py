@@ -19,7 +19,8 @@ class TestSpyToMNE():
 
     numChannels = 64
     numTrials = 5
-    adata = white_noise(nTrials = numTrials, nChannels=numChannels, nSamples= 1000)
+    numSamples = 1000
+    adata = white_noise(nTrials = numTrials, nChannels=numChannels, nSamples=numSamples)
 
     @skip_no_mne
     def test_spy_analog_raw_to_mne(self):
@@ -119,6 +120,8 @@ class TestSpyToMNE():
         # Convert to MNE EpochsArray
         epoched = spy.io.mne_conv.tldata_to_mne(adata)
         assert type(epoched) == mne.EpochsArray
+        for ea in epoched.iter_evoked(): # ea is an mne.EvokedArray
+            assert ea.get_data().shape == (self.numChannels, self.numSamples)
         adata2 = spy.io.mne_conv.mne_epochs_to_tldata(epoched)
 
         # Check dimensions
@@ -138,7 +141,7 @@ class TestSpyToMNE():
         assert type(adata2) == spy.AnalogData
         assert adata2.is_time_locked == True
         assert np.allclose(adata.data[()], adata2.data[()])
-        
+
 
 
 if __name__ == '__main__':
