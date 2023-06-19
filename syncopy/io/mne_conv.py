@@ -121,7 +121,6 @@ def mne_epochs_to_tldata(ea):
     n_epochs = ea.get_data().shape[0]
     n_channels = ea.get_data().shape[1]
     n_times = ea.get_data().shape[2]
-    SPYWarning(f"mne_epochs_to_tldata: input has shape: ({n_times} samples, {n_epochs} epochs, {n_channels} channels).")
     spy_data = np.zeros((n_times * n_epochs, n_channels), dtype=np.float32)
 
     for chan_idx in range(n_channels):
