@@ -442,7 +442,9 @@ class AnalogData(ContinuousData):
 
         Returns
         -------
-        None, called for side effect of writing the NWB file to disk.
+        nwbfile : :class:`~pynwb.file.NWBFile` instance
+           Can be used to further add meta-information or even data via the pynwb API. 
+           To save use the :class:`pynwb.NWBHDF5IO` interface. 
 
         Notes
         -----
