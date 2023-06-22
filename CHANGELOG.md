@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### NEW
 - Add spike plotting, implements #434
+- Conversion to and from mne's RawArray and EpochsArray
 
 ### Changed
 
