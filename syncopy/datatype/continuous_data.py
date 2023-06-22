@@ -469,7 +469,6 @@ class AnalogData(ContinuousData):
         return nwbfile
 
 
-
 class SpectralData(ContinuousData):
     """
     Multi-channel, real or complex spectral data
