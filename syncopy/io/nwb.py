@@ -21,7 +21,7 @@ import pytz
 import os
 import shutil
 from pynwb import NWBFile
-from pynwb.ecephys import LFP, ElectricalSeries
+from pynwb.ecephys import LFP, ElectricalSeries, SpikeEventSeries, EventWaveform
 from pynwb.core import DynamicTableRegion
 
 # Local imports
@@ -221,7 +221,7 @@ def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True, sa
             nwbfile.add_epoch(start_time=td[0], stop_time=td[1], tags="trial {}".format(trial_idx))
 
 
-def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_info=None):
+def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_info=None, with_waveform=True):
     """Convert SpikeData into pynwb.NWBFile instance, for writing to files in Neurodata Without Borders (NWB) file format.
     An NWBFile represents a single session of an experiment.
 
@@ -235,6 +235,8 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
     with_trialdefinition : Boolean, whether to save the trial definition to the NWB file.
 
     unit_info : dict of dicts or None, metadata for the units (neurons). The outer dict must have the two keys 'location' and 'group', holding one dict each. Inner dicts are of type `<int, str>` and map numeric unit ids to their location and group, respectively. Both location and group are freeform strings.
+
+    with_waveform: bool, whether to save the waveform of the spikes. If True, the waveform is saved as a `pynwb.ecephys.SpikeEventSeries` object. If False, the waveform is not saved. If no waveform exists in `sdata`, this setting is ignored (and no waveform is saved, of course).
 
     Returns
     -------
@@ -295,6 +297,23 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
 
     # Add trial definition, if possible and requested.
     _add_trials_to_nwbfile(nwbfile, sdata.trialdefinition, sdata.samplerate, do_add=with_trialdefinition)
+
+    if with_waveform and sdata.waveform is not None:
+
+        # See https://pynwb.readthedocs.io/en/stable/pynwb.ecephys.html#pynwb.ecephys.SpikeEventSeries
+        eventwaveform_module = nwbfile.create_processing_module(
+            name="EventWaveform", description="Waveform around spike times."
+        )
+
+
+        # Add the waveform. This needs an electrode table region. We may need to create the electrode table first.
+        electrodes_region = nwbfile.create_electrode_table_region(
+            region=list(range(1)),  # reference row indices 0 to N-1 in the electrode table.
+            description="The first electrode.",
+        )
+        sES = SpikeEventSeries('test_sES', list(range(10)), list(range(10)), electrodes_region)
+        ew = EventWaveform(sES)
+        eventwaveform_module.add(ew)
 
     return nwbfile
 
