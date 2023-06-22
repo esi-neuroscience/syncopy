@@ -431,6 +431,9 @@ class AnalogData(ContinuousData):
         outpath : str, path-like. Where to save the NWB file, including file name and `.nwb` extension.
             All directories in the path must exist. Example: `'mydata.nwb'`.
 
+        nwbfile : :class:`~pynwb.file.NWBFile` instance
+            Set to an existing instance to add an LFP signal with `is_raw=False`
+
         with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
 
         is_raw : Boolean, whether this is raw data (that should never change), as opposed to LFP data that
@@ -443,7 +446,7 @@ class AnalogData(ContinuousData):
         Returns
         -------
         nwbfile : :class:`~pynwb.file.NWBFile` instance
-           Can be used to further add meta-information or even data via the pynwb API. 
+           Can be used to further add meta-information or even data via the pynwb API.
            To save use the :class:`pynwb.NWBHDF5IO` interface. 
 
         Notes
