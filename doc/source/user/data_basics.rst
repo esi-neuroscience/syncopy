@@ -63,7 +63,23 @@ Currently, Syncopy supports importing data from `FieldTrip raw data <https://www
 Importing Data from NumPy
 -------------------------
 
-If you have an electrical time series as a :class:`~numpy.ndarray` and want to import it into Syncopy, you can initialize an :class:`~syncopy.AnalogData` object directly:
+If you have an electrical time series as a :class:`~numpy.ndarray` and want to import it into Syncopy, you can initialize an :class:`~syncopy.AnalogData` object directly::
+
+  import syncopy as spy
+  import numpy as np
+
+  # 3 channel surrogate data
+  np_data = np.random.randn(10_000, 3)
+
+  # initialize AnalogData
+  spy_data = spy.AnalogData(np_data, samplerate=1000)
+
+Without an explicit **trialdefinition** the default all-to-all definition is used, meaning all data is merged into a single trial. Setting a trialdefinition requires building a ``M x 3`` matrix, with ``M`` being the number of trials, and each row containing ``[start, stop, offset]`` **in samples**::
+
+  spy_data.trialdefinition = np.array([[0, 3000, 1000], [3000, 6000, 1000]])
+
+With this we have 2 trials, each 3000 samples long starting at -1 seconds.
+
 
 .. autosummary::
 
@@ -82,8 +98,8 @@ Syncopy contains the `synthdata` module, which can be used to create synthetic d
 
 
 
-Exporting Data from Syncopy
----------------------------
+Exporting Data from Syncopy to NWB
+----------------------------------
 
 Syncopy supports export of data to `NWB <https://www.nwb.org/>`_ format for objects of type :class:`~syncopy.AnalogData`, :class:`~syncopy.TimeLockData` and :class:`~syncopy.SpikeData`.
 
