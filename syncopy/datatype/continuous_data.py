@@ -70,11 +70,13 @@ class ContinuousData(BaseData, ABC):
         
     @property
     def is_time_locked(self):
-        if not np.unique(self.trialdefinition[:, 2]).size == 1:
-             return False
 
-        # diff-diff should give 0 -> same number of samples for each trial
-        if not np.all(np.diff(self.trialdefinition, axis=0, n=2) == 0):
+        # check for equal offsets
+        if not np.unique(self.trialdefinition[:, 2]).size == 1:
+            return False
+
+        # check for equal sample sizes of the trials
+        if not np.unique(np.diff(self.sampleinfo, axis=1)).size == 1:
             return False
         
         return True
