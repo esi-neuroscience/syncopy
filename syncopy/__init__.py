@@ -88,12 +88,6 @@ try:
 except ImportError:
     __plt__ = False
 
-# See if NWB is available
-try:
-    import pynwb
-    __nwb__ = True
-except ImportError:
-    __nwb__ = False
 
 # Set package-wide temp directory
 csHome = "/cs/home/{}".format(getpass.getuser())
