@@ -15,8 +15,11 @@ from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from syncopy.shared.parsers import scalar_parser, array_parser
 from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError
-from syncopy.shared.tools import best_match
 from syncopy.plotting import spike_plotting
+
+from syncopy.io.nwb import _spikedata_to_nwbfile
+from pynwb import NWBHDF5IO
+
 
 __all__ = ["SpikeData", "EventData"]
 
@@ -64,8 +67,8 @@ class DiscreteData(BaseData, ABC):
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__()
                    if not (attr.startswith("_") or attr in ["log", "trialdefinition"])]
-        ppattrs = [attr for attr in ppattrs
-                   if not (inspect.ismethod(getattr(self, attr))
+        ppattrs = [attr for attr in ppattrs if hasattr(self, attr) and
+                   not (inspect.ismethod(getattr(self, attr))
                            or isinstance(getattr(self, attr), Iterator))]
 
         ppattrs.sort()
@@ -287,6 +290,9 @@ class DiscreteData(BaseData, ABC):
                 # Fill in dimensional info
                 definetrial(self, kwargs.get("trialdefinition"))
 
+    def save_nwb(self, **kwargs):
+        raise NotImplementedError("Saving of this datatype to NWB files is not supported.")
+
 
     # plotting, only virtual in the abc
     def singlepanelplot(self):
@@ -302,6 +308,20 @@ class SpikeData(DiscreteData):
     This class can be used for representing spike trains. The data is always
     stored as a two-dimensional [nSpikes x 3] array on disk with the columns
     being ``["sample", "channel", "unit"]``.
+
+    The "unit" is the neuron a spike originated from. Note that in the raw data,
+    a signal from one neuron may show up in several (nearby) channels, with different strengths. The waveform
+    of the action potential is used as a signature to identify the signal of a neuron
+    across channels. Once this has been done, it is known which neuron spiked when, and the
+    channel information is typically no longer of interest. I.e., with spike data that
+    is ready for the scientific analysis, there typically is only one channel.
+
+    Note that this means that "channel x unit z" is the same neuron as "channel y unit z", since
+    the unit should identify the same neuron, regardless of the channel.
+
+    Often, the raw data around individual spikes is save along with the spikes, so that
+    one can later infer the type of neuron (e.g., inhibitory/excitatory) from it. We support
+    this with the 'waveform' attribute of spy.SpikeData.
 
     Data is only read from disk on demand, similar to HDF5 files.
     """
@@ -588,6 +608,34 @@ class SpikeData(DiscreteData):
         elif data is not None:
             self.unit = self._default_unit_labels()
 
+    def save_nwb(self, outpath, with_trialdefinition=True):
+        """Save SpikeData in Neurodata Without Borders (NWB) file format.
+        An NWBFile represents a single session of an experiment.
+
+        Parameters
+        ----------
+        outpath : str, path-like. Where to save the NWB file, including file name and `.nwb` extension. All directories in the path must exist. Example: `'mydata.nwb'`.
+
+        with_trialdefinition : Boolean, whether to save the trial definition in the NWB file.
+
+        Returns
+        -------
+        None, called for side effect of writing the NWB file to disk.
+
+        Notes
+        -----
+        Due to the very general architecture of the NWB format, many fields need to be interpreted by software reading the format. Thus,
+        providing a generic function to save Syncopy data in NWB format is possible only if you know who will read it.
+        Depending on your target software, you may need to manually format the data using pynwb before writing it to disk, or manually
+        open it using pynwb before using it with the target software.
+
+        Selections are ignored, the full data is exported. Create a new Syncopy data object before calling this function if you want to export a subset only.
+        """
+        nwbfile = _spikedata_to_nwbfile(self, nwbfile=None, with_trialdefinition=with_trialdefinition)
+        # Write the file to disk.
+        with NWBHDF5IO(outpath, "w") as io:
+            io.write(nwbfile)
+            
     # implement plotting
     def singlepanelplot(self, **show_kwargs):
 

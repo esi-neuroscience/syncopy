@@ -170,7 +170,15 @@ def get_logger():
     """Get the syncopy root logger.
 
     Logs to console by default. To be used in everything that runs on the local computer."""
+
     return logging.getLogger(loggername)
+
+
+def set_loglevel(level):
+    """Set the syncopy root logger level."""
+
+    logger = get_logger()
+    logger.setLevel(level)
 
 
 def get_parallel_logger():

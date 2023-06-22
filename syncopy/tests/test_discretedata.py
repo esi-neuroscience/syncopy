@@ -131,6 +131,11 @@ class TestSpikeData():
             trl_ref = self.data2[idx, ...]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
+    def test_str_rep_with_trials(self):
+        """Test string representation of SpikeData with trialdefinition. Ensure that the bug with the string representation is fixed."""
+        dummy = SpikeData(self.data, trialdefinition=self.trl)
+        assert "samplerate" in str(dummy)
+
     def test_saveload(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy")
@@ -235,6 +240,12 @@ class TestEventData():
         edata = EventData(self.data, samplerate=10)
         assert not edata._is_empty()
         edata._register_dataset("blah", np.zeros((3,3), dtype=float))
+
+    def test_str_rep_with_trials(self):
+        """Test string representation of EventData with trialdefinition. Ensure that the bug with the string representation is fixed."""
+        dummy = EventData(self.data, trialdefinition=self.trl)
+        assert "samplerate" in str(dummy)  # The real test is that 'str(dummy)' does not raise an error.
+
 
     def test_ed_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order

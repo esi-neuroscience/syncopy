@@ -11,10 +11,6 @@ Selections are an important concept of Syncopy and are being re-used *under the 
 .. contents:: Topics covered
    :local:
 
-.. _workflow:
-
-
-
 Creating Selections
 ===================
 

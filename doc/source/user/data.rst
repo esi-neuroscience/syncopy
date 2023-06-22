@@ -10,6 +10,7 @@ This section of the Syncopy documentation contains information about how data is
    :maxdepth: 2
 
    data_basics
+   selectdata
    logging
    synth_data
 
