@@ -94,5 +94,21 @@ Syncopy supports export of data to `NWB <https://www.nwb.org/>`_ format for obje
     syncopy.TimeLockData.save_nwb
     syncopy.SpikeData.save_nwb
 
+Here is a little example::
+
+  import syncopy as spy
+
+  raw_data = spy.synthdata.red_noise(alpha=0.9)
+  
+  # some processing, bandpass filter and (here meaningless) phase extraction
+  processed_data = spy.preprocessing(raw_data, filter_type='bp', freq=[35, 40], hilbert='angle')
+
+  # save raw data to NWB
+  nwb_path = 'test.nwb'
+  nwbfile = raw_data.save_nwb(nwb_path)
+  
+  # save processed data into same NWB file
+  processed_data.save_nwb(nwb_path, nwbfile=nwbfile, is_raw=False)
+  
 Note that NWB is a very general container format, and thus loading an NWB container created in one software package into the internal data structures used by another software package requires some interpretation of the fields, which users many need to do manually. One can inspect NWB files online using tools like the `NWB Explorer <https://nwbexplorer.opensourcebrain.org>`_.
 
