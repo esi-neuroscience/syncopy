@@ -7,7 +7,7 @@
 import numpy as np
 import syncopy as spy
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYTypeError
 
 __all__ = ["raw_adata_to_mne", "raw_mne_to_adata", "tldata_to_mne", "mne_epochs_to_tldata"]
 
@@ -99,7 +99,7 @@ def tldata_to_mne(tldata):
 
 def mne_epochs_to_tldata(ea):
     """
-    Convert MNE EpochsArray to Syncopy TimeLockData.
+    Convert MNE EpochsArray to time-locked Syncopy AnalogData instance.
 
     This function requires MNE Python (package 'mne') and will raise an `ImportError` if it is not installed.
 
@@ -109,13 +109,15 @@ def mne_epochs_to_tldata(ea):
 
     Returns
     -------
-    tldata : `syncopy.TimeLockData` instance
+    tldata : `syncopy.AnalogData` instance. The trial definition will be set to the MNW epochs, and it is guranteed that the data is time-locked.
     """
     try:
         import mne
     except ImportError:
         raise ImportError("MNE Python not installed, but package 'mne' is required for this function.")
-    assert type(ea) == mne.EpochsArray, "Invalid input: ea must be of type mne.EpochsArray."
+    if type(ea) != mne.EpochsArray:
+        raise SPYTypeError(ea, varname="ea", expected="mne.EpochsArray")
+
     # ed.data has shape (n_epochs, n_channels, n_times), convert to spy_data with shape (n_times, n_channels) with epochs concatenated along the time axis
     n_epochs = ea.get_data().shape[0]
     n_channels = ea.get_data().shape[1]

@@ -116,9 +116,7 @@ class TestSpyToMNE():
     @skip_no_mne
     def test_mne_epoched_to_AnalogData(self):
         """
-        Test conversion of spy.AnalogData that is time locked to mne.EpochsArray.
-
-        This uses epoched data, i.e., data with trial definition and trials of identical length (and offset), i.e., timelocked data.
+        Test conversion of mne.EpochsArray to spy.AnalogData that is time locked.
         """
         adata = self.adata
         assert type(adata) == spy.AnalogData
