@@ -9,10 +9,10 @@ import syncopy as spy
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 
-__all__ = ["raw_adata_to_mne", "raw_mne_to_adata", "tldata_to_mne", "mne_epochs_to_tldata"]
+__all__ = ["raw_adata_to_mne_raw", "raw_mne_to_adata", "tldata_to_mne_epochs", "mne_epochs_to_tldata"]
 
 
-def raw_adata_to_mne(adata):
+def raw_adata_to_mne_raw(adata):
     """
     Convert raw spy.AnalogData (single-trial data) to an MNE Python RawArray.
 
@@ -20,7 +20,7 @@ def raw_adata_to_mne(adata):
 
     Parameters
     ----------
-    adata : `AnalogData` instance, must be single-trial data (no trial definition), as `mne.io.RawArray` does not support trials. Use function `tldata_to_mne` if you want to convert epoched or time-locked `AnalogData` to MNE Python.
+    adata : `AnalogData` instance, must be single-trial data (no trial definition, or a single trial spanning the full data), as `mne.io.RawArray` does not support trials. Use function `tldata_to_mne_epochs` if you want to convert epoched or time-locked `AnalogData` to MNE Python. WARNING: the trial definition, if any, will be completely ignored during export, and the full data will be exported.
 
     Returns
     -------
@@ -32,6 +32,8 @@ def raw_adata_to_mne(adata):
     except ImportError:
         raise ImportError("MNE Python not installed, but package 'mne' is required for this function.")
     data_parser(adata, varname="adata", dataclass="AnalogData")
+    if len(adata.trials) > 1:  # Check that we have single-trial data, otherwise our concatination of trials along the time axis will lead to unexpected results in the exported data.
+        raise SPYValueError(legal="AnalogData instance with no trial definition, or a single trial spanning the full data", varname="adata", actual=f"AnalogData instance with {len(adata.trials)} trials.")
     info = mne.io.meas_info.create_info(list(adata.channel), adata.samplerate, ch_types='misc')
     ar = mne.io.RawArray((adata.data[()]).T, info)
     return ar
@@ -49,7 +51,7 @@ def raw_mne_to_adata(ar):
 
     Returns
     -------
-    adata : `syncopy.AnalogData` instance
+    adata : `syncopy.AnalogData` instance, with no trial definition (singl-trial data).
     """
     try:
         import mne
@@ -61,7 +63,7 @@ def raw_mne_to_adata(ar):
     return adata
 
 
-def tldata_to_mne(tldata):
+def tldata_to_mne_epochs(tldata):
     """
     Convert Syncopy timelocked data to MNE Python `mne.EpochsArray`.
 
@@ -69,7 +71,7 @@ def tldata_to_mne(tldata):
 
     Parameters
     ----------
-    tldata : `syncopy.TimeLockData` or `AnalogData` instance that is timelocked. If `AnalogData`, the user must make sure that the data is time-locked, which can be tested via the `is_time_locked` property of `Analogdata`. Use function `raw_adata_to_mne` instead if you want to convert raw data without trials to MNE Python.
+    tldata : `syncopy.TimeLockData` or `AnalogData` instance that is timelocked. If `AnalogData`, the user must make sure that the data is time-locked, which can be tested via the `is_time_locked` property of `Analogdata`. Use function `raw_adata_to_mne_raw` instead if you want to convert raw data without trials to MNE Python.
 
     Returns
     -------
