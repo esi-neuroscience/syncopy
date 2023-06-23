@@ -13,6 +13,7 @@ This section of the Syncopy documentation contains information about how data is
    selectdata
    logging
    synth_data
+   matlab_io
 
 
 

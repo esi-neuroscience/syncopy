@@ -132,33 +132,31 @@ Note that NWB is a very general container format, and thus loading an NWB contai
 Data exchange and interoperability between Syncopy and MNE Python
 -----------------------------------------------------------------
 
-The MNE Python package is a popular open-source package for analyzing electrophysiological data. Syncopy comes with data conversion functions for the MNE data classes like, so data can be exchanged more easily between the two packages.
+The MNE Python package is a popular open-source package for analyzing electrophysiological data. Syncopy comes with data conversion functions for the MNE data classes like, so data can be exchanged more easily between the two packages. In order to use these functions, users will need to manually install MNE into the syncopy environment.
 
 The following conversion functions are available:
 
 .. autosummary::
 
-    syncopy.io.mne_conv.raw_mne_to_adata
-    syncopy.io.mne_conv.raw_mne_to_adata
-    syncopy.io.mne_conv.tldata_to_mne_epochs
-    syncopy.io.mne_conv.mne_epochs_to_tldata
+    syncopy.raw_adata_to_mne_raw
+    syncopy.raw_mne_to_adata
+    syncopy.tldata_to_mne_epochs
+    syncopy.mne_epochs_to_tldata
 
 
-
-
-Here is an example of how to import data from MNE Python into Syncopy::
+Here is an example of how to import data from MNE Python into Syncopy. Once more, make sure you have `mne` installed.::
 
   import syncopy as spy
   import mne
 
-  # load data from MNE Python
+  # Load data in MNE Python
   sample_data_folder = mne.datasets.sample.data_path()
   sample_data_raw_file = os.path.join(
     sample_data_folder, "MEG", "sample", "sample_audvis_raw.fif"
   )
   mne_data = mne.io.read_raw_fif(sample_data_raw_file, preload=True)
 
-  # convert to Syncopy AnalogData
+  # Convert to Syncopy AnalogData
   spy_data = spy.io.mne_conv.raw_mne_to_adata(mne_data)
 
   # save to Syncopy HDF5 format

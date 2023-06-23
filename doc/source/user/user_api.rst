@@ -12,9 +12,9 @@ These *meta-functions* bundle many related analysis methods into one high-level 
 
 .. autosummary::
 
-   syncopy.preprocessing   
+   syncopy.preprocessing
    syncopy.resampledata
-   syncopy.freqanalysis   
+   syncopy.freqanalysis
    syncopy.connectivityanalysis
    syncopy.timelockanalysis
 
@@ -36,12 +36,12 @@ Utility
 
    syncopy.definetrial
    syncopy.selectdata
-   syncopy.redefinetrial   
+   syncopy.redefinetrial
    syncopy.show
    syncopy.cleanup
-   
+
 I/O
---------------------
+---
 Functions to import and export data in Syncopy
 
 .. autosummary::
@@ -52,6 +52,17 @@ Functions to import and export data in Syncopy
    syncopy.load_tdt
    syncopy.load_nwb
    syncopy.copy
+
+
+Data exchange with MNE-Python
+-----------------------------
+
+.. autosummary::
+
+   syncopy.raw_adata_to_mne_raw
+   syncopy.raw_mne_to_adata
+   syncopy.tldata_to_mne_epochs
+   syncopy.mne_epochs_to_tldata
 
 
 Plotting
