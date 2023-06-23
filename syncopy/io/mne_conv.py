@@ -7,7 +7,7 @@
 import numpy as np
 import syncopy as spy
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.errors import SPYWarning
+from syncopy.shared.errors import SPYValueError
 
 __all__ = ["raw_adata_to_mne", "raw_mne_to_adata", "tldata_to_mne", "mne_epochs_to_tldata"]
 
@@ -81,7 +81,8 @@ def tldata_to_mne(tldata):
         raise ImportError("MNE Python not installed, but package 'mne' is required for this function.")
     assert type(tldata) == spy.AnalogData or type(tldata) == spy.TimeLockData, "Invalid input: tldata must be of type AnalogData or TimeLockData."
     if type(tldata) == spy.AnalogData:
-        assert tldata.is_time_locked == True, "Invalid input: tldata must be time-locked."
+        if not tldata.is_time_locked:
+            raise SPYValueError(legal="TimeLockData instance, or AnalogData instance with is_time_locked == True", varname="tldata", actual=f"AnalogData instance with is_time_locked == False")
     info = mne.io.meas_info.create_info(list(tldata.channel), tldata.samplerate, ch_types='misc')
 
     # for MNE, the data needs to have shape (n_epochs, n_channels, n_times) but our
