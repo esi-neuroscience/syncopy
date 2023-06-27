@@ -69,7 +69,7 @@ class ContinuousData(BaseData, ABC):
 
         if inData is None:
             return
-        
+
     @property
     def is_time_locked(self):
 
@@ -80,7 +80,7 @@ class ContinuousData(BaseData, ABC):
         # check for equal sample sizes of the trials
         if not np.unique(np.diff(self.sampleinfo, axis=1)).size == 1:
             return False
-        
+
         return True
 
     def __str__(self):
@@ -460,7 +460,7 @@ class AnalogData(ContinuousData):
         -------
         nwbfile : :class:`~pynwb.file.NWBFile` instance
            Can be used to further add meta-information or even data via the pynwb API.
-           To save use the :class:`pynwb.NWBHDF5IO` interface. 
+           To save use the :class:`pynwb.NWBHDF5IO` interface.
 
         Notes
         -----

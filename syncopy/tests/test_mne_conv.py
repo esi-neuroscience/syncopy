@@ -58,6 +58,7 @@ class TestSpyToMNE():
         assert type(adata2) == spy.AnalogData
         assert all(adata.channel == adata2.channel)
         assert np.allclose(adata.data, adata2.data)
+        assert np.allclose(adata.time[0], adata2.time[0])
         assert adata.samplerate == adata2.samplerate
 
     @skip_no_mne
@@ -86,6 +87,7 @@ class TestSpyToMNE():
         assert n_epochs == len(tldata.trials)
         assert n_channels == len(tldata.channel)
 
+
     @skip_no_mne
     def test_tldata_to_mne_with_AnalogData(self):
         """
@@ -113,6 +115,7 @@ class TestSpyToMNE():
         assert n_times == adata.trials[0].shape[0]
         assert n_epochs == len(adata.trials)
         assert n_channels == len(adata.channel)
+
 
     @skip_no_mne
     def test_mne_epoched_to_AnalogData(self):
@@ -148,6 +151,9 @@ class TestSpyToMNE():
         assert type(adata2) == spy.AnalogData
         assert adata2.is_time_locked == True
         assert np.allclose(adata.data[()], adata2.data[()])
+
+        # check time axis
+        assert np.allclose(adata.time, adata2.time)
 
 
 

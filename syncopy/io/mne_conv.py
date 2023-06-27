@@ -61,7 +61,7 @@ def raw_mne_to_adata(ar):
     if type(ar) != mne.io.RawArray:
         raise SPYTypeError(ar, varname="ar", expected="mne.io.RawArray")
 
-    adata = spy.AnalogData(data=ar.get_data().T, samplerate=ar.info['sfreq'], channel=ar.ch_names)
+    adata = spy.AnalogData(data=ar.get_data().T, samplerate=ar.info['sfreq'], channel=ar.ch_names, tune)
     return adata
 
 
@@ -99,7 +99,10 @@ def tldata_to_mne_epochs(tldata):
     for trial_idx in range(len(tldata.trials)):
         data_with_trial_axis[trial_idx,:,:] = tldata.trials[trial_idx].T
 
-    ea = mne.EpochsArray(data_with_trial_axis, info)
+    offset = tldata.trialdefinition[0, 2]  # offset in samples, identical over trials.
+    tmin = - offset / tldata.samplerate
+
+    ea = mne.EpochsArray(data_with_trial_axis, info, tmin=tmin)
     return ea
 
 def mne_epochs_to_tldata(ea):
@@ -132,11 +135,14 @@ def mne_epochs_to_tldata(ea):
     for chan_idx in range(n_channels):
         spy_data[:, chan_idx] = ea.get_data()[:,chan_idx,:].flatten()
 
-    tldata = spy.AnalogData(data=spy_data, samplerate=ea.info['sfreq'], channel=ea.ch_names)
+    samplerate = ea.info['sfreq']
+    tldata = spy.AnalogData(data=spy_data, samplerate=samplerate, channel=ea.ch_names)
+
+    offset = -ea.tmin * samplerate # offset in samples
 
     nSamples = n_times
     trldef = np.vstack([np.arange(0, nSamples * n_epochs, nSamples),
                         np.arange(0, nSamples * n_epochs, nSamples) + nSamples,
-                        np.ones(n_epochs) * -1]).T
+                        np.ones(n_epochs) * offset]).T
     tldata.trialdefinition = trldef
     return tldata
