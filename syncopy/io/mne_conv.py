@@ -114,7 +114,7 @@ def mne_epochs_to_tldata(ea):
 
     Returns
     -------
-    tldata : `syncopy.AnalogData` instance. The trial definition will be set to the MNW epochs, and it is guranteed that the data is time-locked.
+    tldata : `syncopy.AnalogData` instance. The trial definition will be set to the MNE epochs, and it is guranteed that the data is time-locked.
     """
     try:
         import mne
