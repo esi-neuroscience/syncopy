@@ -58,7 +58,9 @@ def raw_mne_to_adata(ar):
     except ImportError:
         raise ImportError("MNE Python not installed, but package 'mne' is required for this function.")
 
-    assert type(ar) == mne.io.RawArray, "Invalid input: ar must be of type mne.io.RawArray."
+    if type(ar) != mne.io.RawArray:
+        raise SPYTypeError(ar, varname="ar", expected="mne.io.RawArray")
+
     adata = spy.AnalogData(data=ar.get_data().T, samplerate=ar.info['sfreq'], channel=ar.ch_names)
     return adata
 
@@ -81,10 +83,11 @@ def tldata_to_mne_epochs(tldata):
         import mne
     except ImportError:
         raise ImportError("MNE Python not installed, but package 'mne' is required for this function.")
-    assert type(tldata) == spy.AnalogData or type(tldata) == spy.TimeLockData, "Invalid input: tldata must be of type AnalogData or TimeLockData."
+
     if type(tldata) == spy.AnalogData:
         if not tldata.is_time_locked:
             raise SPYValueError(legal="TimeLockData instance, or AnalogData instance with is_time_locked == True", varname="tldata", actual=f"AnalogData instance with is_time_locked == False")
+
     info = mne.io.meas_info.create_info(list(tldata.channel), tldata.samplerate, ch_types='misc')
 
     # for MNE, the data needs to have shape (n_epochs, n_channels, n_times) but our
