@@ -24,7 +24,12 @@ from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
 from syncopy.io.nwb import _analog_timelocked_to_nwbfile
 from .util import TimeIndexer
-from pynwb import NWBHDF5IO
+
+
+from syncopy import __pynwb__
+
+if __pynwb__:  # pragma: no cover
+    from pynwb import NWBHDF5IO
 
 
 
@@ -480,7 +485,12 @@ class AnalogData(ContinuousData):
         before calling this function if you want to export a subset only.
 
         The Syncopy NWB reader only supports the NWB raw data format.
+
+        This function requires the optional 'pynwb' dependency to be installed.
         """
+        if not __pynwb__:
+            raise SPYError("NWB support is not available. Please install the 'pynwb' package.")
+
         nwbfile = _analog_timelocked_to_nwbfile(self, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:
@@ -900,7 +910,12 @@ class TimeLockData(ContinuousData):
         open it using pynwb before using it with the target software.
 
         Selections are ignored, the full data is exported. Create a new Syncopy data object before calling this function if you want to export a subset only.
+
+        This function requires the optional 'pynwb' dependency to be installed.
         """
+        if not __pynwb__:
+            raise SPYError("NWB support is not available. Please install the 'pynwb' package.")
+
         nwbfile = _analog_timelocked_to_nwbfile(self, nwbfile=None, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:

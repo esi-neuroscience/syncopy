@@ -20,9 +20,15 @@ from uuid import uuid4
 import pytz
 import os
 import shutil
-from pynwb import NWBFile
-from pynwb.ecephys import LFP, ElectricalSeries
-from pynwb.core import DynamicTableRegion
+
+from syncopy import __pynwb__
+
+
+if __pynwb__:
+    import pynwb
+    from pynwb import NWBFile
+    from pynwb.ecephys import LFP, ElectricalSeries
+    from pynwb.core import DynamicTableRegion
 
 # Local imports
 
