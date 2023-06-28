@@ -96,6 +96,7 @@ m1macos:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
+    - conda install importlib_resources
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
