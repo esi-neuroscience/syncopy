@@ -205,14 +205,20 @@ class ContinuousData(BaseData, ABC):
         else:
             scount = self.data.shape[self.dimord.index("time")]
             array_parser(trldef, varname="trialdefinition", dims=2)
+            if trldef.shape[-1] < 3:
+                lgl = "trialdefinition with at least 3 columns: [start, stop, offset]"
+                act = f"got only {trldef.shape[-1]} columns"
+                raise SPYValueError(lgl, 'trialdefinition', act)
+
             array_parser(trldef[:, :2], varname="sampleinfo", hasnan=False,
                          hasinf=False, ntype="int_like", lims=[0, scount])
 
             self._trialdefinition = trldef.copy()
             self._trial_ids = np.arange(self.sampleinfo.shape[0])
-            self._time = TimeIndexer(self.trialdefinition,
-                                     self.samplerate,
-                                     list(self._trial_ids))
+
+        self._time = TimeIndexer(self.trialdefinition,
+                                 self.samplerate,
+                                 list(self._trial_ids))
 
     @property
     def time(self):
