@@ -70,6 +70,19 @@ class ContinuousData(BaseData, ABC):
         if inData is None:
             return
 
+    @property
+    def is_time_locked(self):
+
+        # check for equal offsets
+        if not np.unique(self.trialdefinition[:, 2]).size == 1:
+            return False
+
+        # check for equal sample sizes of the trials
+        if not np.unique(np.diff(self.sampleinfo, axis=1)).size == 1:
+            return False
+
+        return True
+
     def __str__(self):
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__()
@@ -192,14 +205,20 @@ class ContinuousData(BaseData, ABC):
         else:
             scount = self.data.shape[self.dimord.index("time")]
             array_parser(trldef, varname="trialdefinition", dims=2)
+            if trldef.shape[-1] < 3:
+                lgl = "trialdefinition with at least 3 columns: [start, stop, offset]"
+                act = f"got only {trldef.shape[-1]} columns"
+                raise SPYValueError(lgl, 'trialdefinition', act)
+
             array_parser(trldef[:, :2], varname="sampleinfo", hasnan=False,
                          hasinf=False, ntype="int_like", lims=[0, scount])
 
             self._trialdefinition = trldef.copy()
             self._trial_ids = np.arange(self.sampleinfo.shape[0])
-            self._time = TimeIndexer(self.trialdefinition,
-                                     self.samplerate,
-                                     list(self._trial_ids))
+
+        self._time = TimeIndexer(self.trialdefinition,
+                                 self.samplerate,
+                                 list(self._trial_ids))
 
     @property
     def time(self):
@@ -447,7 +466,7 @@ class AnalogData(ContinuousData):
         -------
         nwbfile : :class:`~pynwb.file.NWBFile` instance
            Can be used to further add meta-information or even data via the pynwb API.
-           To save use the :class:`pynwb.NWBHDF5IO` interface. 
+           To save use the :class:`pynwb.NWBHDF5IO` interface.
 
         Notes
         -----
@@ -837,18 +856,10 @@ class TimeLockData(ContinuousData):
 
         # now check for additional conditions
 
-        # FIXME: not clear, is timelocked data to be expected
-        # to have same offsets?!
-        # if not np.unique(trldef[:, 2]).size == 1:
-        #     lgl = "equal offsets for timelocked data"
-        #     act = "different offsets"
-        #     raise SPYValueError(lgl, varname="trialdefinition", actual=act)
-
-        # diff-diff should give 0 -> same number of samples for each trial
-        if not np.all(np.diff(trldef, axis=0, n=2) == 0):
-            lgl = "all trials of same length for timelocked data"
-            act = "unequal sized trials defined"
-            raise SPYValueError(lgl, varname="trialdefinition", actual=act)
+        if not self.is_time_locked:
+            lgl = "trialdefinition with equally sized trials and common offsets"
+            act = "not timelock compatible trialdefinition"
+            raise SPYValueError(lgl, 'trialdefinition', act)
 
     # TODO - overload `time` property, as there is only one by definition!
     # implement plotting

@@ -8,7 +8,6 @@ import os
 from datetime import datetime
 import re
 import numpy as np
-from getpass import getuser
 from tqdm.auto import tqdm
 import h5py
 

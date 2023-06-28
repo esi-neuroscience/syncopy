@@ -44,7 +44,7 @@ Plotting Functions
 .. hint::
    The :ref:`selections` section details how :func:`~syncopy.singlepanelplot` and :func:`~syncopy.show` all work based on the same :func:`~syncopy.selectdata` API.
 
-   
+
 Importing Data into Syncopy
 ---------------------------
 
@@ -115,16 +115,49 @@ Here is a little example::
   import syncopy as spy
 
   raw_data = spy.synthdata.red_noise(alpha=0.9)
-  
+
   # some processing, bandpass filter and (here meaningless) phase extraction
   processed_data = spy.preprocessing(raw_data, filter_type='bp', freq=[35, 40], hilbert='angle')
 
   # save raw data to NWB
   nwb_path = 'test.nwb'
   nwbfile = raw_data.save_nwb(nwb_path)
-  
+
   # save processed data into same NWB file
   processed_data.save_nwb(nwb_path, nwbfile=nwbfile, is_raw=False)
-  
+
 Note that NWB is a very general container format, and thus loading an NWB container created in one software package into the internal data structures used by another software package requires some interpretation of the fields, which users many need to do manually. One can inspect NWB files online using tools like the `NWB Explorer <https://nwbexplorer.opensourcebrain.org>`_.
 
+
+Data exchange and interoperability between Syncopy and MNE Python
+-----------------------------------------------------------------
+
+The MNE Python package is a popular open-source package for analyzing electrophysiological data. Syncopy comes with data conversion functions for the MNE data classes like, so data can be exchanged more easily between the two packages. In order to use these functions, users will need to manually install MNE into the syncopy environment.
+
+The following conversion functions are available:
+
+.. autosummary::
+
+    syncopy.raw_adata_to_mne_raw
+    syncopy.raw_mne_to_adata
+    syncopy.tldata_to_mne_epochs
+    syncopy.mne_epochs_to_tldata
+
+
+Here is an example of how to import data from MNE Python into Syncopy. Once more, make sure you have `mne` installed.::
+
+  import syncopy as spy
+  import mne
+
+  # Load data in MNE Python
+  sample_data_folder = mne.datasets.sample.data_path()
+  sample_data_raw_file = os.path.join(
+    sample_data_folder, "MEG", "sample", "sample_audvis_raw.fif"
+  )
+  mne_data = mne.io.read_raw_fif(sample_data_raw_file, preload=True)
+
+  # Convert to Syncopy AnalogData
+  spy_data = spy.io.mne_conv.raw_mne_to_adata(mne_data)
+
+  # save to Syncopy HDF5 format
+  spy_data.save('sample_audvis_raw.spy')
