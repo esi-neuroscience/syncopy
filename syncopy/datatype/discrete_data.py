@@ -18,7 +18,11 @@ from syncopy.shared.errors import SPYValueError, SPYError, SPYTypeError
 from syncopy.plotting import spike_plotting
 
 from syncopy.io.nwb import _spikedata_to_nwbfile
-from pynwb import NWBHDF5IO
+
+from syncopy import __pynwb__
+
+if __pynwb__:  # pragma: no cover
+    from pynwb import NWBHDF5IO
 
 
 __all__ = ["SpikeData", "EventData"]
@@ -631,11 +635,14 @@ class SpikeData(DiscreteData):
 
         Selections are ignored, the full data is exported. Create a new Syncopy data object before calling this function if you want to export a subset only.
         """
+        if not __pynwb__:
+            raise SPYError("NWB support is not available. Please install the 'pynwb' package.")
+
         nwbfile = _spikedata_to_nwbfile(self, nwbfile=None, with_trialdefinition=with_trialdefinition)
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:
             io.write(nwbfile)
-            
+
     # implement plotting
     def singlepanelplot(self, **show_kwargs):
 
