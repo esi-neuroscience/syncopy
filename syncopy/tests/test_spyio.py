@@ -31,6 +31,10 @@ from syncopy.tests.misc import generate_artificial_data
 from syncopy.synthdata.analog import white_noise
 from syncopy.synthdata.spikes import poisson_noise
 from syncopy.io.load_nwb import _is_valid_nwb_file
+from syncopy import __pynwb__
+
+skip_no_pynwb = pytest.mark.skipif(not __pynwb__, reason=f"This test requires the 'pynwb' package to be installed.")
+
 
 # Decorator to detect if test data dir is available
 on_esi = os.path.isdir('/cs/slurm/syncopy')
@@ -587,6 +591,7 @@ class TestNWBImporter:
             nwb_filename = nwbfile
             break
 
+    @skip_no_pynwb
     def test_load_nwb_analog(self):
         """Test loading of an NWB file containing acquistion data into a Syncopy AnalogData object."""
 
@@ -632,6 +637,7 @@ class TestNWBExporter():
 
     do_validate_NWB = True
 
+    @skip_no_pynwb
     def test_save_nwb_analog_no_trialdef(self):
         """Test saving to NWB file and re-reading data for AnalogData, without trial definition."""
 
@@ -658,6 +664,7 @@ class TestNWBExporter():
             assert all(adata_reread.channel == adata.channel) # Check that channel names are saved and re-read correctly.
             assert np.allclose(adata.data, adata_reread.data)
 
+    @skip_no_pynwb
     def test_save_nwb_analog_with_trialdef(self):
         """Test saving to NWB file and re-reading data for AnalogData with a trial definition."""
 
@@ -686,6 +693,7 @@ class TestNWBExporter():
             assert all(adata_reread.channel == adata.channel) # Check that channel names are saved and re-read correctly.
             assert np.allclose(adata.data, adata_reread.data)
 
+    @skip_no_pynwb
     def test_save_nwb_analog_with_trialdef_as_LFP(self):
         """Test saving to NWB file and re-reading data for AnalogData with a trial definition. Saves as LFP, as opposed to raw data."""
 
@@ -714,6 +722,7 @@ class TestNWBExporter():
             assert all(adata_reread.channel == adata.channel) # Check that channel names are saved and re-read correctly.
             assert np.allclose(adata.data, adata_reread.data)
 
+    @skip_no_pynwb
     def test_save_nwb_analog_2(self):
         """Test saving to NWB file and re-reading data for 2x AnalogData."""
 
@@ -746,7 +755,7 @@ class TestNWBExporter():
             assert np.allclose(adata.data, adata_reread.data)
             assert np.allclose(adata2.data, adata2_reread.data)
 
-
+    @skip_no_pynwb
     def test_save_nwb_timelock_with_trialdef(self):
         """Test saving to NWB file and re-reading data for TimeLockData with a trial definition.
         Currently, when the file is bering re-read, it results in an AnalogData object, not a TimeLockData object.
@@ -784,7 +793,7 @@ class TestNWBExporter():
             assert all(adata_reread.channel == adata.channel) # Check that channel names are saved and re-read correctly.
             assert np.allclose(adata.data, adata_reread.data)
 
-
+    @skip_no_pynwb
     def test_save_nwb_spikedata(self):
         """Test exporting SpikeData to NWB format.
 
@@ -826,6 +835,7 @@ class TestNWBExporter():
             assert np.allclose(spdata.data[:, 0], spdata_reread.data[:, 0])
 
     @skip_no_pynapple
+    @skip_no_pynwb
     def test_load_exported_nwb_spikes_pynapple(self, plot_spikes=True):
         """Test loading exported SpikeData in pynapple.
 
