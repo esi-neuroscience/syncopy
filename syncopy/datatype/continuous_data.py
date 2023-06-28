@@ -19,7 +19,7 @@ from .base_data import BaseData, FauxTrial
 from .methods.definetrial import definetrial
 from .base_data import BaseData
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.errors import SPYValueError
+from syncopy.shared.errors import SPYValueError, SPYError
 from syncopy.shared.tools import best_match
 from syncopy.plotting import sp_plotting, mp_plotting
 from syncopy.io.nwb import _analog_timelocked_to_nwbfile
