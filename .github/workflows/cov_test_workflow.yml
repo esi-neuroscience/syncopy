@@ -36,7 +36,7 @@ jobs:
         poetry run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Install optional dependency pynwb
       run: |
-        pip install pynwb
+        poetry add pynwb
     - name: Test with pytest and get coverage
       run: |
         cd syncopy/tests
