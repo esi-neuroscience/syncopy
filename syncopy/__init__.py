@@ -88,6 +88,11 @@ try:
 except ImportError:
     __plt__ = False
 
+try:
+    import pynwb
+    __pynwb__ = True
+except ImportError:
+    __pynwb__ = False
 
 # Set package-wide temp directory
 csHome = "/cs/home/{}".format(getpass.getuser())

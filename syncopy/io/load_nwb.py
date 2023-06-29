@@ -10,16 +10,19 @@ import h5py
 import subprocess
 import numpy as np
 from tqdm import tqdm
-import pynwb
 
 # Local imports
 from syncopy.datatype.continuous_data import AnalogData
 from syncopy.datatype.discrete_data import EventData, SpikeData
 from syncopy.shared.errors import SPYError, SPYTypeError, SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import io_parser, scalar_parser, filename_parser
+from syncopy import __pynwb__
 
 __all__ = ["load_nwb"]
 
+
+if __pynwb__:
+    import pynwb
 
 def _is_valid_nwb_file(filename):
     try:
@@ -58,6 +61,8 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
         objects are returned as a dictionary whose keys are the base-names
         (sans path) of the corresponding files.
     """
+    if not __pynwb__:
+        raise SPYError("NWB support is not available. Please install the 'pynwb' package.")
 
     # Check if file exists
     nwbPath, nwbBaseName = io_parser(filename, varname="filename", isfile=True, exists=True)
