@@ -109,6 +109,11 @@ def _add_electrodes(nwbfile, channels):
         # add electrodes to the electrode table
         for ielec in range(nchannels_per_shank):
             nwbfile.add_electrode(
+                x=0.0,
+                y=0.0,
+                z=0.0,
+                imp=float("nan"),
+                filtering="unknown",
                 group=electrode_group,
                 label="shank{}elec{}".format(ishank, ielec),
                 #location="unknown brain area (shank {}, elec {})".format(ishank, ielec),
