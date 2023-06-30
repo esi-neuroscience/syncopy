@@ -28,7 +28,7 @@ if __pynwb__:
     import pynwb
     from pynwb import NWBFile
     from pynwb.ecephys import LFP, ElectricalSeries
-    from pynwb.core import DynamicTableRegion
+    from hdmf.common import DynamicTableRegion # hdmf is a dependency of pynwb, so this should be available.
 
 # Local imports
 
