@@ -105,8 +105,8 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
 
         if isinstance(lfp, pynwb.ecephys.ElectricalSeries):
 
-            channels = lfp.electrodes[:].location
-            if channels.unique().size == 1:
+            channel_names = lfp.electrodes[:].location
+            if channel_names.unique().size == 1:
                 SPYWarning("No unique channel names found for LFP.")
 
             dTypes.append(lfp.data.dtype)
@@ -127,8 +127,8 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
         # Actual extracellular analog time-series data
         if isinstance(acqValue, pynwb.ecephys.ElectricalSeries):
 
-            channels = acqValue.electrodes[:].location
-            if channels.unique().size == 1:
+            channel_names = acqValue.electrodes[:].location
+            if channel_names.unique().size == 1:
                 SPYWarning("No unique channel names found for {}".format(acqName))
 
             dTypes.append(acqValue.data.dtype)
@@ -303,8 +303,8 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
         angData = AnalogData(dimord=AnalogData._defaultDimord, filename=filename)
         angShape = [None, None]
         angShape[angData.dimord.index("time")] = acqValue.data.shape[0]
-        numChannels = acqValue.data.shape[1] if acqValue.data.ndim > 1 else 1
-        angShape[angData.dimord.index("channel")] = numChannels
+        numDataChannels = acqValue.data.shape[1] if acqValue.data.ndim > 1 else 1
+        angShape[angData.dimord.index("channel")] = numDataChannels
         h5ang = h5py.File(angData.filename, mode="w")
         angDset = h5ang.create_dataset("data", dtype=np.result_type(*dTypes), shape=angShape)
 
@@ -318,7 +318,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
         # `nSamp` is the no. of samples that can be loaded into memory without exceeding `memuse`
         # `rem` is the no. of remaining samples, s. t. ``nSamp + rem = angDset.shape[0]`
         # `blockList` is a list of samples to load per swipe, i.e., `[nSamp, nSamp, ..., rem]`
-        nSamp = int(memuse / (numChannels * angDset.dtype.itemsize))
+        nSamp = int(memuse / (numDataChannels * angDset.dtype.itemsize))
         rem = int(angDset.shape[0] % nSamp)
         blockList = [nSamp] * int(angDset.shape[0] // nSamp) + [rem] * int(rem > 0)
 
@@ -330,12 +330,17 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
 
         # Finalize angData
         angData.data = angDset
-        channels = acqValue.electrodes[:].location
-        if channels.unique().size == 1 and channels.size > 1:
-            SPYWarning("No unique channel names found for acquisition {}".format(acqName))
+        channel_names = acqValue.electrodes[:].location
+
+        if channel_names.size == numDataChannels:
+            SPYWarning("Found {channel_names.size} channel names for data with {numDataChannels} channels in NWB file. Discarding channel names.")
+            angData.channel = None
+
+        if channel_names.unique().size == 1 and channel_names.size > 1:
+            SPYWarning("No unique channel names found for acquisition {}. Discarding channel names.".format(acqName))
             angData.channel = None
         else:
-            angData.channel = channels.to_list()
+            angData.channel = channel_names.to_list()
         angData.samplerate = sRates[0]
         angData.trialdefinition = trl
         angData.info = {'starting_time' : tStarts[0]}
