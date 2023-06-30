@@ -331,7 +331,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
         # Finalize angData
         angData.data = angDset
         channels = acqValue.electrodes[:].location
-        if channels.unique().size == 1:
+        if channels.unique().size == 1 and channels.size > 1:
             SPYWarning("No unique channel names found for acquisition {}".format(acqName))
             angData.channel = None
         else:
