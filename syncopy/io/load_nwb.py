@@ -303,7 +303,8 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
         angData = AnalogData(dimord=AnalogData._defaultDimord, filename=filename)
         angShape = [None, None]
         angShape[angData.dimord.index("time")] = acqValue.data.shape[0]
-        angShape[angData.dimord.index("channel")] = acqValue.data.shape[1]
+        numChannels = acqValue.data.shape[1] if acqValue.data.ndim > 1 else 1
+        angShape[angData.dimord.index("channel")] = numChannels
         h5ang = h5py.File(angData.filename, mode="w")
         angDset = h5ang.create_dataset("data", dtype=np.result_type(*dTypes), shape=angShape)
 
@@ -317,7 +318,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
         # `nSamp` is the no. of samples that can be loaded into memory without exceeding `memuse`
         # `rem` is the no. of remaining samples, s. t. ``nSamp + rem = angDset.shape[0]`
         # `blockList` is a list of samples to load per swipe, i.e., `[nSamp, nSamp, ..., rem]`
-        nSamp = int(memuse / (acqValue.data.shape[1] * angDset.dtype.itemsize))
+        nSamp = int(memuse / (numChannels * angDset.dtype.itemsize))
         rem = int(angDset.shape[0] % nSamp)
         blockList = [nSamp] * int(angDset.shape[0] // nSamp) + [rem] * int(rem > 0)
 
