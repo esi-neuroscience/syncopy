@@ -648,7 +648,7 @@ class TestNWBExporter():
         assert len(adata.channel) == numChannels
 
         with tempfile.TemporaryDirectory() as tdir:
-            outpath = os.path.join(tdir, 'test_save_analog2nwb.nwb')
+            outpath = os.path.join(tdir, 'test_save_analog2nwb0.nwb')
             adata.save_nwb(outpath=outpath, with_trialdefinition=False)
 
             if self.do_validate_NWB:
@@ -706,7 +706,7 @@ class TestNWBExporter():
         assert len(adata.trials) == numTrials
 
         with tempfile.TemporaryDirectory() as tdir:
-            outpath = os.path.join(tdir, 'test_save_analog2nwb.nwb')
+            outpath = os.path.join(tdir, 'test_save_analog2nwb1.nwb')
             adata.save_nwb(outpath=outpath, is_raw=False)
 
             if self.do_validate_NWB:
