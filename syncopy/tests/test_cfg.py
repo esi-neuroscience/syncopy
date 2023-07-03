@@ -38,7 +38,8 @@ class TestCfg:
     adata = synthdata.white_noise(nTrials=nTrials,
                                   nSamples=nSamples,
                                   nChannels=nChannels,
-                                  samplerate=fs)
+                                  samplerate=fs,
+                                  seed=42)
 
     # for toi tests, -1s offset
     time_span = [-.9, -.6]
