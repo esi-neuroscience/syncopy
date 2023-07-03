@@ -333,7 +333,7 @@ def load_nwb(filename, memuse=3000, container=None, validate=False, default_spik
         channel_names = acqValue.electrodes[:].location
 
         if channel_names.size != numDataChannels:
-            SPYWarning("Found {channel_names.size} channel names for data with {numDataChannels} channels in NWB file. Discarding channel names.")
+            SPYWarning(f"Found {channel_names.size} channel names for data with {numDataChannels} channels in NWB file. Discarding channel names.")
             angData.channel = None
 
         if channel_names.unique().size == 1 and channel_names.size > 1:
