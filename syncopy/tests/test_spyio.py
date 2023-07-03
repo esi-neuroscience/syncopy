@@ -665,6 +665,35 @@ class TestNWBExporter():
             assert np.allclose(adata.data, adata_reread.data)
 
     @skip_no_pynwb
+    def test_save_nwb_analog_no_trialdef_singlechannel(self):
+        """Test saving to NWB file and re-reading data for AnalogData, without trial definition.
+        This time, only save a single channel, due to issues with pynwb saving/loading under m1macos.
+        """
+
+        numChannels = 1
+        adata = white_noise(nTrials=1, nChannels=numChannels, nSamples= 1000)
+
+        assert isinstance(adata, spy.AnalogData)
+        assert len(adata.channel) == numChannels
+
+        with tempfile.TemporaryDirectory() as tdir:
+            outpath = os.path.join(tdir, 'test_save_analog2nwb0_1chan.nwb')
+            adata.save_nwb(outpath=outpath, with_trialdefinition=False)
+
+            if self.do_validate_NWB:
+                is_valid, err = _is_valid_nwb_file(outpath)
+                assert is_valid, f"Exported NWB file failed validation: {err}"
+
+            data_instances_reread = load_nwb(outpath)
+            assert len(list(data_instances_reread.values())) == 1, f"Expected 1 loaded data instance, got {len(list(data_instances_reread.values()))}"
+            adata_reread = list(data_instances_reread.values())[0]
+            assert isinstance(adata_reread, spy.AnalogData), f"Expected AnalogData, got {type(adata_reread)}"
+            assert len(adata_reread.channel) == numChannels, f"Expected {numChannels} channels, got {len(adata_reread.channel)}"
+            assert len(adata_reread.trials) == 1
+            assert all(adata_reread.channel == adata.channel) # Check that channel names are saved and re-read correctly.
+            assert np.allclose(adata.data, adata_reread.data)
+
+    @skip_no_pynwb
     def test_save_nwb_analog_with_trialdef(self):
         """Test saving to NWB file and re-reading data for AnalogData with a trial definition."""
 
