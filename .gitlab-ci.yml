@@ -51,7 +51,7 @@ powerlinux:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
-    - conda install pynwb=2.3.2 -c conda-forge
+    - pip install pynwb==2.3.2
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
