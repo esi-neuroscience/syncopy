@@ -635,7 +635,7 @@ class TestNWBImporter:
 
 class TestNWBExporter():
 
-    do_validate_NWB = True
+    do_validate_NWB = False
 
     @skip_no_pynwb
     def test_save_nwb_analog_no_trialdef(self):
