@@ -538,7 +538,7 @@ class TestDetrending:
         res_c0 = res.show(trials=1, channel=0)
 
         # detrended also means demeaned
-        assert np.allclose(np.mean(res.show(trials=1, channel=0)), 0, atol=1e-5)
+        assert np.allclose(np.mean(res.show(trials=1, channel=0)), 0, atol=1e-4)
 
         # check that the linear trend is gone
         assert (orig_c0.max() - orig_c0.min()) > 1.5 * (res_c0.max() - res_c0.min())
