@@ -98,6 +98,7 @@ m1macos:
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
     - conda install importlib_resources
+    - conda install -c anaconda h5py=3.7.0
     - conda install pynwb=2.3.2 -c conda-forge
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
