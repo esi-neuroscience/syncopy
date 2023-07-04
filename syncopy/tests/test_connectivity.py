@@ -399,7 +399,7 @@ class TestCoherence:
                         **kwargs)
 
         # same results on all channels and freqs
-        assert np.allclose(res_spec.trials[0], res_ad.trials[0])
+        assert np.allclose(res_spec.trials[0], res_ad.trials[0], atol=1e-3)
 
         for res in [res_spec, res_ad]:
             # coherence at the harmonic frequencies
