@@ -591,6 +591,12 @@ class TestNWBImporter:
             nwb_filename = nwbfile
             break
 
+    nwb_filename2 = None
+    for nwbfile in [expanduser('~/adata_no_trials_64chan.nwb'), '/cs/slurm/syncopy/NWBdata/adata_no_trials_64chan.nwb']:
+        if os.path.isfile(nwbfile):
+            nwb_filename2 = nwbfile
+            break
+
     @skip_no_pynwb
     def test_load_nwb_analog(self):
         """Test loading of an NWB file containing acquistion data into a Syncopy AnalogData object."""
@@ -633,6 +639,15 @@ class TestNWBImporter:
 
             assert np.allclose(lfp.data, lfp2.data)
 
+    @skip_no_pynwb
+    def test_load_our_exported(self):
+        if self.nwb_filename2 is None:
+            pytest.skip("Demo NWB file2 not found on current system.")
+        out = load_nwb(self.nwb_filename2)
+        assert len(out.channel) == 64
+        assert out.data.shape == (1000, 64)
+
+
 class TestNWBExporter():
 
     do_validate_NWB = False
@@ -650,6 +665,8 @@ class TestNWBExporter():
         with tempfile.TemporaryDirectory() as tdir:
             outpath = os.path.join(tdir, 'test_save_analog2nwb0.nwb')
             adata.save_nwb(outpath=outpath, with_trialdefinition=False)
+
+            adata.save_nwb(outpath="adata_no_trials_64chan.nwb", with_trialdefinition=False)
 
             if self.do_validate_NWB:
                 is_valid, err = _is_valid_nwb_file(outpath)
