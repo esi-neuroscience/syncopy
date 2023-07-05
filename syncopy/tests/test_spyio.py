@@ -31,6 +31,7 @@ from syncopy.tests.misc import generate_artificial_data
 from syncopy.synthdata.analog import white_noise
 from syncopy.synthdata.spikes import poisson_noise
 from syncopy.io.load_nwb import _is_valid_nwb_file
+from syncopy.tests.helpers import get_file_from_anywhere
 from syncopy import __pynwb__
 
 skip_no_pynwb = pytest.mark.skipif(not __pynwb__, reason=f"This test requires the 'pynwb' package to be installed.")
@@ -582,27 +583,18 @@ class TestTDTImporter:
             load_tdt(self.tdt_dir, start_code=self.start_code, end_code=999999)
 
 
+
 class TestNWBImporter:
 
-    nwb_filename = None
-    from os.path import expanduser
-    for nwbfile in [expanduser('~/test.nwb'), '/cs/slurm/syncopy/NWBdata/test.nwb']:
-        if os.path.isfile(nwbfile):
-            nwb_filename = nwbfile
-            break
-
-    nwb_filename2 = None
-    for nwbfile in [expanduser('~/adata_no_trials_64chan.nwb'), '/cs/slurm/syncopy/NWBdata/adata_no_trials_64chan.nwb']:
-        if os.path.isfile(nwbfile):
-            nwb_filename2 = nwbfile
-            break
+    nwb_filename = get_file_from_anywhere(['~/test.nwb', '/cs/slurm/syncopy/NWBdata/test.nwb'])
+    nwb_filename2 = get_file_from_anywhere(['~/adata_no_trials_64chan.nwb', '/cs/slurm/syncopy/NWBdata/adata_no_trials_64chan.nwb'])
 
     @skip_no_pynwb
     def test_load_nwb_analog(self):
         """Test loading of an NWB file containing acquistion data into a Syncopy AnalogData object."""
 
         if self.nwb_filename is None:
-            pytest.skip("Demo NWB file not found on current system.")
+            pytest.skip("Demo NWB file 'test.nwb' not found on current system.")
 
         spy_filename = self.nwb_filename.split('/')[-1][:-4] + '.spy'
         out = load_nwb(self.nwb_filename, memuse=2000)
@@ -641,8 +633,12 @@ class TestNWBImporter:
 
     @skip_no_pynwb
     def test_load_our_exported(self):
+        """This fails if the exported file was written with older versions of pynwb or its dependencies.
+           If you want to re-export the file with your currently running Syncopy version, set the
+           variable do_save_testfile to True in function test_save_nwb_analog_no_trialdef_singlechannel below.
+        """
         if self.nwb_filename2 is None:
-            pytest.skip("Demo NWB file2 not found on current system.")
+            pytest.skip("Demo NWB file 'adata_no_trials_64chan.nwb' not found on current system.")
         out = load_nwb(self.nwb_filename2)
         assert len(out.channel) == 64
         assert out.data.shape == (1000, 64)
@@ -694,8 +690,14 @@ class TestNWBExporter():
         assert len(adata.channel) == numChannels
 
         with tempfile.TemporaryDirectory() as tdir:
+
             outpath = os.path.join(tdir, 'test_save_analog2nwb0_1chan.nwb')
             adata.save_nwb(outpath=outpath, with_trialdefinition=False)
+
+            do_save_testfile = False # Exports test file used in other tests. Only set to True if you want to re-export the file.
+            if do_save_testfile:
+                outpath = os.path.expanduser('~/test_save_analog2nwb0_1chan.nwb')
+                adata.save_nwb(outpath=outpath, with_trialdefinition=False)
 
             if self.do_validate_NWB:
                 is_valid, err = _is_valid_nwb_file(outpath)

@@ -9,8 +9,10 @@
 # 3rd party imports
 import itertools
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from syncopy.shared.errors import SPYValueError, SPYTypeError
+from os.path import expanduser
 
 # fix random generators
 test_seed = 42
@@ -141,4 +143,25 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
 def teardown():
     """Cleanup to run at the end of a set of tests, typically at the end of a Test class."""
     # Close matplotlib plot windows:
-    plt.close('all')
+    try:
+        plt.close('all')
+    except:
+        pass
+
+
+def get_file_from_anywhere(possible_locations):
+    """
+    Helper function to get a file from a list of possible locations.
+    Useful to run tests on different systems. If you do not have access
+    to the ESI cluster, this allows you to still run tests on your local
+    machine, all you need to do is copy the required files to your local
+    machine and add the path to the list of possible locations.
+
+    Parameters
+    ----------
+    possible_locations : list of strings, will be expanded with ```os.path.expanduser``` so it is fine to give somehthing like '~/file.txt'.
+    """
+    for loc in possible_locations:
+        if os.path.isfile(expanduser(loc)):
+            return loc
+    return None
