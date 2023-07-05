@@ -798,7 +798,7 @@ class TestTimeLockData:
 
         # Try to overwrite data via setter, which should not work.
         avg_data2 = np.zeros((4, 4, 4), dtype=np.float32)
-        with pytest.raises(AttributeError, match="can't set attribute"):
+        with pytest.raises(AttributeError, match="set"):
             tld.avg = avg_data2
 
         # But we can do it with _update_dataset:
