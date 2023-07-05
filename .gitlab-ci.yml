@@ -95,7 +95,7 @@ m1macos:
     - rm -rf ~/.spy
     - source /opt/conda/etc/profile.d/conda.sh
     - conda clean --all -y
-    - conda create --yes --name syncopy-m1macos --file syncopy.yml
+    - conda env create --yes --name syncopy-m1macos --file syncopy.yml
     - conda activate syncopy-m1macos
     - conda install importlib_resources
     - conda install pynwb=2.3.2 -c conda-forge
