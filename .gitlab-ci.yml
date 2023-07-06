@@ -98,8 +98,7 @@ m1macos:
     #- conda env create --name syncopy-m1macos --file syncopy.yml
     - conda env update --name syncopy-m1macos --file syncopy.yml --prune
     - conda activate syncopy-m1macos
-    - conda install importlib_resources
-    - conda install -c conda-forge iniconfig
+    - conda install -c conda-forge importlib_resources iniconfig tblib
     - conda install pynwb=2.3.2 -c conda-forge
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
