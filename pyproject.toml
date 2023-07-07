@@ -21,12 +21,12 @@ description = "A toolkit for user-friendly large-scale electrophysiology data an
 authors = ["Stefan Fürtinger <sfuerti@esi-frankfurt.de>", "Tim Schäfer <tim.schaefer@esi-frankfurt.de>", "Joscha Schmiedt <schmiedt@uni-bremen.de>", "Gregor Mönke <gregor.moenke@esi-frankfurt.de>"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = ">=3.8,<3.12"
 h5py = ">=2.9"
 dask = {version=">=2022.6", extras=["distributed"]}
 dask-jobqueue = ">=0.8"
 numpy = ">=1.10"
-scipy = ">=1.5"
+scipy = ">=1.10.0"
 matplotlib = ">=3.5"
 tqdm = ">=4.31"
 natsort = "^8.1.0"
