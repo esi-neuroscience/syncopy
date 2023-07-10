@@ -4,16 +4,16 @@ channels:
   - conda-forge
 dependencies:
   # this is to comply with acme 2022.11
-  - python <3.12, >=3.8
+  - python >=3.8
   - dask[distributed]
   - dask-jobqueue
   - h5py >=3.7
   - numpy >= 1.10
-  - scipy >= 1.10
+  - scipy >= 1.5
   - matplotlib >= 3.5
   - tqdm >= 4.31
   - natsort
-  - pip >= 22.0
+  - pip
   - psutil
   - tqdm >= 4.31
   - fooof >= 1.0
