@@ -51,7 +51,7 @@ jobs:
         verbose: true
 
   test-macos:
-    runs-on: macos-latest-x1
+    runs-on: macos-latest
     strategy:
       max-parallel: 1
     steps:
