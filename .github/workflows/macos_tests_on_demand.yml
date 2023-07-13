@@ -1,19 +1,13 @@
 name: Run Basic Tests
 
 on:
-  # Triggers the workflow on push or pull request events
-  push:
-    branches:
-    - master
-    - dev
-  pull_request:
-
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
+
+  test-macos:
+    runs-on: macos-latest
     strategy:
       max-parallel: 1
     steps:
@@ -43,9 +37,5 @@ jobs:
         # run parallel tests only for base CR
         poetry run pytest -k 'computationalroutine and parallel'
         # don't run general parallel tests
-        poetry run pytest  -k 'not parallel' --color=yes --tb=short --verbose --cov=../../syncopy --cov-config=../../.coveragerc --cov-report=xml
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v2
-      with:
-        name: syncopy-codecov
-        verbose: true
+        poetry run pytest  -k 'not parallel'
+
