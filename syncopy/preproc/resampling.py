@@ -78,11 +78,9 @@ def resample(data, orig_fs, new_fs, lpfreq=None, order=None):
 
     if f_c:
         # filter has to be applied to the upsampled data
-        window = firws.design_wsinc("hamming",
-                                    order=order,
-                                    f_c=f_c / up)
+        window = firws.design_wsinc("hamming", order=order, f_c=f_c / up)
     else:
-        window = ('kaiser', 5.0)  # triggers SciPy default filter design
+        window = ("kaiser", 5.0)  # triggers SciPy default filter design
 
     resampled = sci_sig.resample_poly(data, up, down, window=window, axis=0)
 
@@ -93,7 +91,7 @@ def downsample(
     dat,
     samplerate=1,
     new_samplerate=1,
-    ):
+):
     """
     Provides basic downsampling of signals. The `new_samplerate` should be
     an integer division of the original `samplerate`.

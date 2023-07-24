@@ -116,7 +116,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
     data_parser(out, varname="out", writable=None, empty=False)
 
     if filename is None and container is None:
-        raise SPYError('filename and container cannot both be `None`')
+        raise SPYError("filename and container cannot both be `None`")
 
     if container is not None and filename is None:
         # construct filename from container name
@@ -125,14 +125,12 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
         if not os.path.splitext(container)[1] == ".spy":
             container += ".spy"
         fileInfo = filename_parser(container)
-        filename = os.path.join(fileInfo["folder"],
-                                fileInfo["container"],
-                                fileInfo["basename"])
+        filename = os.path.join(fileInfo["folder"], fileInfo["container"], fileInfo["basename"])
         # handle tag
         if tag is not None:
             if not isinstance(tag, str):
                 raise SPYTypeError(tag, varname="tag", expected="str")
-            filename += '_' + tag
+            filename += "_" + tag
 
     elif container is not None and filename is not None:
         raise SPYError("container and filename cannot be used at the same time")
@@ -150,9 +148,14 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
     # Parse filename for validity and construct full path to HDF5 file
     fileInfo = filename_parser(filename)
     if fileInfo["extension"] != out._classname_to_extension():
-        raise SPYError("""Extension in filename ('{ext}') does not match data
-                    class ({dclass}), expected '{exp}'.""".format(ext=fileInfo["extension"],
-                                               dclass=out.__class__.__name__, exp=out._classname_to_extension()))
+        raise SPYError(
+            """Extension in filename ('{ext}') does not match data
+                    class ({dclass}), expected '{exp}'.""".format(
+                ext=fileInfo["extension"],
+                dclass=out.__class__.__name__,
+                exp=out._classname_to_extension(),
+            )
+        )
     dataFile = os.path.join(fileInfo["folder"], fileInfo["filename"])
 
     # If `out` is to replace its own on-disk representation, be more careful
@@ -195,10 +198,16 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
         for datasetName in out._hdfFileDatasetProperties:
             dataset = getattr(out, "_" + datasetName)
             if dataset is not None:
-                spy.log(f"Writing dataset '{datasetName}' ({len(out._hdfFileDatasetProperties)} datasets total) to HDF5 file '{dataFile}'.", level="DEBUG")
+                spy.log(
+                    f"Writing dataset '{datasetName}' ({len(out._hdfFileDatasetProperties)} datasets total) to HDF5 file '{dataFile}'.",
+                    level="DEBUG",
+                )
                 dat = h5f.create_dataset(datasetName, data=dataset)
             else:
-                spy.log(f"Not writing 'None 'dataset '{datasetName}' ({len(out._hdfFileDatasetProperties)} datasets total) to HDF5 file '{dataFile}'.", level="DEBUG")
+                spy.log(
+                    f"Not writing 'None 'dataset '{datasetName}' ({len(out._hdfFileDatasetProperties)} datasets total) to HDF5 file '{dataFile}'.",
+                    level="DEBUG",
+                )
 
     # Now write trial-related information
     trl_arr = np.array(out.trialdefinition)
@@ -206,8 +215,7 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
         trl[()] = trl_arr
         trl.flush()
     else:
-        trl = h5f.create_dataset("trialdefinition", data=trl_arr,
-                                 maxshape=(None, trl_arr.shape[1]))
+        trl = h5f.create_dataset("trialdefinition", data=trl_arr, maxshape=(None, trl_arr.shape[1]))
 
     # Write to log already here so that the entry can be exported to json
     infoFile = dataFile + FILE_EXT["info"]
@@ -247,16 +255,17 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
             try:
                 h5f.attrs[key] = outDict[key]
             except RuntimeError:
-                msg = "Too many entries in `{}` - truncating HDF5 attribute. " +\
-                    "Please refer to {} for complete listing."
+                msg = (
+                    "Too many entries in `{}` - truncating HDF5 attribute. "
+                    + "Please refer to {} for complete listing."
+                )
                 info_fle = os.path.split(os.path.split(filename.format(ext=FILE_EXT["info"]))[0])[1]
-                info_fle = os.path.join(info_fle, os.path.basename(
-                    filename.format(ext=FILE_EXT["info"])))
+                info_fle = os.path.join(info_fle, os.path.basename(filename.format(ext=FILE_EXT["info"])))
                 SPYWarning(msg.format(key, info_fle))
                 h5f.attrs[key] = [outDict[key][0], "...", outDict[key][-1]]
 
     # Save the dataset names that should be loaded later into the JSON.
-    outDict['_hdfFileDatasetProperties'] = list(out._hdfFileDatasetProperties)
+    outDict["_hdfFileDatasetProperties"] = list(out._hdfFileDatasetProperties)
 
     # Re-assign filename after saving (and remove source in case it came from `__storage__`)
     if not replace:
@@ -271,15 +280,19 @@ def save(out, container=None, tag=None, filename=None, overwrite=False):
                     virtual_dir_path = os.path.splitext(out.filename)[0]
                     shutil.rmtree(virtual_dir_path)
             except PermissionError as ex:
-                spy.log(f"Could not delete file '{out.filename}': {str(ex)}.", level='IMPORTANT')
+                spy.log(
+                    f"Could not delete file '{out.filename}': {str(ex)}.",
+                    level="IMPORTANT",
+                )
         out.data = dataFile
 
     # Compute checksum and finally write JSON (automatically overwrites existing)
     outDict["file_checksum"] = hash_file(dataFile)
 
-    with open(infoFile, 'w') as out_json:
+    with open(infoFile, "w") as out_json:
         json.dump(outDict, out_json, indent=4)
-    spy.log(f"Wrote container to {os.path.dirname(out.filename)}", level='INFO')
+    spy.log(f"Wrote container to {os.path.dirname(out.filename)}", level="INFO")
+
 
 def _dict_converter(dct, firstrun=True):
     """

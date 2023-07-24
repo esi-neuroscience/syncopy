@@ -5,6 +5,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+
 # syncopy imports
 from syncopy import SpikeData
 from syncopy.shared.kwarg_decorators import unwrap_cfg
@@ -13,13 +14,15 @@ from syncopy.shared.kwarg_decorators import unwrap_cfg
 
 
 @unwrap_cfg
-def poisson_noise(nTrials=10,
-                  nSpikes=10000,
-                  nChannels=3,
-                  nUnits=10,
-                  intensity=.1,
-                  samplerate=10000,
-                  seed=None):
+def poisson_noise(
+    nTrials=10,
+    nSpikes=10000,
+    nChannels=3,
+    nUnits=10,
+    intensity=0.1,
+    samplerate=10000,
+    seed=None,
+):
 
     """
     Poisson (Shot-)noise generator
@@ -95,10 +98,7 @@ def poisson_noise(nTrials=10,
     T_max = int(nSpikes / intensity)
 
     spike_samples = np.sort(rng.choice(range(T_max), size=nSpikes, replace=False))
-    channels = rng.choice(
-        np.arange(nChannels), p=get_rdm_weights(nChannels),
-        size=nSpikes, replace=True
-    )
+    channels = rng.choice(np.arange(nChannels), p=get_rdm_weights(nChannels), size=nSpikes, replace=True)
 
     uvec = np.arange(nUnits)
     pvec = get_rdm_weights(nUnits)
@@ -117,7 +117,9 @@ def poisson_noise(nTrials=10,
 
     shortest_trial = np.min(idx_end - idx_start)
     idx_offset = -rng.choice(
-        np.arange(0.05 * shortest_trial, 0.2 * shortest_trial, dtype=int), size=nTrials, replace=True
+        np.arange(0.05 * shortest_trial, 0.2 * shortest_trial, dtype=int),
+        size=nTrials,
+        replace=True,
     )
 
     trldef = np.vstack([idx_start, idx_end, idx_offset]).T

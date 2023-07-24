@@ -13,7 +13,7 @@ from syncopy.shared.parsers import scalar_parser
 from syncopy.shared.kwarg_decorators import (
     unwrap_cfg,
     _append_docstring,
-    _append_signature
+    _append_signature,
 )
 
 
@@ -55,28 +55,28 @@ def collect_trials(trial_func):
             seed_array = rng.integers(1_000_000, size=nTrials)
 
         # append samplerate parameter if also needed by the generator
-        if 'samplerate' in signature(trial_func).parameters.keys():
-            tf_kwargs['samplerate'] = samplerate
+        if "samplerate" in signature(trial_func).parameters.keys():
+            tf_kwargs["samplerate"] = samplerate
 
         # bypass: directly return a single trial (may pass on the scalar seed if the function supports it)
         if nTrials is None:
-            if 'seed' in signature(trial_func).parameters.keys():
-                tf_kwargs['seed'] = seed
+            if "seed" in signature(trial_func).parameters.keys():
+                tf_kwargs["seed"] = seed
             return trial_func(**tf_kwargs)
 
         # collect trials
         else:
-            scalar_parser(nTrials, 'nTrials', ntype="int_like", lims=[1, np.inf])
+            scalar_parser(nTrials, "nTrials", ntype="int_like", lims=[1, np.inf])
 
             # create the trial generator
             def mk_trl_generator():
 
                 for trial_idx in range(nTrials):
-                    if 'seed' in signature(trial_func).parameters.keys():
+                    if "seed" in signature(trial_func).parameters.keys():
                         if seed_array is not None:
-                            tf_kwargs['seed'] = seed_array[trial_idx]
+                            tf_kwargs["seed"] = seed_array[trial_idx]
                         else:
-                            tf_kwargs['seed'] = seed
+                            tf_kwargs["seed"] = seed
                     yield trial_func(*args, **tf_kwargs)
 
             trl_generator = mk_trl_generator()
@@ -90,7 +90,8 @@ def collect_trials(trial_func):
         "    nTrials : int or None\n"
         "        Number of trials for the returned :class:`~syncopy.AnalogData` object.\n"
         "        When set to `None` a single-trial :class:`~numpy.ndarray`\n"
-        "        is returned.")
+        "        is returned."
+    )
 
     wrapper_synth.__doc__ = _append_docstring(trial_func, nTrialsDocEntry)
     wrapper_synth.__signature__ = _append_signature(trial_func, "nTrials", kwdefault=100)

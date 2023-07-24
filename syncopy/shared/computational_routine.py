@@ -13,9 +13,11 @@ from itertools import chain
 from abc import ABC, abstractmethod
 from copy import copy
 from tqdm.auto import tqdm
+
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
     import colorama
+
     colorama.deinit()
     colorama.init(strip=False)
 
@@ -27,9 +29,16 @@ import syncopy as spy
 from .tools import get_defaults
 from .dask_helpers import check_slurm_available
 from syncopy import __storage__, __acme__
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYParallelError, SPYWarning
+from syncopy.shared.errors import (
+    SPYValueError,
+    SPYTypeError,
+    SPYParallelError,
+    SPYWarning,
+)
+
 if __acme__:
     from acme import ParallelMap
+
     # # In case of problems w/worker-stealing, uncomment the following lines
     # import dask
     # dask.config.set(distributed__scheduler__work_stealing=False)
@@ -286,12 +295,11 @@ class ComputationalRoutine(ABC):
         trials = []
         for tk, trialno in enumerate(self.trialList):
             trial = data._preview_trial(trialno)
-            trlArg = tuple(arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and
-                           len(arg) == self.numTrials
-                           else arg for arg in self.argv)
-            chunkShape, dtype = self.computeFunction(trial,
-                                                     *trlArg,
-                                                     **dryRunKwargs)
+            trlArg = tuple(
+                arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials else arg
+                for arg in self.argv
+            )
+            chunkShape, dtype = self.computeFunction(trial, *trlArg, **dryRunKwargs)
             chk_list.append(list(chunkShape))
             dtp_list.append(dtype)
             trials.append(trial)
@@ -332,16 +340,18 @@ class ComputationalRoutine(ABC):
             chan_per_worker = None
         if data.selection is not None:
             if chan_per_worker is not None and data.selection.channel != slice(None, None, 1):
-                msg = "channel selection and simultaneous channel-block " +\
-                    "parallelization not yet supported!"
+                msg = (
+                    "channel selection and simultaneous channel-block " + "parallelization not yet supported!"
+                )
                 SPYWarning(msg)
                 chan_per_worker = None
 
         # Allocate control variables
         trial = trials[0]
-        trlArg0 = tuple(arg[0] if isinstance(arg, (list, tuple, np.ndarray)) and
-                        len(arg) == self.numTrials
-                        else arg for arg in self.argv)
+        trlArg0 = tuple(
+            arg[0] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials else arg
+            for arg in self.argv
+        )
         chunkShape0 = tuple(chk_arr[0, :])
         lyt = [slice(0, stop) for stop in chunkShape0]
         sourceLayout = []
@@ -406,9 +416,10 @@ class ComputationalRoutine(ABC):
         stacking = targetLayout[0][stackingDim].stop
         for tk in range(1, self.numTrials):
             trial = trials[tk]
-            trlArg = tuple(arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and
-                           len(arg) == self.numTrials
-                           else arg for arg in self.argv)
+            trlArg = tuple(
+                arg[tk] if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials else arg
+                for arg in self.argv
+            )
             chkshp = chk_list[tk]
             lyt = [slice(0, stop) for stop in chkshp]
             lyt[stackingDim] = slice(stacking, stacking + chkshp[stackingDim])
@@ -428,7 +439,7 @@ class ComputationalRoutine(ABC):
                     idx[inchanidx] = slice(blockstack, blockstack + block)
                     trial.shape = tuple(shp)
                     trial.idx = tuple(idx)
-                    res, _ = self.computeFunction(trial, *trlArg, **dryRunKwargs)   # FauxTrial
+                    res, _ = self.computeFunction(trial, *trlArg, **dryRunKwargs)  # FauxTrial
                     lyt[outchanidx] = slice(chanstack, chanstack + res[outchanidx])
                     targetLayout.append(tuple(lyt))
                     targetShapes.append(tuple([slc.stop - slc.start for slc in lyt]))
@@ -452,8 +463,9 @@ class ComputationalRoutine(ABC):
         # TRIAL) that can be UNSORTED W/REPS to actually perform the requested
         # selection on the NumPy array extracted w/`sourceLayout`.
         for grd in sourceLayout:
-            if any([np.diff(sel).min() <= 0 if isinstance(sel, list)
-                    and len(sel) > 1 else False for sel in grd]):
+            if any(
+                [np.diff(sel).min() <= 0 if isinstance(sel, list) and len(sel) > 1 else False for sel in grd]
+            ):
                 self.useFancyIdx = True
                 break
         if self.useFancyIdx:
@@ -466,7 +478,7 @@ class ComputationalRoutine(ABC):
                         sel = [sel]
                     if isinstance(sel, list):
                         selarr = np.array(sel, dtype=np.intp)
-                    else:   # sel is a slice
+                    else:  # sel is a slice
                         step = sel.step
                         if sel.step is None:
                             step = 1
@@ -498,8 +510,17 @@ class ComputationalRoutine(ABC):
         # Get data access mode (only relevant for parallel reading access)
         self.dataMode = data.mode
 
-    def compute(self, data, out, parallel=False, parallel_store=None,
-                method=None, mem_thresh=0.5, log_dict=None, parallel_debug=False):
+    def compute(
+        self,
+        data,
+        out,
+        parallel=False,
+        parallel_store=None,
+        method=None,
+        mem_thresh=0.5,
+        log_dict=None,
+        parallel_debug=False,
+    ):
         """
         Central management and processing method
 
@@ -619,30 +640,39 @@ class ComputationalRoutine(ABC):
             trial_ids = data.selection.trial_ids if data.selection is not None else range(self.numTrials)
 
             # Use trial_ids and chunk_ids to turn into a unique index.
-            if self.numBlocksPerTrial == 1:  # The simple case: 1 call per trial. We add a chunk id (the trailing `_0` to be consistent with
-                                             # the more complex case, but the chunk index is always `0`).
+            if (
+                self.numBlocksPerTrial == 1
+            ):  # The simple case: 1 call per trial. We add a chunk id (the trailing `_0` to be consistent with
+                # the more complex case, but the chunk index is always `0`).
                 unique_key = ["__" + str(trial_id) + "_0" for trial_id in trial_ids]
             else:  # The more complex case: channel parallelization is active, we need to add the chunk to the
-                   # trial ID for the key to be unique, as a trial will be split into several chunks.
+                # trial ID for the key to be unique, as a trial will be split into several chunks.
                 trial_ids = np.repeat(trial_ids, self.numBlocksPerTrial)
                 chunk_ids = np.tile(np.arange(self.numBlocksPerTrial), self.numTrials)
-                unique_key = ["__" + str(trial_id) + "_" + str(chunk_id) for trial_id, chunk_id in zip(trial_ids, chunk_ids)]
+                unique_key = [
+                    "__" + str(trial_id) + "_" + str(chunk_id)
+                    for trial_id, chunk_id in zip(trial_ids, chunk_ids)
+                ]
 
-            workerDicts = [{"keeptrials": self.keeptrials,
-                            "infile": data.filename,
-                            "indset": data.data.name,
-                            "ingrid": self.sourceLayout[chk],
-                            "inshape": self.sourceShapes[chk],
-                            "sigrid": self.sourceSelectors[chk],
-                            "fancy": self.useFancyIdx,
-                            "vdsdir": self.virtualDatasetDir,
-                            "outfile": self.outFileName.format(chk),
-                            "outdset": self.tmpDsetName,
-                            "outgrid": self.targetLayout[chk],
-                            "outshape": self.targetShapes[chk],
-                            "dtype": self.dtype,
-                            "call_id": unique_key[chk] } for chk in range(self.numCalls)]
-
+            workerDicts = [
+                {
+                    "keeptrials": self.keeptrials,
+                    "infile": data.filename,
+                    "indset": data.data.name,
+                    "ingrid": self.sourceLayout[chk],
+                    "inshape": self.sourceShapes[chk],
+                    "sigrid": self.sourceSelectors[chk],
+                    "fancy": self.useFancyIdx,
+                    "vdsdir": self.virtualDatasetDir,
+                    "outfile": self.outFileName.format(chk),
+                    "outdset": self.tmpDsetName,
+                    "outgrid": self.targetLayout[chk],
+                    "outshape": self.targetShapes[chk],
+                    "dtype": self.dtype,
+                    "call_id": unique_key[chk],
+                }
+                for chk in range(self.numCalls)
+            ]
 
             # If channel-block parallelization has been set up, positional args of
             # `computeFunction` need to be massaged: any list whose elements represent
@@ -660,12 +690,14 @@ class ComputationalRoutine(ABC):
                                 ArgV[ak] = tuple(unrolled)
                     elif isinstance(arg, np.ndarray):
                         if len(arg.squeeze().shape) == 1 and arg.squeeze().size == self.numTrials:
-                            ArgV[ak] = np.array(chain.from_iterable([[ag] * self.numBlocksPerTrial for ag in arg]))
+                            ArgV[ak] = np.array(
+                                chain.from_iterable([[ag] * self.numBlocksPerTrial for ag in arg])
+                            )
 
             # Positional args for `process_io` wrapped computeFunctions consist of `trl_dat` + others
             # (stored in `ArgV`). Account for this when seeting up `ParallelMap`
             if len(ArgV) == 0:
-                self.inargs = (workerDicts, )
+                self.inargs = (workerDicts,)
             else:
                 self.inargs = (workerDicts, *ArgV)
             # Store provided debugging state for ACME
@@ -682,9 +714,11 @@ class ComputationalRoutine(ABC):
             if self.chunkMem >= mem_thresh * memSize:
                 self.chunkMem /= 1024**3
                 memSize /= 1024**3
-                msg = ("Single-trial processing requires {0:2.2f} GB of memory "
-                       "which is larger than the available "
-                       "memory ({1:2.2f} GB)")
+                msg = (
+                    "Single-trial processing requires {0:2.2f} GB of memory "
+                    "which is larger than the available "
+                    "memory ({1:2.2f} GB)"
+                )
                 raise SPYParallelError(msg.format(2 * self.chunkMem, memSize))
 
         # The `method` keyword can be used to override the `parallel` flag
@@ -749,7 +783,9 @@ class ComputationalRoutine(ABC):
                 fname = os.path.join(self.virtualDatasetDir, "{0:d}.h5".format(k))
                 # Catch empty selections: don't map empty sources into the layout of the VDS
                 if all([sel for sel in self.sourceLayout[k]]):
-                    layout[idx] = h5py.VirtualSource(fname, self.virtualDatasetNames, shape=self.targetShapes[k])
+                    layout[idx] = h5py.VirtualSource(
+                        fname, self.virtualDatasetNames, shape=self.targetShapes[k]
+                    )
             self.VirtualDatasetLayout = layout
             self.outFileName = os.path.join(self.virtualDatasetDir, "{0:d}.h5")
             self.tmpDsetName = self.virtualDatasetNames
@@ -763,8 +799,7 @@ class ComputationalRoutine(ABC):
             else:
                 shp = self.outputShape
             with h5py.File(out.filename, mode="w") as h5f:
-                h5f.create_dataset(name=self.outDatasetName,
-                                   dtype=self.dtype, shape=shp)
+                h5f.create_dataset(name=self.outDatasetName, dtype=self.dtype, shape=shp)
             self.outFileName = out.filename
             self.tmpDsetName = self.outDatasetName
 
@@ -801,20 +836,22 @@ class ComputationalRoutine(ABC):
         # that `cfg` is trial-independent, i.e., we can simply throw it in here!
         if __acme__ and check_slurm_available():
 
-            self.pmap = ParallelMap(self.computeFunction,
-                                    *self.inargs,
-                                    n_inputs=self.numCalls,
-                                    write_worker_results=False,
-                                    write_pickle=False,
-                                    partition="auto",
-                                    n_workers="auto",
-                                    mem_per_worker="auto",
-                                    setup_timeout=60,
-                                    setup_interactive=False,
-                                    stop_client="auto",
-                                    verbose=None,
-                                    logfile=None,
-                                    **self.cfg)
+            self.pmap = ParallelMap(
+                self.computeFunction,
+                *self.inargs,
+                n_inputs=self.numCalls,
+                write_worker_results=False,
+                write_pickle=False,
+                partition="auto",
+                n_workers="auto",
+                mem_per_worker="auto",
+                setup_timeout=60,
+                setup_interactive=False,
+                stop_client="auto",
+                verbose=None,
+                logfile=None,
+                **self.cfg
+            )
 
             # Edge-case correction: if by chance, any array-like element `x` of `cfg`
             # satisfies `len(x) = numCalls`, `ParallelMap` attempts to tear open `x` and
@@ -849,9 +886,11 @@ class ComputationalRoutine(ABC):
             if self.chunkMem >= self.mem_thresh * workerMemMax:
                 self.chunkMem /= 1024**3
                 workerMemMax /= 1000**3
-                msg = ("Single-trial processing requires {0:2.2f} GB of memory "
-                       "which is larger than the available "
-                       "worker memory ({1:2.2f} GB)")
+                msg = (
+                    "Single-trial processing requires {0:2.2f} GB of memory "
+                    "which is larger than the available "
+                    "worker memory ({1:2.2f} GB)"
+                )
                 raise SPYParallelError(msg.format(2 * self.chunkMem, workerMemMax))
 
         # --- trigger actual computation ---
@@ -871,10 +910,14 @@ class ComputationalRoutine(ABC):
                 iterables = []
                 ArgV = self.inargs[1:]
                 for nblock, wdict in enumerate(workerDicts):
-                    argv = tuple(arg[nblock]
-                                 if isinstance(arg, (list, tuple, np.ndarray)) and  # these are the argv_seq
-                                 len(arg) == len(workerDicts)  # each call gets one element of a sequence type argv
-                                 else arg for arg in ArgV)
+                    argv = tuple(
+                        arg[nblock]
+                        if isinstance(arg, (list, tuple, np.ndarray))
+                        and len(arg)  # these are the argv_seq
+                        == len(workerDicts)  # each call gets one element of a sequence type argv
+                        else arg
+                        for arg in ArgV
+                    )
                     iterables.append((wdict, *argv))
             # no *args for the cF
             else:
@@ -939,10 +982,12 @@ class ComputationalRoutine(ABC):
                 ingrid = self.sourceLayout[nblock]
                 sigrid = self.sourceSelectors[nblock]
                 outgrid = self.targetLayout[nblock]
-                argv = tuple(arg[nblock]
-                             if isinstance(arg, (list, tuple, np.ndarray)) and
-                             len(arg) == self.numTrials
-                             else arg for arg in self.argv)
+                argv = tuple(
+                    arg[nblock]
+                    if isinstance(arg, (list, tuple, np.ndarray)) and len(arg) == self.numTrials
+                    else arg
+                    for arg in self.argv
+                )
 
                 # Catch empty source-array selections; this workaround is not
                 # necessary for h5py version 2.10+ (see https://github.com/h5py/h5py/pull/1174)
@@ -1028,9 +1073,10 @@ class ComputationalRoutine(ABC):
             log_dict = cfg
         logOpts = ""
         for k, v in log_dict.items():
-            logOpts += "\t{key:s} = {value:s}\n".format(key=k,
-                                                        value=str(v) if len(str(v)) < 80
-                                                        else str(v)[:30] + ", ..., " + str(v)[-30:])
+            logOpts += "\t{key:s} = {value:s}\n".format(
+                key=k,
+                value=str(v) if len(str(v)) < 80 else str(v)[:30] + ", ..., " + str(v)[-30:],
+            )
         out.log = logHead + logOpts
 
     @abstractmethod
@@ -1063,6 +1109,7 @@ class ComputationalRoutine(ABC):
 
 
 # --- metadata helper functions ---
+
 
 def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
 
@@ -1176,4 +1223,4 @@ def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
 
     if selection_cleanup:
         in_data.selection = None
-        in_data.cfg.pop('selectdata')
+        in_data.cfg.pop("selectdata")

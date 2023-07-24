@@ -1,5 +1,3 @@
-
-
 import syncopy as spy
 from syncopy.synthdata.analog import white_noise
 import numpy as np
@@ -8,19 +6,21 @@ import pytest
 has_mne = False
 try:
     import mne
+
     has_mne = True
 except ImportError:
     pass
 
 skip_no_mne = pytest.mark.skipif(not has_mne, reason="MNE Python not installed")
 
-class TestSpyToMNE():
+
+class TestSpyToMNE:
 
     numChannels = 64
     numTrials = 5
     numSamples = 1000
-    adata = white_noise(nTrials = numTrials, nChannels=numChannels, nSamples=numSamples)
-    adata_notrials = white_noise(nTrials = 1, nChannels=numChannels, nSamples=numSamples)
+    adata = white_noise(nTrials=numTrials, nChannels=numChannels, nSamples=numSamples)
+    adata_notrials = white_noise(nTrials=1, nChannels=numChannels, nSamples=numSamples)
 
     @skip_no_mne
     def test_spy_analog_raw_to_mne(self):
@@ -40,7 +40,7 @@ class TestSpyToMNE():
         # Check that the channel names are the same
         assert all(adata_notrials.channel == ar.ch_names)
         # Check that the sampling rate is the same
-        assert adata_notrials.samplerate == ar.info['sfreq']
+        assert adata_notrials.samplerate == ar.info["sfreq"]
 
     @skip_no_mne
     def test_mne_rawarray_to_spy_analog(self):
@@ -87,7 +87,6 @@ class TestSpyToMNE():
         assert n_epochs == len(tldata.trials)
         assert n_channels == len(tldata.channel)
 
-
     @skip_no_mne
     def test_tldata_to_mne_with_AnalogData(self):
         """
@@ -100,8 +99,12 @@ class TestSpyToMNE():
         assert adata.is_time_locked == True
         # Convert to MNE EpochsArray
         epoched = spy.io.mne_conv.tldata_to_mne_epochs(adata)
-        assert epoched.get_data().shape == (self.numTrials, self.numChannels, self.numSamples)
-        for ea in epoched.iter_evoked(): # ea is an mne.EvokedArray
+        assert epoched.get_data().shape == (
+            self.numTrials,
+            self.numChannels,
+            self.numSamples,
+        )
+        for ea in epoched.iter_evoked():  # ea is an mne.EvokedArray
             assert type(ea) == mne.EvokedArray
             assert ea.get_data().shape == (self.numChannels, self.numSamples)
         assert type(epoched) == mne.EpochsArray
@@ -116,7 +119,6 @@ class TestSpyToMNE():
         assert n_epochs == len(adata.trials)
         assert n_channels == len(adata.channel)
 
-
     @skip_no_mne
     def test_mne_epoched_to_AnalogData(self):
         """
@@ -128,7 +130,7 @@ class TestSpyToMNE():
         # Convert to MNE EpochsArray
         epoched = spy.io.mne_conv.tldata_to_mne_epochs(adata)
         assert type(epoched) == mne.EpochsArray
-        for ea in epoched.iter_evoked(): # ea is an mne.EvokedArray
+        for ea in epoched.iter_evoked():  # ea is an mne.EvokedArray
             assert type(ea) == mne.EvokedArray
             assert ea.get_data().shape == (self.numChannels, self.numSamples)
         adata2 = spy.io.mne_conv.mne_epochs_to_tldata(epoched)
@@ -143,7 +145,7 @@ class TestSpyToMNE():
         assert n_epochs == len(adata.trials)
         assert n_channels == len(adata.channel)
 
-        #assert n_times == adata2.trials[0].shape[0]
+        # assert n_times == adata2.trials[0].shape[0]
         assert n_epochs == len(adata2.trials)
         assert n_channels == len(adata2.channel)
 
@@ -156,8 +158,5 @@ class TestSpyToMNE():
         assert np.allclose(adata.time, adata2.time)
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     T0 = TestSpyToMNE()
-
-

@@ -11,14 +11,19 @@ import pytest
 import numpy as np
 
 # Local imports
-from syncopy.shared.parsers import (io_parser, scalar_parser, array_parser,
-                                    filename_parser, data_parser)
+from syncopy.shared.parsers import (
+    io_parser,
+    scalar_parser,
+    array_parser,
+    filename_parser,
+    data_parser,
+)
 from syncopy.shared.tools import get_defaults
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYIOError
 from syncopy import AnalogData, SpectralData
 
 
-class TestIoParser():
+class TestIoParser:
     existingFolder = tempfile.gettempdir()
     nonExistingFolder = os.path.join("unlikely", "folder", "to", "exist")
 
@@ -27,18 +32,19 @@ class TestIoParser():
             io_parser(None)
 
     def test_exists(self):
-        io_parser(self.existingFolder, varname="existingFolder",
-                  isfile=False, exists=True)
+        io_parser(self.existingFolder, varname="existingFolder", isfile=False, exists=True)
         with pytest.raises(SPYIOError):
-            io_parser(self.existingFolder, varname="existingFolder",
-                      isfile=False, exists=False)
+            io_parser(
+                self.existingFolder,
+                varname="existingFolder",
+                isfile=False,
+                exists=False,
+            )
 
-        io_parser(self.nonExistingFolder, varname="nonExistingFolder",
-                  exists=False)
+        io_parser(self.nonExistingFolder, varname="nonExistingFolder", exists=False)
 
         with pytest.raises(SPYIOError):
-            io_parser(self.nonExistingFolder, varname="nonExistingFolder",
-                      exists=True)
+            io_parser(self.nonExistingFolder, varname="nonExistingFolder", exists=True)
 
     def test_isfile(self):
         with tempfile.NamedTemporaryFile() as f:
@@ -47,45 +53,39 @@ class TestIoParser():
                 io_parser(f.name, isfile=False, exists=True)
 
     def test_ext(self):
-        with tempfile.NamedTemporaryFile(suffix='a7f3.lfp') as f:
-            io_parser(f.name, ext=['lfp', 'mua'], exists=True)
-            io_parser(f.name, ext='lfp', exists=True)
+        with tempfile.NamedTemporaryFile(suffix="a7f3.lfp") as f:
+            io_parser(f.name, ext=["lfp", "mua"], exists=True)
+            io_parser(f.name, ext="lfp", exists=True)
             with pytest.raises(SPYValueError):
-                io_parser(f.name, ext='mua', exists=True)
+                io_parser(f.name, ext="mua", exists=True)
 
 
-class TestScalarParser():
+class TestScalarParser:
     def test_none(self):
         with pytest.raises(SPYTypeError):
-            scalar_parser(None, varname="value",
-                          ntype="int_like", lims=[10, 1000])
+            scalar_parser(None, varname="value", ntype="int_like", lims=[10, 1000])
 
     def test_within_limits(self):
         value = 440
-        scalar_parser(value, varname="value",
-                      ntype="int_like", lims=[10, 1000])
+        scalar_parser(value, varname="value", ntype="int_like", lims=[10, 1000])
 
-        freq = 2        # outside bounds
+        freq = 2  # outside bounds
         with pytest.raises(SPYValueError):
-            scalar_parser(freq, varname="freq",
-                          ntype="int_like", lims=[10, 1000])
+            scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
 
     def test_integer_like(self):
         freq = 440.0
-        scalar_parser(freq, varname="freq",
-                      ntype="int_like", lims=[10, 1000])
+        scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
 
         # not integer-like
         freq = 440.5
         with pytest.raises(SPYValueError):
-            scalar_parser(freq, varname="freq",
-                          ntype="int_like", lims=[10, 1000])
+            scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
 
     def test_string(self):
-        freq = '440'
+        freq = "440"
         with pytest.raises(SPYTypeError):
-            scalar_parser(freq, varname="freq",
-                          ntype="int_like", lims=[10, 1000])
+            scalar_parser(freq, varname="freq", ntype="int_like", lims=[10, 1000])
 
     def test_complex_valid(self):
         value = complex(2, -1)
@@ -97,7 +97,7 @@ class TestScalarParser():
             scalar_parser(value, lims=[-3, 1])
 
 
-class TestArrayParser():
+class TestArrayParser:
 
     time = np.linspace(0, 10, 100)
 
@@ -170,14 +170,12 @@ class TestArrayParser():
             array_parser(str(self.time), varname="time", ntype="numeric")
         # float32 instead of expected float64
         with pytest.raises(SPYValueError):
-            array_parser(np.float32(self.time), varname="time",
-                         ntype='float64')
+            array_parser(np.float32(self.time), varname="time", ntype="float64")
         # invalid mixed-type arrays
         with pytest.raises(SPYTypeError):
-            array_parser([3, 's'], varname="testarr", ntype='str')
+            array_parser([3, "s"], varname="testarr", ntype="str")
         with pytest.raises(SPYTypeError):
-            array_parser([3, 's'], varname="testarr", ntype='int')
-
+            array_parser([3, "s"], varname="testarr", ntype="int")
 
     def test_character_list(self):
         channels = np.array(["channel1", "channel2", "channel3"])
@@ -205,7 +203,7 @@ class TestArrayParser():
             errmsg = "'unsorted array'; expected array with elements in ascending order"
             assert errmsg in str(spyval.value)
         with pytest.raises(SPYValueError) as spyval:
-            array_parser([1+3j, 3, 4], issorted=True)
+            array_parser([1 + 3j, 3, 4], issorted=True)
             errmsg = "'array containing complex elements'; expected real-valued array"
             assert errmsg in str(spyval.value)
         with pytest.raises(SPYValueError) as spyval:
@@ -213,7 +211,7 @@ class TestArrayParser():
             errmsg = "'array with elements in ascending order'; expected unsorted array"
             assert errmsg in str(spyval.value)
         with pytest.raises(SPYValueError) as spyval:
-            array_parser(['a', 'b', 'c'], issorted=True)
+            array_parser(["a", "b", "c"], issorted=True)
             errmsg = "expected dtype = numeric"
             assert errmsg in str(spyval.value)
         with pytest.raises(SPYValueError) as spyval:
@@ -222,15 +220,15 @@ class TestArrayParser():
             assert errmsg in str(spyval.value)
 
 
-class TestFilenameParser():
+class TestFilenameParser:
     referenceResult = {
         "filename": "sessionName_testTag.analog",
         "container": "container.spy",
         "folder": "/tmp/container.spy",
         "tag": "testTag",
         "basename": "sessionName",
-        "extension": ".analog"
-        }
+        "extension": ".analog",
+    }
 
     def test_none(self):
         assert all([value is None for value in filename_parser(None).values()])
@@ -238,12 +236,12 @@ class TestFilenameParser():
     def test_fname_only(self):
         fname = "sessionName_testTag.analog"
         assert filename_parser(fname) == {
-            "filename" : fname,
+            "filename": fname,
             "container": None,
             "folder": os.getcwd(),
             "tag": None,
             "basename": "sessionName_testTag",
-            "extension": ".analog"
+            "extension": ".analog",
         }
 
     def test_invalid_ext(self):
@@ -258,66 +256,67 @@ class TestFilenameParser():
     def test_with_info_ext(self):
         fname = "sessionName_testTag.analog.info"
         assert filename_parser(fname) == {
-            "filename" : fname.replace(".info", ""),
+            "filename": fname.replace(".info", ""),
             "container": None,
             "folder": os.getcwd(),
             "tag": None,
             "basename": "sessionName_testTag",
-            "extension": ".analog"
+            "extension": ".analog",
         }
 
     def test_valid_spy_container(self):
         fname = "sessionName.spy/sessionName_testTag.analog"
         assert filename_parser(fname, is_in_valid_container=True) == {
-            "filename" : "sessionName_testTag.analog",
+            "filename": "sessionName_testTag.analog",
             "container": "sessionName.spy",
             "folder": os.path.join(os.getcwd(), "sessionName.spy"),
             "tag": "testTag",
             "basename": "sessionName",
-            "extension": ".analog"
+            "extension": ".analog",
         }
+
     def test_invalid_spy_container(self):
         fname = "sessionName/sessionName_testTag.analog"
-        with  pytest.raises(SPYValueError):
+        with pytest.raises(SPYValueError):
             filename_parser(fname, is_in_valid_container=True)
 
         fname = "wrongContainer.spy/sessionName_testTag.analog"
-        with  pytest.raises(SPYValueError):
+        with pytest.raises(SPYValueError):
             filename_parser(fname, is_in_valid_container=True)
 
     def test_with_full_path(self):
         fname = os.path.normpath("/tmp/sessionName.spy/sessionName_testTag.analog")
         folder = "{}/tmp".format("C:" if platform.system() == "Windows" else "")
         assert filename_parser(fname, is_in_valid_container=True) == {
-            "filename" : "sessionName_testTag.analog",
+            "filename": "sessionName_testTag.analog",
             "container": "sessionName.spy",
             "folder": os.path.join(os.path.normpath(folder), "sessionName.spy"),
             "tag": "testTag",
             "basename": "sessionName",
-            "extension": ".analog"
-            }
+            "extension": ".analog",
+        }
 
     def test_folder_only(self):
         assert filename_parser("container.spy") == {
-            'filename': None,
-            'container': 'container.spy',
-            'folder': os.getcwd(),
-            'tag': None,
-            'basename': 'container',
-            'extension': '.spy'
-            }
+            "filename": None,
+            "container": "container.spy",
+            "folder": os.getcwd(),
+            "tag": None,
+            "basename": "container",
+            "extension": ".spy",
+        }
         folder = "{}/tmp".format("C:" if platform.system() == "Windows" else "")
         assert filename_parser("/tmp/container.spy") == {
-            'filename': None,
-            'container': 'container.spy',
-            'folder': os.path.normpath(folder),
-            'tag': None,
-            'basename': 'container',
-            'extension': '.spy'
-            }
+            "filename": None,
+            "container": "container.spy",
+            "folder": os.path.normpath(folder),
+            "tag": None,
+            "basename": "container",
+            "extension": ".spy",
+        }
 
 
-class TestDataParser():
+class TestDataParser:
     data = AnalogData()
 
     def test_none(self):
@@ -351,7 +350,7 @@ class TestDataParser():
 
 
 def func(input, keyword=None):
-    """ Test function for get_defaults test """
+    """Test function for get_defaults test"""
     pass
 
 

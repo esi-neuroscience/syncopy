@@ -5,7 +5,7 @@ from hmac import compare_digest
 from numbers import Number
 import numpy as np
 
-from syncopy.shared.errors import (SPYInfo, SPYTypeError, SPYValueError, SPYWarning)
+from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYWarning
 
 
 def metadata_from_hdf5_file(h5py_filename, delete_afterwards=True):
@@ -35,28 +35,31 @@ def metadata_from_hdf5_file(h5py_filename, delete_afterwards=True):
     metadata = None
     open_mode = "a" if delete_afterwards else "r"
     with h5py.File(h5py_filename, mode=open_mode) as h5f:
-        if 'data' in h5f:
-            main_dset = h5f['data']
+        if "data" in h5f:
+            main_dset = h5f["data"]
             if main_dset.is_virtual:
                 metadata_list = list()  # A list of dicts.
 
                 # Now open the virtual sources and check there for the metadata.
                 for source_tpl in main_dset.virtual_sources():
                     with h5py.File(source_tpl.file_name, mode=open_mode) as h5f_virtual_part:
-                        if 'metadata' in h5f_virtual_part:
-                            virtual_metadata_grp = h5f_virtual_part['metadata']
+                        if "metadata" in h5f_virtual_part:
+                            virtual_metadata_grp = h5f_virtual_part["metadata"]
                             metadata_list.append(extract_md_group(virtual_metadata_grp))
                             if delete_afterwards:
-                                del h5f_virtual_part['metadata']
+                                del h5f_virtual_part["metadata"]
                 metadata = _merge_md_list(metadata_list)
             else:
                 # the main_dset is not virtual, so just grab the metadata group from the file root.
-                if 'metadata' in h5f:
-                    metadata = extract_md_group(h5f['metadata'])
+                if "metadata" in h5f:
+                    metadata = extract_md_group(h5f["metadata"])
                     if delete_afterwards:
-                        del h5f['metadata']
+                        del h5f["metadata"]
         else:
-            raise SPYValueError("'data' dataset in hd5f file {of}.".format(of=h5py_filename), actual="no such dataset")
+            raise SPYValueError(
+                "'data' dataset in hd5f file {of}.".format(of=h5py_filename),
+                actual="no such dataset",
+            )
     return metadata
 
 
@@ -118,10 +121,14 @@ def _parse_backend_metadata(metadata, check_attr_dsize=True):
         else:
             raise SPYValueError("keys in metadata must be strings", varname="details")
     if check_attr_dsize:
-        for k,v in attribs.items():
-            dsize_kb = np.prod(v.shape) * v.dtype.itemsize / 1024.
+        for k, v in attribs.items():
+            dsize_kb = np.prod(v.shape) * v.dtype.itemsize / 1024.0
             if dsize_kb > 64:
-                SPYWarning("cF details: attribute '{attr}' has size {attr_size} kb, which is > the allowed 64 kb limit.".format(attr=k, attr_size=dsize_kb))
+                SPYWarning(
+                    "cF details: attribute '{attr}' has size {attr_size} kb, which is > the allowed 64 kb limit.".format(
+                        attr=k, attr_size=dsize_kb
+                    )
+                )
     return attribs
 
 
@@ -139,21 +146,33 @@ def parse_cF_returns(res):
     details = None  # This holds the 2nd return value from a cF, if any.
     if isinstance(res, tuple):  # The cF has a 2nd return value.
         if len(res) != 2:
-            raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="tuple with length {tl}".format(tl=len(res)))
+            raise SPYValueError(
+                "user-supplied compute function must return a single ndarray or a tuple with length exactly 2",
+                actual="tuple with length {tl}".format(tl=len(res)),
+            )
         else:
             res, details = res
-        if details is not None: # Accept and silently ignore a 2nd return value of None.
+        if details is not None:  # Accept and silently ignore a 2nd return value of None.
             if isinstance(details, dict):
                 for _, v in details.items():
                     if not isinstance(v, np.ndarray):
-                        raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays")
+                        raise SPYValueError(
+                            "the second return value of user-supplied compute functions must be a dict containing np.ndarrays"
+                        )
                     if v.dtype == object:
-                        raise SPYValueError("the second return value of user-supplied compute functions must be a dict containing np.ndarrays with datatype other than 'np.object'")
+                        raise SPYValueError(
+                            "the second return value of user-supplied compute functions must be a dict containing np.ndarrays with datatype other than 'np.object'"
+                        )
             else:
-                raise SPYValueError("the second return value of user-supplied compute functions must be a dict")
+                raise SPYValueError(
+                    "the second return value of user-supplied compute functions must be a dict"
+                )
     else:
         if not isinstance(res, np.ndarray):
-            raise SPYValueError("user-supplied compute function must return a single ndarray or a tuple with length exactly 2", actual="neither tuple nor np.ndarray")
+            raise SPYValueError(
+                "user-supplied compute function must return a single ndarray or a tuple with length exactly 2",
+                actual="neither tuple nor np.ndarray",
+            )
     return res, details
 
 
@@ -181,7 +200,7 @@ def h5_add_metadata(h5fout, metadata, unique_key_suffix=""):
 
     close_file = False
     if isinstance(h5fout, str):
-        close_file = True # We openend it, we close it.
+        close_file = True  # We openend it, we close it.
         h5fout = h5py.File(h5fout, mode="w")
 
     if isinstance(unique_key_suffix, Number):
@@ -200,7 +219,7 @@ def h5_add_metadata(h5fout, metadata, unique_key_suffix=""):
 
 def encode_unique_md_label(label, trial_idx, call_idx=0):
     """Assemble something like `test`, `2` and `0` into `test__2_0`."""
-    return(label + "__" + str(trial_idx) + "_" + str(call_idx))
+    return label + "__" + str(trial_idx) + "_" + str(call_idx)
 
 
 def decode_unique_md_label(unique_label):
@@ -222,9 +241,11 @@ def decode_unique_md_label(unique_label):
         trialidx = trialidx_callidx[0]
         callidx = trialidx_callidx[1]
     except Exception as ex:
-        raise SPYValueError(f"Could not decode metadata key '{unique_label}' into label, trial_index and chunk index. Expected input string in format `<label>__<trial_idx>_<chunk_idx>', e.g. 'pp__0_0': '{str(ex)}'")
+        raise SPYValueError(
+            f"Could not decode metadata key '{unique_label}' into label, trial_index and chunk index. Expected input string in format `<label>__<trial_idx>_<chunk_idx>', e.g. 'pp__0_0': '{str(ex)}'"
+        )
 
-    return label, trialidx ,callidx
+    return label, trialidx, callidx
 
 
 def extract_md_group(md):
@@ -253,11 +274,12 @@ def cast_0array(rule, arr):
     they can't be directly serialized to go into .info
     """
 
-    rules = {'float': lambda x: float(x),
-             'int': lambda x: int(x),
-             'bool': lambda x: bool(x),
-             'str': lambda x: str(x)
-             }
+    rules = {
+        "float": lambda x: float(x),
+        "int": lambda x: int(x),
+        "bool": lambda x: bool(x),
+        "str": lambda x: str(x),
+    }
 
     if rule not in rules:
         lgl = f"one of {rules.keys()}"
@@ -287,11 +309,13 @@ def check_freq_hashes(metadata, out):
                 trl_mismatches.append(trl_id)
     # some freq axis were different
     if trl_mismatches:
-        msg = (f"Frequency axes hashes mismatched for {len(trl_mismatches)} trials: "
-               f"{trl_mismatches} against reference hash from first trial {ref_id}.")
+        msg = (
+            f"Frequency axes hashes mismatched for {len(trl_mismatches)} trials: "
+            f"{trl_mismatches} against reference hash from first trial {ref_id}."
+        )
         SPYWarning(msg)
         out.log = msg
-        out.info['mismatched freq. axis trial ids'] = trl_mismatches
+        out.info["mismatched freq. axis trial ids"] = trl_mismatches
 
 
 def metadata_nest(metadata):
@@ -351,11 +375,17 @@ def metadata_unnest(metadata):
     metadata_unnested = dict()
     for nested_category_name, nested_dict in metadata.items():
         if not isinstance(nested_dict, dict):
-            raise SPYValueError(legal="Dict containing only other dictionaries at first level.", varname="metadata", actual=f"Value at key '{nested_category_name}' is not a dict.")
+            raise SPYValueError(
+                legal="Dict containing only other dictionaries at first level.",
+                varname="metadata",
+                actual=f"Value at key '{nested_category_name}' is not a dict.",
+            )
         for unique_attr_label, nested_value in nested_dict.items():
             if unique_attr_label in metadata_unnested:  # It's already in there, from a previous dict!
-                raise SPYValueError(legal="Dict containing no duplicated keys in nested sub dictionaries at first level.", varname="metadata", actual=f"Duplicate key '{unique_attr_label}': cannot unnest without losing data.")
+                raise SPYValueError(
+                    legal="Dict containing no duplicated keys in nested sub dictionaries at first level.",
+                    varname="metadata",
+                    actual=f"Duplicate key '{unique_attr_label}': cannot unnest without losing data.",
+                )
             metadata_unnested[unique_attr_label] = nested_value
     return metadata_unnested
-
-

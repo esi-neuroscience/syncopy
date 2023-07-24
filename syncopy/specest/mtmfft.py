@@ -13,13 +13,15 @@ import platform
 from ._norm_spec import _norm_spec, _norm_taper
 
 
-def mtmfft(data_arr,
-           samplerate,
-           nSamples=None,
-           taper="hann",
-           taper_opt=None,
-           demean_taper=False,
-           ft_compat=False):
+def mtmfft(
+    data_arr,
+    samplerate,
+    nSamples=None,
+    taper="hann",
+    taper_opt=None,
+    demean_taper=False,
+    ft_compat=False,
+):
     """
     (Multi-)tapered fast Fourier transform. Returns
     full complex Fourier transform for each taper.
@@ -86,7 +88,7 @@ def mtmfft(data_arr,
 
     # no taper is boxcar
     if taper is None:
-        taper = 'boxcar'
+        taper = "boxcar"
 
     if taper_opt is None:
         taper_opt = {}
@@ -99,10 +101,12 @@ def mtmfft(data_arr,
     windows = _norm_taper(taper, windows, nSamples)
 
     # Fourier transforms (nTapers x nFreq x nChannels)
-    ftr = np.zeros((windows.shape[0], nFreq, nChannels), dtype='complex64')
+    ftr = np.zeros((windows.shape[0], nFreq, nChannels), dtype="complex64")
 
     logger = logging.getLogger("syncopy_" + platform.node())
-    logger.debug(f"Running mtmfft on {len(windows)} windows, data chunk has {nSamples} samples and {nChannels} channels.")
+    logger.debug(
+        f"Running mtmfft on {len(windows)} windows, data chunk has {nSamples} samples and {nChannels} channels."
+    )
 
     for taperIdx, win in enumerate(windows):
         win = np.tile(win, (nChannels, 1)).T
@@ -112,18 +116,22 @@ def mtmfft(data_arr,
             win -= win.mean(axis=0)
         ftr[taperIdx] = np.fft.rfft(win, n=nSamples, axis=0)
         # FT uses potentially padded length `nSamples`, which dilutes the power
-        if ft_compat:            
+        if ft_compat:
             ftr[taperIdx] = _norm_spec(ftr[taperIdx], nSamples, samplerate)
         # here the normalization adapts such that padding is NOT changing power
         else:
-            ftr[taperIdx] = _norm_spec(ftr[taperIdx], signal_length * np.sqrt(nSamples / signal_length), samplerate)
+            ftr[taperIdx] = _norm_spec(
+                ftr[taperIdx],
+                signal_length * np.sqrt(nSamples / signal_length),
+                samplerate,
+            )
 
     return ftr, freqs
 
 
 def _get_dpss_pars(tapsmofrq, nSamples, samplerate):
 
-    """ Helper function to retrieve dpss parameters from tapsmofrq """
+    """Helper function to retrieve dpss parameters from tapsmofrq"""
 
     # taper width parameter in sample units
     NW = tapsmofrq * nSamples / samplerate

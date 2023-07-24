@@ -32,7 +32,7 @@ def group_objects(data, groupbychan=None, select=None):
     return group
 
 
-class TestSpyCalls():
+class TestSpyCalls:
 
     nChan = 13
     nObjs = nChan
@@ -92,10 +92,13 @@ class TestSpyCalls():
     def test_invalidcallstyles(self):
 
         # expected error messages
-        errmsg1 = "expected Syncopy data object provided either via " +\
-                 "`cfg`/keyword or positional arguments, not both"
-        errmsg2 = "expected Syncopy data object provided either via `cfg` " +\
-            "or as keyword argument, not both"
+        errmsg1 = (
+            "expected Syncopy data object provided either via "
+            + "`cfg`/keyword or positional arguments, not both"
+        )
+        errmsg2 = (
+            "expected Syncopy data object provided either via `cfg` " + "or as keyword argument, not both"
+        )
         errmsg3 = "expected either 'data' or 'dataset' in `cfg`/keywords, not both"
 
         # ensure things break reliably for 'data' as well as 'dataset'
@@ -135,7 +138,7 @@ class TestSpyCalls():
         # cfg (no data) but double-whammied
         cfg = StructDict()
         cfg.groupbychan = None
-        with pytest.raises(SPYValueError)as exc:
+        with pytest.raises(SPYValueError) as exc:
             group_objects(self.data, cfg, cfg=cfg)
         assert "expected `cfg` either as positional or keyword argument, not both" in str(exc.value)
 
@@ -148,23 +151,22 @@ class TestSpyCalls():
         cfg = StructDict()
         cfg.data = self.data
         cfg.dataset = self.data
-        with pytest.raises(SPYValueError)as exc:
+        with pytest.raises(SPYValueError) as exc:
             group_objects(cfg)
         assert errmsg3 in str(exc.value)
-        with pytest.raises(SPYValueError)as exc:
+        with pytest.raises(SPYValueError) as exc:
             group_objects(data=self.data, dataset=self.data)
         assert errmsg3 in str(exc.value)
 
         # data/dataset do not contain Syncopy object
-        with pytest.raises(SPYError)as exc:
+        with pytest.raises(SPYError) as exc:
             group_objects(data="invalid")
         assert "`data` must be Syncopy data object!" in str(exc.value)
 
         # cfg is not dict/StructDict
-        with pytest.raises(SPYTypeError)as exc:
+        with pytest.raises(SPYTypeError) as exc:
             group_objects(cfg="invalid")
         assert "Wrong type of `cfg`: expected dictionary-like" in str(exc.value)
-
 
     def test_varargin(self):
         """
@@ -219,14 +221,16 @@ class TestSpyCalls():
             assert self.dataObjs[0].filename == fnameList
 
             # data positional + select keyword
-            fnameList = [group_objects(data, select={"channel": [letter]}) for data in self.dataObjs[:letterIdx + 1]]
+            fnameList = [
+                group_objects(data, select={"channel": [letter]}) for data in self.dataObjs[: letterIdx + 1]
+            ]
             fnameList = [el for el in fnameList if el is not None]
             assert groupList == fnameList
 
             # data positional + cfg w/select
             cfg = StructDict()
             cfg.select = {"channel": [letter]}
-            fnameList = [group_objects(data, cfg) for data in self.dataObjs[:letterIdx + 1]]
+            fnameList = [group_objects(data, cfg) for data in self.dataObjs[: letterIdx + 1]]
             fnameList = [el for el in fnameList if el is not None]
 
             assert groupList == fnameList
@@ -239,6 +243,6 @@ class TestSpyCalls():
         # data does not only contain Syncopy objects
         cfg = StructDict()
         cfg.data = "invalid"
-        with pytest.raises(SPYError)as exc:
+        with pytest.raises(SPYError) as exc:
             group_objects(cfg)
         assert "`data` must be Syncopy data object!" in str(exc.value)

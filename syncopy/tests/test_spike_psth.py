@@ -15,19 +15,14 @@ from syncopy import synthdata as sd
 from syncopy.statistics.spike_psth import available_outputs
 
 
-def get_spike_data(nTrials = 10, seed=None):
-    return sd.poisson_noise(nTrials,
-                            nUnits=3,
-                            nChannels=2,
-                            nSpikes=10_000,
-                            samplerate=10_000,
-                            seed=seed)
+def get_spike_data(nTrials=10, seed=None):
+    return sd.poisson_noise(nTrials, nUnits=3, nChannels=2, nSpikes=10_000, samplerate=10_000, seed=seed)
 
 
 def get_spike_cfg():
     cfg = spy.StructDict()
     cfg.binsize = 0.3
-    cfg.latency = [-.5, 1.5]
+    cfg.latency = [-0.5, 1.5]
     return cfg
 
 
@@ -39,7 +34,7 @@ class TestPSTH:
     def test_psth_binsize(self):
 
         cfg = spy.StructDict()
-        cfg.latency = 'maxperiod'  # default
+        cfg.latency = "maxperiod"  # default
 
         # directly in seconds
         cfg.binsize = 0.2
@@ -54,18 +49,14 @@ class TestPSTH:
         assert np.allclose(np.diff(counts.time[0]), cfg.binsize)
 
         # automatic binsize selection
-        cfg.binsize = 'rice'
-        counts = spy.spike_psth(self.spd,
-                                cfg,
-                                keeptrials=True)
+        cfg.binsize = "rice"
+        counts = spy.spike_psth(self.spd, cfg, keeptrials=True)
         # number of bins is length of time axis
         nBins_rice = counts.time[0].size
         assert len(set([t.size for t in counts.time])) == 1
 
-        cfg.binsize = 'sqrt'
-        counts = spy.spike_psth(self.spd,
-                                cfg,
-                                keeptrials=True)
+        cfg.binsize = "sqrt"
+        counts = spy.spike_psth(self.spd, cfg, keeptrials=True)
         # number of bins is length of time axis
         nBins_sqrt = counts.time[0].size
         assert len(set([t.size for t in counts.time])) == 1
@@ -85,7 +76,7 @@ class TestPSTH:
         trl_ends = self.spd.trialintervals[:, 1]
 
         # -- bins stretch over the largest common time window --
-        cfg.latency = 'maxperiod'  # frontend default
+        cfg.latency = "maxperiod"  # frontend default
         counts = spy.spike_psth(self.spd, cfg)
 
         # sampling interval for histogram output
@@ -101,7 +92,7 @@ class TestPSTH:
         assert np.any(np.isnan(counts.data[:]))
 
         # -- bins stretch over the minimal interval present in all trials --
-        cfg.latency = 'minperiod'
+        cfg.latency = "minperiod"
         counts = spy.spike_psth(self.spd, cfg)
 
         # check that histogram time points are less than 1
@@ -114,20 +105,20 @@ class TestPSTH:
         assert not np.any(np.isnan(counts.data[:]))
 
         # -- prestim --> only events with t < 0
-        cfg.latency = 'prestim'
+        cfg.latency = "prestim"
         counts = spy.spike_psth(self.spd, cfg)
 
         assert np.all(counts.time[0] <= 0)
 
         # -- poststim --> only events with t > 0
-        cfg.latency = 'poststim'
+        cfg.latency = "poststim"
         counts = spy.spike_psth(self.spd, cfg)
 
         assert np.all(counts.time[0] >= 0)
 
         # -- finally the manual latency interval --
         # this is way to big, so we have many NaNs (empty bins)
-        cfg.latency = [-.5, 1.5]   # in seconds
+        cfg.latency = [-0.5, 1.5]  # in seconds
         assert cfg.latency[0] < trl_starts.min()
         assert cfg.latency[1] > trl_ends.max()
 
@@ -173,14 +164,13 @@ class TestPSTH:
 
         # setting latency to 'maxperiod' with vartriallen=False
         # excludes all trials which raises an error
-        cfg.latency = 'maxperiod'
-        with pytest.raises(SPYValueError,
-                           match='no trial that completely covers the latency window'):
+        cfg.latency = "maxperiod"
+        with pytest.raises(SPYValueError, match="no trial that completely covers the latency window"):
             counts = spy.spike_psth(self.spd, cfg)
 
         # setting latency to 'minperiod' with vartriallen=False
         # excludes no trials by definition of 'minperiod'
-        cfg.latency = 'minperiod'
+        cfg.latency = "minperiod"
         counts = spy.spike_psth(self.spd, cfg)
         # check that 0 trials were excluded
         assert len(self.spd.trials) - len(counts.trials) == 0
@@ -188,8 +178,8 @@ class TestPSTH:
     def test_psth_outputs(self):
 
         cfg = spy.StructDict()
-        cfg.latency = 'minperiod'  # to avoid NaNs
-        cfg.output = 'spikecount'
+        cfg.latency = "minperiod"  # to avoid NaNs
+        cfg.output = "spikecount"
         cfg.binsize = 0.1  # in seconds
 
         counts = spy.spike_psth(self.spd, cfg)
@@ -200,13 +190,19 @@ class TestPSTH:
         last_data = np.zeros(counts.time[0].size)
         for chan in counts.channel:
             bars = counts.show(trials=5, channel=chan)
-            ppl.bar(counts.time[0], bars, alpha=0.7, bottom=last_data,
-                    width=0.9 / counts.samplerate, label=chan)
+            ppl.bar(
+                counts.time[0],
+                bars,
+                alpha=0.7,
+                bottom=last_data,
+                width=0.9 / counts.samplerate,
+                label=chan,
+            )
             # for stacking
             last_data += bars
         ppl.legend()
-        ppl.xlabel('time (s)')
-        ppl.ylabel('spike counts')
+        ppl.xlabel("time (s)")
+        ppl.ylabel("spike counts")
 
         # -- plot mean and variance --
 
@@ -221,23 +217,31 @@ class TestPSTH:
         for chan in range(len(counts.channel)):
             bars = counts.avg[:, chan]
             yerr = counts.var[:, chan]
-            ppl.bar(counts.time[0], bars, alpha=0.7, bottom=last_data,
-                    width=0.9 / counts.samplerate, label=chan, yerr=yerr, capsize=2)
+            ppl.bar(
+                counts.time[0],
+                bars,
+                alpha=0.7,
+                bottom=last_data,
+                width=0.9 / counts.samplerate,
+                label=chan,
+                yerr=yerr,
+                capsize=2,
+            )
             # for stacking
             last_data += bars
         ppl.legend()
-        ppl.xlabel('time (s)')
-        ppl.ylabel('spike counts')
+        ppl.xlabel("time (s)")
+        ppl.ylabel("spike counts")
 
-        cfg.output = 'rate'  # the default
+        cfg.output = "rate"  # the default
         rates = spy.spike_psth(self.spd, cfg)
 
         # check that the rates are just the counts times samplerate
         assert counts * counts.samplerate == rates
 
         # this gives the spike histogram as normalized density
-        cfg.output = 'proportion'
-        cfg.latency = 'maxperiod'  # to provoke NaNs
+        cfg.output = "proportion"
+        cfg.latency = "maxperiod"  # to provoke NaNs
         spike_densities = spy.spike_psth(self.spd, cfg)
 
         # check that there are NaNs as not all trials have data
@@ -256,62 +260,53 @@ class TestPSTH:
         # -- output validation --
 
         # invalid string
-        cfg.output = 'counts'
-        with pytest.raises(SPYValueError,
-                           match="expected one of"):
+        cfg.output = "counts"
+        with pytest.raises(SPYValueError, match="expected one of"):
             spy.spike_psth(self.spd, cfg)
 
         # invalid type
         cfg.output = 12
-        with pytest.raises(SPYValueError,
-                           match="expected one of"):
+        with pytest.raises(SPYValueError, match="expected one of"):
             spy.spike_psth(self.spd, cfg)
 
         # -- binsize validation --
 
-        cfg.output = 'rate'
+        cfg.output = "rate"
         # no negative binsizes
         cfg.binsize = -0.2
-        with pytest.raises(SPYValueError,
-                           match="expected value to be greater"):
+        with pytest.raises(SPYValueError, match="expected value to be greater"):
             spy.spike_psth(self.spd, cfg)
 
         cfg.latency = [0, 0.2]
         # binsize larger than time interval
         cfg.binsize = 0.3
-        with pytest.raises(SPYValueError,
-                           match="less or equals 0.2"):
+        with pytest.raises(SPYValueError, match="less or equals 0.2"):
             spy.spike_psth(self.spd, cfg)
 
         # not available rule
-        cfg.binsize = 'sth'
-        with pytest.raises(SPYValueError,
-                           match="expected one of"):
+        cfg.binsize = "sth"
+        with pytest.raises(SPYValueError, match="expected one of"):
             spy.spike_psth(self.spd, cfg)
 
         # -- latency validation --
 
         cfg.binsize = 0.1
         # not available latency
-        cfg.latency = 'sth'
-        with pytest.raises(SPYValueError,
-                           match="expected one of"):
+        cfg.latency = "sth"
+        with pytest.raises(SPYValueError, match="expected one of"):
             spy.spike_psth(self.spd, cfg)
 
         # latency not ordered
         cfg.latency = [0.1, 0]
-        with pytest.raises(SPYValueError,
-                           match="expected start < end"):
+        with pytest.raises(SPYValueError, match="expected start < end"):
             spy.spike_psth(self.spd, cfg)
 
         # latency completely outside of data
         cfg.latency = [-999, -99]
-        with pytest.raises(SPYValueError,
-                           match="expected end of latency window"):
+        with pytest.raises(SPYValueError, match="expected end of latency window"):
             spy.spike_psth(self.spd, cfg)
         cfg.latency = [99, 999]
-        with pytest.raises(SPYValueError,
-                           match="expected start of latency window"):
+        with pytest.raises(SPYValueError, match="expected start of latency window"):
             spy.spike_psth(self.spd, cfg)
 
     def test_psth_chan_unit_mapping(self):
@@ -322,48 +317,52 @@ class TestPSTH:
 
         # check that unit 1 really is there
         assert np.any(self.spd.data[:, 2] == 1)
-        counts = spy.spike_psth(self.spd, output='spikecount')
-        assert 'channel0_unit1' in counts.channel
-        assert 'channel1_unit1' in counts.channel
+        counts = spy.spike_psth(self.spd, output="spikecount")
+        assert "channel0_unit1" in counts.channel
+        assert "channel1_unit1" in counts.channel
 
         # get rid of unit 1
         pruned_spd = self.spd.selectdata(unit=[0, 2])
         # check that unit 1 really is gone
         assert np.all(pruned_spd.data[:, 2] != 1)
 
-        pruned_counts = spy.spike_psth(pruned_spd, output='spikecount')
+        pruned_counts = spy.spike_psth(pruned_spd, output="spikecount")
         # check that unit 1 really is gone
         assert len(pruned_counts.channel) < len(counts.channel)
-        assert 'channel0_unit1' not in pruned_counts.channel
-        assert 'channel1_unit1' not in pruned_counts.channel
+        assert "channel0_unit1" not in pruned_counts.channel
+        assert "channel1_unit1" not in pruned_counts.channel
 
         # check that counts for remaining channel/units are unchanged
         for chan in pruned_counts.channel:
-            assert np.array_equal(counts.show(trials=4, channel=chan),
-                                  pruned_counts.show(trials=4, channel=chan),
-                                  equal_nan=True)
+            assert np.array_equal(
+                counts.show(trials=4, channel=chan),
+                pruned_counts.show(trials=4, channel=chan),
+                equal_nan=True,
+            )
 
         # now the same with an active in-place selection
         # Already fixed: #332
         # get rid of unit 1
         # self.spd.selectdata(unit=[0, 2], inplace=True)
 
-        pruned_counts2 = spy.spike_psth(self.spd, output='spikecount', select={'unit': [0, 2]})
+        pruned_counts2 = spy.spike_psth(self.spd, output="spikecount", select={"unit": [0, 2]})
 
         # check that unit 1 really is gone
         assert len(pruned_counts2.channel) < len(counts.channel)
-        assert 'channel0_unit1' not in pruned_counts2.channel
-        assert 'channel1_unit1' not in pruned_counts2.channel
+        assert "channel0_unit1" not in pruned_counts2.channel
+        assert "channel1_unit1" not in pruned_counts2.channel
         # check that counts for remaining channel/units are unchanged
         for chan in pruned_counts2.channel:
-            assert np.array_equal(counts.show(trials=4, channel=chan),
-                                  pruned_counts2.show(trials=4, channel=chan),
-                                  equal_nan=True)
+            assert np.array_equal(
+                counts.show(trials=4, channel=chan),
+                pruned_counts2.show(trials=4, channel=chan),
+                equal_nan=True,
+            )
 
     def test_parallel_selection(self, testcluster):
 
         cfg = spy.StructDict()
-        cfg.latency = 'minperiod'
+        cfg.latency = "minperiod"
         cfg.parallel = True
 
         client = dd.Client(testcluster)
@@ -375,16 +374,16 @@ class TestPSTH:
         assert not np.any(np.isnan(counts.data[:]))
 
         # test channel selection
-        cfg.select = {'channel': 0}
+        cfg.select = {"channel": 0}
         counts = spy.spike_psth(self.spd, cfg)
-        assert all(['channel1' not in chan for chan in counts.channel])
+        assert all(["channel1" not in chan for chan in counts.channel])
 
         client.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     T1 = TestPSTH()
     spd = T1.spd
     trl0 = spd.trials[0]
-    spd.selectdata(unit=[0,2], inplace=True)
+    spd.selectdata(unit=[0, 2], inplace=True)
     arr1 = spd.selection._get_trial(1)

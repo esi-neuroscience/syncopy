@@ -60,7 +60,7 @@ def granger(CSD, Hfunc, Sigma):
     Smat = auto_spectra[:, None, :] * np.ones(nChannels)[:, None]
 
     # Granger i->j needs H_ji entry
-    Hmat = np.abs(Hfunc.transpose(0, 2, 1))**2
+    Hmat = np.abs(Hfunc.transpose(0, 2, 1)) ** 2
     # Granger i->j needs Sigma_ji entry
     SigmaJI = np.abs(Sigma.T)
 

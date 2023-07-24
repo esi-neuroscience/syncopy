@@ -37,9 +37,9 @@ class DiscreteData(BaseData, ABC):
     This class cannot be instantiated. Use one of the children instead.
     """
 
-    _infoFileProperties = BaseData._infoFileProperties + ("samplerate", )
+    _infoFileProperties = BaseData._infoFileProperties + ("samplerate",)
     _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate",)
-    _selectionKeyWords = BaseData._selectionKeyWords + ('latency',)
+    _selectionKeyWords = BaseData._selectionKeyWords + ("latency",)
 
     @property
     def data(self):
@@ -53,27 +53,32 @@ class DiscreteData(BaseData, ABC):
             if self._data.id.valid == 0:
                 lgl = "open HDF5 file"
                 act = "backing HDF5 file {} has been closed"
-                raise SPYValueError(legal=lgl, actual=act.format(self.filename),
-                                    varname="data")
+                raise SPYValueError(legal=lgl, actual=act.format(self.filename), varname="data")
         return self._data
 
     @data.setter
     def data(self, inData):
-        """ Also checks for integer type of data """
+        """Also checks for integer type of data"""
         # this comes from BaseData
         self._set_dataset_property(inData, "data")
 
         if inData is not None:
             if not np.issubdtype(self.data.dtype, np.integer):
-                raise SPYTypeError(self.data.dtype, 'data', "integer like")
+                raise SPYTypeError(self.data.dtype, "data", "integer like")
 
     def __str__(self):
         # Get list of print-worthy attributes
-        ppattrs = [attr for attr in self.__dir__()
-                   if not (attr.startswith("_") or attr in ["log", "trialdefinition"])]
-        ppattrs = [attr for attr in ppattrs if hasattr(self, attr) and
-                   not (inspect.ismethod(getattr(self, attr))
-                           or isinstance(getattr(self, attr), Iterator))]
+        ppattrs = [
+            attr
+            for attr in self.__dir__()
+            if not (attr.startswith("_") or attr in ["log", "trialdefinition"])
+        ]
+        ppattrs = [
+            attr
+            for attr in ppattrs
+            if hasattr(self, attr)
+            and not (inspect.ismethod(getattr(self, attr)) or isinstance(getattr(self, attr), Iterator))
+        ]
 
         ppattrs.sort()
 
@@ -85,28 +90,34 @@ class DiscreteData(BaseData, ABC):
         printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
         for attr in ppattrs:
             value = getattr(self, attr)
-            if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
+            if hasattr(value, "shape") and attr == "data" and self.sampleinfo is not None:
                 tlen = np.unique([sinfo[1] - sinfo[0] for sinfo in self.sampleinfo])
                 if tlen.size == 1:
                     trlstr = "of length {} ".format(str(tlen[0]))
                 else:
                     trlstr = ""
-                dsize = np.prod(self.data.shape)*self.data.dtype.itemsize/1024**2
+                dsize = np.prod(self.data.shape) * self.data.dtype.itemsize / 1024**2
                 dunit = "MB"
                 if dsize > 1000:
                     dsize /= 1024
                     dunit = "GB"
                 valueString = "{} trials {}defined on ".format(str(len(self.trials)), trlstr)
-                valueString += "[" + " x ".join([str(numel) for numel in value.shape]) \
-                              + "] {dt:s} {tp:s} " +\
-                              "of size {sz:3.2f} {szu:s}"
-                valueString = valueString.format(dt=self.data.dtype.name,
-                                                 tp=self.data.__class__.__name__,
-                                                 sz=dsize,
-                                                 szu=dunit)
-            elif hasattr(value, 'shape'):
-                valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
-                              + "] element " + str(type(value))
+                valueString += (
+                    "["
+                    + " x ".join([str(numel) for numel in value.shape])
+                    + "] {dt:s} {tp:s} "
+                    + "of size {sz:3.2f} {szu:s}"
+                )
+                valueString = valueString.format(
+                    dt=self.data.dtype.name,
+                    tp=self.data.__class__.__name__,
+                    sz=dsize,
+                    szu=dunit,
+                )
+            elif hasattr(value, "shape"):
+                valueString = (
+                    "[" + " x ".join([str(numel) for numel in value.shape]) + "] element " + str(type(value))
+                )
             elif isinstance(value, list):
                 if attr == "dimord" and value is not None:
                     valueString = dsep.join(dim for dim in self.dimord)
@@ -116,8 +127,10 @@ class DiscreteData(BaseData, ABC):
                 msg = "dictionary with {nk:s}keys{ks:s}"
                 keylist = value.keys()
                 showkeys = len(keylist) < 7
-                valueString = msg.format(nk=str(len(keylist)) + " " if not showkeys else "",
-                                         ks=" '" + "', '".join(key for key in keylist) + "'" if showkeys else "")
+                valueString = msg.format(
+                    nk=str(len(keylist)) + " " if not showkeys else "",
+                    ks=" '" + "', '".join(key for key in keylist) + "'" if showkeys else "",
+                )
             else:
                 valueString = str(value)
             ppstr += printString.format(attr, valueString)
@@ -153,13 +166,20 @@ class DiscreteData(BaseData, ABC):
 
         if trldef is None:
             sidx = self.dimord.index("sample")
-            self._trialdefinition = np.array([[np.nanmin(self.data[:, sidx]),
-                                               np.nanmax(self.data[:, sidx]), 0]])
+            self._trialdefinition = np.array(
+                [[np.nanmin(self.data[:, sidx]), np.nanmax(self.data[:, sidx]), 0]]
+            )
             self._trial_ids = [0]
         else:
             array_parser(trldef, varname="trialdefinition", dims=2)
-            array_parser(trldef[:, :2], varname="sampleinfo", hasnan=False,
-                         hasinf=False, ntype="int_like", lims=[0, np.inf])
+            array_parser(
+                trldef[:, :2],
+                varname="sampleinfo",
+                hasnan=False,
+                hasinf=False,
+                ntype="int_like",
+                lims=[0, np.inf],
+            )
 
             self._trialdefinition = trldef.copy()
             self._triald_ids = np.arange(self.sampleinfo.shape[0])
@@ -168,7 +188,7 @@ class DiscreteData(BaseData, ABC):
             idx = np.searchsorted(samples, self.sampleinfo.ravel())
             idx = idx.reshape(self.sampleinfo.shape)
 
-            self._trialslice = [slice(st,end) for st,end in idx]
+            self._trialslice = [slice(st, end) for st, end in idx]
             self.trialid = np.full((samples.shape), -1, dtype=int)
             for itrl, itrl_slice in enumerate(self._trialslice):
                 self.trialid[itrl_slice] = itrl
@@ -177,10 +197,13 @@ class DiscreteData(BaseData, ABC):
 
     @property
     def time(self):
-        """list(float): trigger-relative time of each event """
+        """list(float): trigger-relative time of each event"""
         if self.samplerate is not None and self.sampleinfo is not None:
-            return [(trl[:,self.dimord.index("sample")] - self.sampleinfo[tk,0] + self.trialdefinition[tk, 2]) / self.samplerate \
-                    for tk, trl in enumerate(self.trials)]
+            return [
+                (trl[:, self.dimord.index("sample")] - self.sampleinfo[tk, 0] + self.trialdefinition[tk, 2])
+                / self.samplerate
+                for tk, trl in enumerate(self.trials)
+            ]
 
     @property
     def trialid(self):
@@ -198,16 +221,24 @@ class DiscreteData(BaseData, ABC):
             return
 
         if self.data is None:
-            SPYError("SyNCoPy core - trialid: Cannot assign `trialid` without data. " +
-                     "Please assign data first")
+            SPYError(
+                "SyNCoPy core - trialid: Cannot assign `trialid` without data. " + "Please assign data first"
+            )
             return
         if (self.data.shape[0] == 0) and (trlid.shape[0] == 0):
             self._trialid = np.array(trlid, dtype=int)
             return
         scount = np.nanmax(self.data[:, self.dimord.index("sample")])
         try:
-            array_parser(trlid, varname="trialid", dims=(self.data.shape[0],),
-                         hasnan=False, hasinf=False, ntype="int_like", lims=[-1, scount])
+            array_parser(
+                trlid,
+                varname="trialid",
+                dims=(self.data.shape[0],),
+                hasnan=False,
+                hasinf=False,
+                ntype="int_like",
+                lims=[-1, scount],
+            )
         except Exception as exc:
             raise exc
         self._trialid = np.array(trlid, dtype=int)
@@ -254,10 +285,10 @@ class DiscreteData(BaseData, ABC):
         syncopy.shared.computational_routine.ComputationalRoutine : Syncopy compute engine
         """
         trlSlice = self._trialslice[trialno]
-        trialIdx = np.arange(trlSlice.start, trlSlice.stop) #np.where(self.trialid == trialno)[0]
+        trialIdx = np.arange(trlSlice.start, trlSlice.stop)  # np.where(self.trialid == trialno)[0]
         nCol = len(self.dimord)
         idx = [[], slice(0, nCol)]
-        if self.selection is not None: # selections are harmonized, just take `.time`
+        if self.selection is not None:  # selections are harmonized, just take `.time`
             idx[0] = trialIdx[self.selection.time[self.selection.trial_ids.index(trialno)]].tolist()
         else:
             idx[0] = trialIdx.tolist()
@@ -286,7 +317,7 @@ class DiscreteData(BaseData, ABC):
 
             if self.data.size == 0:
                 # initialization with empty data not allowed
-                raise SPYValueError("non empty data set", 'data')
+                raise SPYValueError("non empty data set", "data")
 
             # In case of manual data allocation (reading routine would leave a
             # mark in `cfg`), fill in missing info
@@ -296,7 +327,6 @@ class DiscreteData(BaseData, ABC):
 
     def save_nwb(self, **kwargs):
         raise NotImplementedError("Saving of this datatype to NWB files is not supported.")
-
 
     # plotting, only virtual in the abc
     def singlepanelplot(self):
@@ -330,10 +360,16 @@ class SpikeData(DiscreteData):
     Data is only read from disk on demand, similar to HDF5 files.
     """
 
-    _infoFileProperties = DiscreteData._infoFileProperties + ("channel", "unit",)
+    _infoFileProperties = DiscreteData._infoFileProperties + (
+        "channel",
+        "unit",
+    )
     _defaultDimord = ["sample", "channel", "unit"]
     _stackingDimLabel = "sample"
-    _selectionKeyWords = DiscreteData._selectionKeyWords + ('channel', 'unit',)
+    _selectionKeyWords = DiscreteData._selectionKeyWords + (
+        "channel",
+        "unit",
+    )
 
     def _compute_unique_idx(self):
         """
@@ -356,7 +392,7 @@ class SpikeData(DiscreteData):
 
     @property
     def channel(self):
-        """ :class:`numpy.ndarray` : list of original channel names for each unit"""
+        """:class:`numpy.ndarray` : list of original channel names for each unit"""
 
         return self._channel
 
@@ -364,8 +400,10 @@ class SpikeData(DiscreteData):
     def channel(self, chan):
         if self.data is None:
             if chan is not None:
-                raise SPYValueError(f"non-empty SpikeData", "cannot assign `channel` without data. " +
-                                    "Please assign data first")
+                raise SPYValueError(
+                    f"non-empty SpikeData",
+                    "cannot assign `channel` without data. " + "Please assign data first",
+                )
             # No labels for no data is fine
             self._channel = chan
             return
@@ -387,7 +425,7 @@ class SpikeData(DiscreteData):
 
         if nChan != len(chan):
             raise SPYValueError(f"exactly {nChan} channel label(s)")
-        array_parser(chan, varname="channel", ntype="str", dims=(nChan, ))
+        array_parser(chan, varname="channel", ntype="str", dims=(nChan,))
         self._channel = np.array(chan)
 
     def _default_channel_labels(self):
@@ -398,13 +436,14 @@ class SpikeData(DiscreteData):
 
         # channel entries in self.data are 0-based
         chan_max = self.channel_idx.max()
-        channel_labels = np.array(["channel" + str(int(i + 1)).zfill(len(str(chan_max)))
-                                   for i in self.channel_idx])
+        channel_labels = np.array(
+            ["channel" + str(int(i + 1)).zfill(len(str(chan_max))) for i in self.channel_idx]
+        )
         return channel_labels
 
     @property
     def unit(self):
-        """ :class:`numpy.ndarray(str)` : unit names"""
+        """:class:`numpy.ndarray(str)` : unit names"""
 
         return self._unit
 
@@ -412,8 +451,10 @@ class SpikeData(DiscreteData):
     def unit(self, unit):
         if self.data is None:
             if unit is not None:
-                raise SPYValueError(f"non-empty SpikeData", "cannot assign `unit` without data. " +
-                                    "Please assign data first")
+                raise SPYValueError(
+                    f"non-empty SpikeData",
+                    "cannot assign `unit` without data. " + "Please assign data first",
+                )
             # empy labels for empty data is fine
             self._unit = unit
             return
@@ -431,8 +472,9 @@ class SpikeData(DiscreteData):
         if unit is None and self.data is not None:
             raise SPYValueError("Cannot set `unit` to `None` with existing data.")
         elif self.data is None and unit is not None:
-            raise SPYValueError("Syncopy - SpikeData - unit: Cannot assign `unit` without data. " +
-                  "Please assign data first")
+            raise SPYValueError(
+                "Syncopy - SpikeData - unit: Cannot assign `unit` without data. " + "Please assign data first"
+            )
         elif unit is None:
             self._unit = None
             return
@@ -451,8 +493,7 @@ class SpikeData(DiscreteData):
         """
 
         unit_max = self.unit_idx.max()
-        return np.array(["unit" + str(int(i + 1)).zfill(len(str(unit_max)))
-                         for i in self.unit_idx])
+        return np.array(["unit" + str(int(i + 1)).zfill(len(str(unit_max))) for i in self.unit_idx])
 
     # Helper function that extracts by-trial unit-indices
     def _get_unit(self, trials, units=None):
@@ -519,30 +560,43 @@ class SpikeData(DiscreteData):
         """Set a waveform dataset from a numpy array, `None`, or an `h5py.Dataset` instance."""
         if self.data is None:
             if waveform is not None:
-                raise SPYValueError(legal="non-empty SpikeData", varname="waveform",
-                actual="empty SpikeData main dataset (None). Cannot assign `waveform` without data. Please assign data first.")
+                raise SPYValueError(
+                    legal="non-empty SpikeData",
+                    varname="waveform",
+                    actual="empty SpikeData main dataset (None). Cannot assign `waveform` without data. Please assign data first.",
+                )
         if waveform is None:
-            self._set_dataset_property(waveform, 'waveform') # None
+            self._set_dataset_property(waveform, "waveform")  # None
             self._unregister_dataset("waveform", del_attr=False)
             return
 
         if waveform.ndim < 2:
-            raise SPYValueError(legal="waveform data with at least 2 dimensions", varname="waveform", actual=f"data with {waveform.ndim} dimensions")
+            raise SPYValueError(
+                legal="waveform data with at least 2 dimensions",
+                varname="waveform",
+                actual=f"data with {waveform.ndim} dimensions",
+            )
 
         if waveform.shape[0] != self.data.shape[0]:
-            raise SPYValueError(f"waveform shape[0]={waveform.shape[0]} must equal nSpikes={self.data.shape[0]}. " +
-                                "Please create one waveform per spike in data.", varname="waveform", actual=f"wrong size waveform with shape {waveform.shape}")
-        self._set_dataset_property(waveform, 'waveform')
+            raise SPYValueError(
+                f"waveform shape[0]={waveform.shape[0]} must equal nSpikes={self.data.shape[0]}. "
+                + "Please create one waveform per spike in data.",
+                varname="waveform",
+                actual=f"wrong size waveform with shape {waveform.shape}",
+            )
+        self._set_dataset_property(waveform, "waveform")
 
     # "Constructor"
-    def __init__(self,
-                 data=None,
-                 filename=None,
-                 trialdefinition=None,
-                 samplerate=None,
-                 channel=None,
-                 unit=None,
-                 dimord=None):
+    def __init__(
+        self,
+        data=None,
+        filename=None,
+        trialdefinition=None,
+        samplerate=None,
+        channel=None,
+        unit=None,
+        dimord=None,
+    ):
         """Initialize a :class:`SpikeData` object.
 
         Parameters
@@ -574,7 +628,10 @@ class SpikeData(DiscreteData):
         """
 
         # instance attribute to allow modification
-        self._hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + ("channel", "unit")
+        self._hdfFileAttributeProperties = DiscreteData._hdfFileAttributeProperties + (
+            "channel",
+            "unit",
+        )
 
         self._unit = None
         self.unit_idx = None
@@ -582,13 +639,15 @@ class SpikeData(DiscreteData):
         self.channel_idx = None
 
         # Call parent initializer
-        super().__init__(data=data,
-                         filename=filename,
-                         trialdefinition=trialdefinition,
-                         samplerate=samplerate,
-                         dimord=dimord)
+        super().__init__(
+            data=data,
+            filename=filename,
+            trialdefinition=trialdefinition,
+            samplerate=samplerate,
+            dimord=dimord,
+        )
 
-        self._hdfFileDatasetProperties +=  ("waveform",)
+        self._hdfFileDatasetProperties += ("waveform",)
 
         self._waveform = None
 
@@ -668,7 +727,7 @@ class EventData(DiscreteData):
 
     _defaultDimord = ["sample", "eventid"]
     _stackingDimLabel = "sample"
-    _selectionKeyWords = DiscreteData._selectionKeyWords + ('eventid',)
+    _selectionKeyWords = DiscreteData._selectionKeyWords + ("eventid",)
 
     @property
     def eventid(self):
@@ -726,12 +785,14 @@ class EventData(DiscreteData):
         return indices
 
     # "Constructor"
-    def __init__(self,
-                 data=None,
-                 filename=None,
-                 trialdefinition=None,
-                 samplerate=None,
-                 dimord=None):
+    def __init__(
+        self,
+        data=None,
+        filename=None,
+        trialdefinition=None,
+        samplerate=None,
+        dimord=None,
+    ):
         """Initialize a :class:`EventData` object.
 
         Parameters
@@ -768,10 +829,12 @@ class EventData(DiscreteData):
                 self._defaultDimord = dimord
 
         # Call parent initializer
-        super().__init__(data=data,
-                         filename=filename,
-                         trialdefinition=trialdefinition,
-                         samplerate=samplerate,
-                         dimord=dimord)
+        super().__init__(
+            data=data,
+            filename=filename,
+            trialdefinition=trialdefinition,
+            samplerate=samplerate,
+            dimord=dimord,
+        )
 
         self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate",)

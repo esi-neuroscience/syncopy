@@ -49,10 +49,9 @@ class TestButterworth:
 
     data = AnalogData(trls, samplerate=fs)
     # for toi tests, -1s offset
-    time_span = [-.8, 4.2]
+    time_span = [-0.8, 4.2]
     flow, fhigh = 0.3 * fNy, 0.4 * fNy
-    freq_kw = {'lp': fhigh, 'hp': flow,
-               'bp': [flow, fhigh], 'bs': [flow, fhigh]}
+    freq_kw = {"lp": fhigh, "hp": flow, "bp": [flow, fhigh], "bs": [flow, fhigh]}
 
     # the unfiltered data
     spec = freqanalysis(data, tapsmofrq=1, keeptrials=False)
@@ -69,8 +68,7 @@ class TestButterworth:
 
         # write default parameters dict
         if def_test:
-            kwargs = {'direction': 'twopass',
-                      'order': 4}
+            kwargs = {"direction": "twopass", "order": 4}
 
         # total power in arbitrary units (for now)
         pow_tot = self.spec.show(channel=0).sum()
@@ -80,20 +78,22 @@ class TestButterworth:
             fig, ax = mk_spec_ax()
 
         for ftype in preproc.availableFilterTypes:
-            filtered = ppfunc(self.data,
-                              filter_class='but',
-                              filter_type=ftype,
-                              freq=self.freq_kw[ftype],
-                              **kwargs)
+            filtered = ppfunc(
+                self.data,
+                filter_class="but",
+                filter_type=ftype,
+                freq=self.freq_kw[ftype],
+                **kwargs,
+            )
 
             # check in frequency space
             spec_f = freqanalysis(filtered, tapsmofrq=1, keeptrials=False)
 
             # get relevant frequency ranges
             # for integrated powers
-            if ftype == 'lp':
+            if ftype == "lp":
                 foilim = [0, self.freq_kw[ftype]]
-            elif ftype == 'hp':
+            elif ftype == "hp":
                 # toilim selections can screw up the
                 # frequency axis of freqanalysis/np.fft.rfftfreq :/
                 foilim = [self.freq_kw[ftype], spec_f.freq[-1]]
@@ -108,21 +108,21 @@ class TestButterworth:
 
             # at least 80% of the ideal filter power
             # should be still around
-            if ftype in ('lp', 'hp'):
+            if ftype in ("lp", "hp"):
                 assert 0.8 * ratio < pow_fil / pow_tot
             # here we have two roll-offs, one at each side
-            elif ftype == 'bp':
+            elif ftype == "bp":
                 assert 0.7 * ratio < pow_fil / pow_tot
             # as well as here
-            elif ftype == 'bs':
+            elif ftype == "bs":
                 assert 0.7 * ratio < (pow_tot - pow_fil) / pow_tot
             if def_test:
                 plot_spec(ax, spec_f, label=ftype)
 
         # plotting
         if def_test:
-            plot_spec(ax, self.spec, c='0.3', label='unfiltered')
-            annotate_foilims(ax, *self.freq_kw['bp'])
+            plot_spec(ax, self.spec, c="0.3", label="unfiltered")
+            annotate_foilims(ax, *self.freq_kw["bp"])
             ax.set_title(f"Twopass Butterworth, order = {kwargs['order']}")
 
     def test_but_kwargs(self):
@@ -132,10 +132,9 @@ class TestButterworth:
         """
 
         for direction in preproc.availableDirections:
-            kwargs = {'direction': direction,
-                      'order': 4}
+            kwargs = {"direction": direction, "order": 4}
             # only for firws
-            if 'minphase' in direction:
+            if "minphase" in direction:
                 with pytest.raises(SPYValueError) as err:
                     self.test_but_filter(**kwargs)
                 assert "expected 'onepass'" in str(err.value)
@@ -143,8 +142,7 @@ class TestButterworth:
                 self.test_but_filter(**kwargs)
 
         for order in [-2, 10, 5.6]:
-            kwargs = {'direction': 'twopass',
-                      'order': order}
+            kwargs = {"direction": "twopass", "order": order}
 
             if order < 1 and isinstance(order, int):
                 with pytest.raises(SPYValueError) as err:
@@ -160,11 +158,13 @@ class TestButterworth:
 
     def test_but_selections(self):
 
-        sel_dicts = helpers.mk_selection_dicts(nTrials=20,
-                                               nChannels=2,
-                                               toi_min=self.time_span[0],
-                                               toi_max=self.time_span[1],
-                                               min_len=3.5)
+        sel_dicts = helpers.mk_selection_dicts(
+            nTrials=20,
+            nChannels=2,
+            toi_min=self.time_span[0],
+            toi_max=self.time_span[1],
+            min_len=3.5,
+        )
         for sd in sel_dicts:
             self.test_but_filter(select=sd)
 
@@ -176,11 +176,11 @@ class TestButterworth:
 
         cfg = get_defaults(ppfunc)
 
-        cfg.filter_class = 'but'
+        cfg.filter_class = "but"
         cfg.order = 6
-        cfg.direction = 'twopass'
+        cfg.direction = "twopass"
         cfg.freq = 30
-        cfg.filter_type = 'hp'
+        cfg.filter_type = "hp"
 
         result = ppfunc(self.data, cfg)
 
@@ -192,15 +192,18 @@ class TestButterworth:
         ppl.ioff()
         client = dd.Client(testcluster)
         print(client)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+        all_tests = [
+            attr
+            for attr in self.__dir__()
+            if (inspect.ismethod(getattr(self, attr)) and "parallel" not in attr)
+        ]
 
         for test_name in all_tests:
             test_method = getattr(self, test_name)
             # don't test parallel selections
-            if 'selection' in test_name:
+            if "selection" in test_name:
                 continue
-            if 'but_filter' in test_name:
+            if "but_filter" in test_name:
                 # test parallelisation along channels
                 test_method(chan_per_worker=2)
             else:
@@ -210,13 +213,15 @@ class TestButterworth:
 
     def test_but_hilbert_rect(self):
 
-        call = lambda **kwargs: ppfunc(self.data,
-                                       freq=20,
-                                       filter_class='but',
-                                       filter_type='lp',
-                                       order=5,
-                                       direction='onepass',
-                                       **kwargs)
+        call = lambda **kwargs: ppfunc(
+            self.data,
+            freq=20,
+            filter_class="but",
+            filter_type="lp",
+            order=5,
+            direction="onepass",
+            **kwargs,
+        )
 
         # test rectification
         filtered = call(rectify=False)
@@ -226,21 +231,21 @@ class TestButterworth:
 
         # test simultaneous call to hilbert and rectification
         with pytest.raises(SPYValueError) as err:
-            call(rectify=True, hilbert='abs')
+            call(rectify=True, hilbert="abs")
         assert "either rectifi" in str(err)
         assert "or Hilbert" in str(err)
 
         # test hilbert outputs
         for output in preproc.hilbert_outputs:
             htrafo = call(hilbert=output)
-            if output == 'complex':
+            if output == "complex":
                 assert np.all(np.imag(htrafo.trials[0]) != 0)
             else:
                 assert np.all(np.imag(htrafo.trials[0]) == 0)
 
         # test wrong hilbert parameter
         with pytest.raises(SPYValueError) as err:
-            call(hilbert='absnot')
+            call(hilbert="absnot")
         assert "one of {'" in str(err)
 
     def test_but_NaN(self):
@@ -255,16 +260,14 @@ class TestButterworth:
         arr[1][5, 1] = np.nan
         arr[-1][10:15, 2] = np.nan
         adata = AnalogData(data=arr, samplerate=50)
-        res = ppfunc(adata,
-                     freq=20,
-                     filter_class='but')
+        res = ppfunc(adata, freq=20, filter_class="but")
 
         # IIR filters can't work around NaNs
         assert np.sum(np.isnan(res.trials[0])) == 0
         assert np.sum(np.isnan(res.trials[1])) == nSamples
         assert np.sum(np.isnan(res.trials[4])) == nSamples
         # check that metadata got propagated
-        assert res.info['nan_trials'] == [1, 4]
+        assert res.info["nan_trials"] == [1, 4]
 
 
 class TestFIRWS:
@@ -284,10 +287,9 @@ class TestFIRWS:
 
     data = AnalogData(trls, samplerate=fs)
     # for toi tests, -1s offset
-    time_span = [-.8, 4.2]
+    time_span = [-0.8, 4.2]
     flow, fhigh = 0.3 * fNy, 0.4 * fNy
-    freq_kw = {'lp': fhigh, 'hp': flow,
-               'bp': [flow, fhigh], 'bs': [flow, fhigh]}
+    freq_kw = {"lp": fhigh, "hp": flow, "bp": [flow, fhigh], "bs": [flow, fhigh]}
 
     # the unfiltered data
     spec = freqanalysis(data, tapsmofrq=1, keeptrials=False)
@@ -305,8 +307,7 @@ class TestFIRWS:
 
         # write default parameters dict
         if def_test:
-            kwargs = {'direction': 'twopass',
-                      'order': 200}
+            kwargs = {"direction": "twopass", "order": 200}
 
         # total power in arbitrary units (for now)
         pow_tot = self.spec.show(channel=0).sum()
@@ -316,19 +317,21 @@ class TestFIRWS:
             fig, ax = mk_spec_ax()
 
         for ftype in preproc.availableFilterTypes:
-            filtered = ppfunc(self.data,
-                              filter_class='firws',
-                              filter_type=ftype,
-                              freq=self.freq_kw[ftype],
-                              **kwargs)
+            filtered = ppfunc(
+                self.data,
+                filter_class="firws",
+                filter_type=ftype,
+                freq=self.freq_kw[ftype],
+                **kwargs,
+            )
             # check in frequency space
             spec_f = freqanalysis(filtered, tapsmofrq=1, keeptrials=False)
 
             # get relevant frequency ranges
             # for integrated powers
-            if ftype == 'lp':
+            if ftype == "lp":
                 foilim = [0, self.freq_kw[ftype]]
-            elif ftype == 'hp':
+            elif ftype == "hp":
                 # toilim selections can screw up the
                 # frequency axis of freqanalysis/np.fft.rfftfreq :/
                 foilim = [self.freq_kw[ftype], spec_f.freq[-1]]
@@ -343,21 +346,21 @@ class TestFIRWS:
 
             # at least 80% of the ideal filter power
             # should be still around
-            if ftype in ('lp', 'hp'):
+            if ftype in ("lp", "hp"):
                 assert 0.8 * ratio < pow_fil / pow_tot
             # here we have two roll-offs, one at each side
-            elif ftype == 'bp':
+            elif ftype == "bp":
                 assert 0.7 * ratio < pow_fil / pow_tot
             # as well as here
-            elif ftype == 'bs':
+            elif ftype == "bs":
                 assert 0.7 * ratio < (pow_tot - pow_fil) / pow_tot
             if def_test:
                 plot_spec(ax, spec_f, label=ftype)
 
         # plotting
         if def_test:
-            plot_spec(ax, self.spec, c='0.3', label='unfiltered')
-            annotate_foilims(ax, *self.freq_kw['bp'])
+            plot_spec(ax, self.spec, c="0.3", label="unfiltered")
+            annotate_foilims(ax, *self.freq_kw["bp"])
             ax.set_title(f"Twopass FIRWS, order = {kwargs['order']}")
 
     def test_firws_kwargs(self):
@@ -367,12 +370,10 @@ class TestFIRWS:
         """
 
         for direction in preproc.availableDirections:
-            kwargs = {'direction': direction,
-                      'order': 200}
+            kwargs = {"direction": direction, "order": 200}
             self.test_firws_filter(**kwargs)
         for order in [-2, 220, 5.6]:
-            kwargs = {'direction': 'twopass',
-                      'order': order}
+            kwargs = {"direction": "twopass", "order": order}
 
             if order < 1 and isinstance(order, int):
                 with pytest.raises(SPYValueError) as err:
@@ -390,11 +391,13 @@ class TestFIRWS:
 
     def test_firws_selections(self):
 
-        sel_dicts = helpers.mk_selection_dicts(nTrials=20,
-                                               nChannels=2,
-                                               toi_min=self.time_span[0],
-                                               toi_max=self.time_span[1],
-                                               min_len=3.5)
+        sel_dicts = helpers.mk_selection_dicts(
+            nTrials=20,
+            nChannels=2,
+            toi_min=self.time_span[0],
+            toi_max=self.time_span[1],
+            min_len=3.5,
+        )
         for sd in sel_dicts:
             self.test_firws_filter(select=sd, order=200)
 
@@ -406,11 +409,11 @@ class TestFIRWS:
 
         cfg = get_defaults(ppfunc)
 
-        cfg.filter_class = 'firws'
+        cfg.filter_class = "firws"
         cfg.order = 200
-        cfg.direction = 'twopass'
+        cfg.direction = "twopass"
         cfg.freq = 30
-        cfg.filter_type = 'hp'
+        cfg.filter_type = "hp"
 
         result = ppfunc(self.data, cfg)
 
@@ -421,15 +424,18 @@ class TestFIRWS:
 
         ppl.ioff()
         client = dd.Client(testcluster)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+        all_tests = [
+            attr
+            for attr in self.__dir__()
+            if (inspect.ismethod(getattr(self, attr)) and "parallel" not in attr)
+        ]
 
         for test_name in all_tests:
             test_method = getattr(self, test_name)
             # don't test parallel selections
-            if 'selection' in test_name:
+            if "selection" in test_name:
                 continue
-            if 'firws_filter' in test_name:
+            if "firws_filter" in test_name:
                 # test parallelisation along channels
                 test_method(chan_per_worker=2)
             else:
@@ -439,13 +445,15 @@ class TestFIRWS:
 
     def test_firws_hilbert_rect(self):
 
-        call = lambda **kwargs: ppfunc(self.data,
-                                       freq=20,
-                                       filter_class='firws',
-                                       filter_type='lp',
-                                       order=200,
-                                       direction='onepass',
-                                       **kwargs)
+        call = lambda **kwargs: ppfunc(
+            self.data,
+            freq=20,
+            filter_class="firws",
+            filter_type="lp",
+            order=200,
+            direction="onepass",
+            **kwargs,
+        )
 
         # test rectification
         filtered = call(rectify=False)
@@ -455,21 +463,21 @@ class TestFIRWS:
 
         # test simultaneous call to hilbert and rectification
         with pytest.raises(SPYValueError) as err:
-            call(rectify=True, hilbert='abs')
+            call(rectify=True, hilbert="abs")
         assert "either rectifi" in str(err)
         assert "or Hilbert" in str(err)
 
         # test hilbert outputs
         for output in preproc.hilbert_outputs:
             htrafo = call(hilbert=output)
-            if output == 'complex':
+            if output == "complex":
                 assert np.all(np.imag(htrafo.trials[0]) != 0)
             else:
                 assert np.all(np.imag(htrafo.trials[0]) == 0)
 
         # test wrong hilbert parameter
         with pytest.raises(SPYValueError) as err:
-            call(hilbert='absnot')
+            call(hilbert="absnot")
         assert "one of {'" in str(err)
 
     def test_firws_NaN(self):
@@ -485,11 +493,7 @@ class TestFIRWS:
         arr[1][5, 1] = np.nan
         arr[-1][10:15, 2] = np.nan  # "NaN island"
         adata = AnalogData(data=arr, samplerate=50)
-        res = ppfunc(adata,
-                     freq=20,
-                     filter_class='firws',
-                     order=order,
-                     direction='onepass')
+        res = ppfunc(adata, freq=20, filter_class="firws", order=order, direction="onepass")
 
         # no NaNs in 1st trial
         assert np.sum(np.isnan(res.trials[0])) == 0
@@ -505,12 +509,12 @@ class TestFIRWS:
         assert np.sum(np.isnan(res.trials[4])) < nSamples
 
         # finally check that the metadata got propagated
-        assert res.info['nan_trials'] == [1, 4]
+        assert res.info["nan_trials"] == [1, 4]
 
 
 class TestDetrending:
 
-    """ Test standalone detrending """
+    """Test standalone detrending"""
 
     nTrials = 2
     nSamples = 5000
@@ -544,20 +548,23 @@ class TestDetrending:
         assert (orig_c0.max() - orig_c0.min()) > 1.5 * (res_c0.max() - res_c0.min())
 
     def test_exceptions(self):
-        with pytest.raises(SPYValueError, match='neither filtering, detrending or zscore'):
+        with pytest.raises(SPYValueError, match="neither filtering, detrending or zscore"):
             ppfunc(self.AData, filter_class=None, polyremoval=None)
 
-        with pytest.raises(SPYValueError, match='expected value to be greater'):
+        with pytest.raises(SPYValueError, match="expected value to be greater"):
             ppfunc(self.AData, filter_class=None, polyremoval=-1)
 
-        with pytest.raises(SPYValueError, match='expected value to be greater'):
+        with pytest.raises(SPYValueError, match="expected value to be greater"):
             ppfunc(self.AData, filter_class=None, polyremoval=2)
 
     def test_detr_parallel(self, testcluster):
 
         client = dd.Client(testcluster)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+        all_tests = [
+            attr
+            for attr in self.__dir__()
+            if (inspect.ismethod(getattr(self, attr)) and "parallel" not in attr)
+        ]
 
         for test_name in all_tests:
             test_method = getattr(self, test_name)
@@ -578,33 +585,29 @@ class TestDetrending:
         adata = AnalogData(data=arr, samplerate=50)
 
         # -- demeaning --
-        res = ppfunc(adata,
-                     filter_class=None,
-                     polyremoval=0)
+        res = ppfunc(adata, filter_class=None, polyremoval=0)
 
         # detrending can't work around NaNs
         assert np.sum(np.isnan(res.trials[0])) == 0
         assert np.sum(np.isnan(res.trials[1])) == nSamples
         assert np.sum(np.isnan(res.trials[4])) == nSamples
         # check that metadata got propagated
-        assert res.info['nan_trials'] == [1, 4]
+        assert res.info["nan_trials"] == [1, 4]
 
         # -- linear detrending --
-        res = ppfunc(adata,
-                     filter_class=None,
-                     polyremoval=1)
+        res = ppfunc(adata, filter_class=None, polyremoval=1)
 
         # detrending can't work around NaNs
         assert np.sum(np.isnan(res.trials[0])) == 0
         assert np.sum(np.isnan(res.trials[1])) == nSamples
         assert np.sum(np.isnan(res.trials[4])) == nSamples
         # check that metadata got propagated
-        assert res.info['nan_trials'] == [1, 4]
+        assert res.info["nan_trials"] == [1, 4]
 
 
 class TestStandardize:
 
-    """ Test standalone and general zscore """
+    """Test standalone and general zscore"""
 
     nTrials = 2
     nSamples = 5000
@@ -631,8 +634,8 @@ class TestStandardize:
 
     def test_firws_standardize(self):
 
-        res1 = ppfunc(self.AData, filter_class='firws', freq=100, zscore=False)
-        res2 = ppfunc(self.AData, filter_class='firws', freq=100, zscore=True)
+        res1 = ppfunc(self.AData, filter_class="firws", freq=100, zscore=False)
+        res2 = ppfunc(self.AData, filter_class="firws", freq=100, zscore=True)
 
         # only low pass filtering does not remove the mean
         assert np.mean(res1.show(channel=1)) > 1
@@ -641,8 +644,8 @@ class TestStandardize:
 
     def test_but_standardize(self):
 
-        res1 = ppfunc(self.AData, filter_class='but', freq=100, zscore=False)
-        res2 = ppfunc(self.AData, filter_class='but', freq=100, zscore=True)
+        res1 = ppfunc(self.AData, filter_class="but", freq=100, zscore=False)
+        res2 = ppfunc(self.AData, filter_class="but", freq=100, zscore=True)
 
         # only low pass filtering does not remove the mean
         assert np.mean(res1.show(channel=1)) > 1
@@ -651,17 +654,20 @@ class TestStandardize:
 
     def test_exceptions(self):
 
-        with pytest.raises(SPYValueError, match='neither filtering, detrending or zscore'):
+        with pytest.raises(SPYValueError, match="neither filtering, detrending or zscore"):
             ppfunc(self.AData, filter_class=None, polyremoval=None, zscore=False)
 
-        with pytest.raises(SPYValueError, match='expected either `True` or `False`'):
+        with pytest.raises(SPYValueError, match="expected either `True` or `False`"):
             ppfunc(self.AData, filter_class=None, zscore=2)
 
     def test_zscore_parallel(self, testcluster):
 
         client = dd.Client(testcluster)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+        all_tests = [
+            attr
+            for attr in self.__dir__()
+            if (inspect.ismethod(getattr(self, attr)) and "parallel" not in attr)
+        ]
 
         for test_name in all_tests:
             test_method = getattr(self, test_name)
@@ -672,8 +678,8 @@ class TestStandardize:
 def mk_spec_ax():
 
     fig, ax = ppl.subplots()
-    ax.set_xlabel('frequency (Hz)')
-    ax.set_ylabel('power (dB)')
+    ax.set_xlabel("frequency (Hz)")
+    ax.set_ylabel("power (dB)")
     return fig, ax
 
 
@@ -686,12 +692,12 @@ def plot_spec(ax, spec, **pkwargs):
 def annotate_foilims(ax, flow, fhigh):
 
     ylim = ax.get_ylim()
-    ax.plot([flow, flow], [0, 1], 'k--')
-    ax.plot([fhigh, fhigh], [0, 1], 'k--')
+    ax.plot([flow, flow], [0, 1], "k--")
+    ax.plot([fhigh, fhigh], [0, 1], "k--")
     ax.set_ylim(ylim)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     T1 = TestButterworth()
     T2 = TestFIRWS()
     T3 = TestDetrending()

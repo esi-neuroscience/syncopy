@@ -28,7 +28,9 @@ if __pynwb__:
     import pynwb
     from pynwb import NWBFile
     from pynwb.ecephys import LFP, ElectricalSeries
-    from hdmf.common import DynamicTableRegion # hdmf is a dependency of pynwb, so this should be available.
+    from hdmf.common import (
+        DynamicTableRegion,
+    )  # hdmf is a dependency of pynwb, so this should be available.
 
 # Local imports
 
@@ -49,19 +51,21 @@ def _get_nwbfile_template(channels=None):
     adding data.
     """
     start_time_no_tz = datetime.now()
-    tz = pytz.timezone('Europe/Berlin')
+    tz = pytz.timezone("Europe/Berlin")
     start_time = tz.localize(start_time_no_tz)
 
     nwbfile = NWBFile(
-        session_description="unknown",          # required
-        identifier=str(uuid4()),                # required
-        session_start_time=start_time,      # required and relevant, use something like `datetime(2018, 4, 25, 2, 30, 3, tzinfo=tz.gettz("US/Pacific"))` for real data.
-        session_id="session_0001",              # optional. remember that one file is for one session.
-        experimenter=[ "unknown", ],            # optional, name of experimenters
-        lab="unknown",                          # optional, the research lab where the experiment was performed
-        institution="unknown",                  # optional
-        experiment_description="unknown",       # optional
-        related_publications="",                # put a DOI here, if any. e.g., "https://doi.org/###"
+        session_description="unknown",  # required
+        identifier=str(uuid4()),  # required
+        session_start_time=start_time,  # required and relevant, use something like `datetime(2018, 4, 25, 2, 30, 3, tzinfo=tz.gettz("US/Pacific"))` for real data.
+        session_id="session_0001",  # optional. remember that one file is for one session.
+        experimenter=[
+            "unknown",
+        ],  # optional, name of experimenters
+        lab="unknown",  # optional, the research lab where the experiment was performed
+        institution="unknown",  # optional
+        experiment_description="unknown",  # optional
+        related_publications="",  # put a DOI here, if any. e.g., "https://doi.org/###"
     )
     # When creating your own NWBFile, you can also add subject information by setting `nwbfile.subject` to a `pynwb.file.Subject` instance, see docs.
 
@@ -92,7 +96,9 @@ def _add_electrodes(nwbfile, channels):
     nchannels_per_shank = len(channels)
     nshanks = 1  # We assume 1 shank.
 
-    device = nwbfile.create_device(name="array", description="Unknown array", manufacturer="Unknown manufacturer")
+    device = nwbfile.create_device(
+        name="array", description="Unknown array", manufacturer="Unknown manufacturer"
+    )
     nwbfile.add_electrode_column(name="label", description="label of electrode")
 
     # the number of shanks in the array, each is placed in a separate electrode group. We assume 1 shank.
@@ -116,7 +122,7 @@ def _add_electrodes(nwbfile, channels):
                 filtering="unknown",
                 group=electrode_group,
                 label="shank{}elec{}".format(ishank, ielec),
-                #location="unknown brain area (shank {}, elec {})".format(ishank, ielec),
+                # location="unknown brain area (shank {}, elec {})".format(ishank, ielec),
                 location=channels[ielec],
             )
             electrode_counter += 1
@@ -124,11 +130,17 @@ def _add_electrodes(nwbfile, channels):
     electrodes = nwbfile.create_electrode_table_region(
         region=list(range(electrode_counter)),  # reference row indices 0 to N-1 in the electrode table.
         description="all electrodes",
-        )
+    )
     return nwbfile, electrodes
 
 
-def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=True, is_raw=True, elec_series_name="ElectricalSeries"):
+def _analog_timelocked_to_nwbfile(
+    atdata,
+    nwbfile=None,
+    with_trialdefinition=True,
+    is_raw=True,
+    elec_series_name="ElectricalSeries",
+):
     """Convert `AnalogData` or `TimeLockData` into a `pynwb.NWBFile` instance,
     for writing to files in Neurodata Without Borders (NWB) file format.
     An NWBFile represents a single session of an experiment.
@@ -164,10 +176,12 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
     if nwbfile is None:
         nwbfile = _get_nwbfile_template(atdata.channel)
 
-    electrode_region = DynamicTableRegion(name='electrodes',
-                                          data=list(range(len(atdata.channel))),
-                                          description='All electrodes.',
-                                          table=nwbfile.electrodes)
+    electrode_region = DynamicTableRegion(
+        name="electrodes",
+        data=list(range(len(atdata.channel))),
+        description="All electrodes.",
+        table=nwbfile.electrodes,
+    )
 
     # Now that we have an NWBFile and channels, we can add the data.
     time_series_with_rate = ElectricalSeries(
@@ -175,20 +189,19 @@ def _analog_timelocked_to_nwbfile(atdata, nwbfile=None, with_trialdefinition=Tru
         data=atdata.data,
         electrodes=electrode_region,
         starting_time=0.0,
-        rate=atdata.samplerate, # Fixed sampling rate.
+        rate=atdata.samplerate,  # Fixed sampling rate.
         description="Electrical time series dataset",
         comments="Exported by Syncopy",
     )
 
-    if is_raw:  # raw measurements from instruments, not to be changed. Not downsampled, detrended, or anything. This is not enforced technically, but it is a convention.
+    if (
+        is_raw
+    ):  # raw measurements from instruments, not to be changed. Not downsampled, detrended, or anything. This is not enforced technically, but it is a convention.
         nwbfile.add_acquisition(time_series_with_rate)
     else:  # LFP, data used for analysis, or the result of an analysis.
         lfp = LFP(electrical_series=time_series_with_rate)
-        ecephys_module = nwbfile.create_processing_module(
-            name="ecephys", description=atdata._log
-        )
+        ecephys_module = nwbfile.create_processing_module(name="ecephys", description=atdata._log)
         ecephys_module.add(lfp)
-
 
     # Add trial definition, if possible and requested.
     _add_trials_to_nwbfile(nwbfile, atdata.trialdefinition, atdata.samplerate, do_add=with_trialdefinition)
@@ -225,7 +238,7 @@ def _add_trials_to_nwbfile(nwbfile, trialdefinition, samplerate, do_add=True, sa
             description="The offset of the trial.",
         )
     for trial_idx in range(trialdefinition.shape[0]):
-        td = trialdefinition[trial_idx, :].astype(np.float64) / samplerate # Compute time from sample number.
+        td = trialdefinition[trial_idx, :].astype(np.float64) / samplerate  # Compute time from sample number.
         if save_as == "both" or save_as == "trials":
             nwbfile.add_trial(start_time=td[0], stop_time=td[1], offset=td[2])
         if save_as == "both" or save_as == "epochs":
@@ -265,7 +278,6 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
     # See https://pynwb.readthedocs.io/en/stable/tutorials/domain/ecephys.html
     # It is also worth veryfying that the web tool nwbexplorer can read the produced files, see http://nwbexplorer.opensourcebrain.org/.
 
-
     num_channels = 1
 
     if nwbfile is None:
@@ -282,7 +294,7 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
     units = np.unique(data_single_channel[:, 1])
 
     if unit_info is None:
-        unit_info = {'location': dict(), 'group': dict() }
+        unit_info = {"location": dict(), "group": dict()}
 
     # See how they do in Pynapple for compatibility:
     # https://github.com/pynapple-org/pynapple/blob/main/pynapple/io/neurosuite.py#L212
@@ -292,17 +304,21 @@ def _spikedata_to_nwbfile(sdata, nwbfile=None, with_trialdefinition=True, unit_i
     nwbfile.add_unit_column("group", "the group of the unit")
 
     # Extra fields for Syncopy compatibility, so we can restore the samplerate when reading the file.
-    nwbfile.add_unit_column("samplerate", "the samplerate of the unit. this is the same as the samplerate of the data, and identical across all units.")
+    nwbfile.add_unit_column(
+        "samplerate",
+        "the samplerate of the unit. this is the same as the samplerate of the data, and identical across all units.",
+    )
 
     for unit_idx in units:
         nwbfile.add_unit(
             id=unit_idx,
-            spike_times = data_single_channel[np.where(data_single_channel[:, 1] == unit_idx), 0].flatten() / sdata.samplerate,
+            spike_times=data_single_channel[np.where(data_single_channel[:, 1] == unit_idx), 0].flatten()
+            / sdata.samplerate,
             electrodes=list(range(num_channels)),
-            location=unit_info['location'].get(unit_idx, "unknown"),
-            group=unit_info['group'].get(unit_idx, "unknown"),
+            location=unit_info["location"].get(unit_idx, "unknown"),
+            group=unit_info["group"].get(unit_idx, "unknown"),
             samplerate=sdata.samplerate,
-            )
+        )
 
     # Add trial definition, if possible and requested.
     _add_trials_to_nwbfile(nwbfile, sdata.trialdefinition, sdata.samplerate, do_add=with_trialdefinition)

@@ -13,7 +13,6 @@ from syncopy.shared.errors import SPYLog
 
 
 class TestLogging:
-
     def test_seq_logfile_exists(self):
         logfile = os.path.join(spy.__logdir__, "syncopy.log")
         assert os.path.isfile(logfile)
@@ -28,7 +27,9 @@ class TestLogging:
 
         logfile = os.path.join(spy.__logdir__, "syncopy.log")
         assert os.path.isfile(logfile)
-        num_lines_initial = sum(1 for line in open(logfile)) # The log file gets appended, so it will most likely *not* be empty.
+        num_lines_initial = sum(
+            1 for line in open(logfile)
+        )  # The log file gets appended, so it will most likely *not* be empty.
 
         # Log something with log level info and DEBUG, which should not affect the logfile.
         logger = get_logger()
@@ -52,7 +53,9 @@ class TestLogging:
 
         par_logfile = os.path.join(spy.__logdir__, f"syncopy_{platform.node()}.log")
         assert os.path.isfile(par_logfile)
-        num_lines_initial = sum(1 for line in open(par_logfile)) # The log file gets appended, so it will most likely *not* be empty.
+        num_lines_initial = sum(
+            1 for line in open(par_logfile)
+        )  # The log file gets appended, so it will most likely *not* be empty.
 
         # Log something with log level info and DEBUG, which should not affect the logfile.
         par_logger = get_parallel_logger()
@@ -76,7 +79,9 @@ class TestLogging:
 
         logfile = os.path.join(spy.__logdir__, "syncopy.log")
         assert os.path.isfile(logfile)
-        num_lines_initial = sum(1 for line in open(logfile)) # The log file gets appended, so it will most likely *not* be empty.
+        num_lines_initial = sum(
+            1 for line in open(logfile)
+        )  # The log file gets appended, so it will most likely *not* be empty.
 
         # Log something with log level info and DEBUG, which should not affect the logfile.
         spy.log("I am adding an INFO level log entry.", level="INFO")
@@ -97,7 +102,9 @@ class TestLogging:
 
         par_logfile = os.path.join(spy.__logdir__, f"syncopy_{platform.node()}.log")
         assert os.path.isfile(par_logfile)
-        num_lines_initial = sum(1 for line in open(par_logfile)) # The log file gets appended, so it will most likely *not* be empty.
+        num_lines_initial = sum(
+            1 for line in open(par_logfile)
+        )  # The log file gets appended, so it will most likely *not* be empty.
 
         # Log something with log level info and DEBUG, which should not affect the logfile.
         spy.log("I am adding an INFO level log entry.", level="INFO", par=True)
@@ -111,11 +118,3 @@ class TestLogging:
 
         num_lines_after_warning = sum(1 for line in open(par_logfile))
         assert num_lines_after_warning > num_lines_after_info_debug
-
-
-
-
-
-
-
-

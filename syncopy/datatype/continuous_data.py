@@ -32,7 +32,6 @@ if __pynwb__:  # pragma: no cover
     from pynwb import NWBHDF5IO
 
 
-
 __all__ = ["AnalogData", "SpectralData", "CrossSpectralData", "TimeLockData"]
 
 
@@ -45,10 +44,13 @@ class ContinuousData(BaseData, ABC):
 
     """
 
-    _infoFileProperties = BaseData._infoFileProperties + ("samplerate", "channel",)
+    _infoFileProperties = BaseData._infoFileProperties + (
+        "samplerate",
+        "channel",
+    )
     _hdfFileDatasetProperties = BaseData._hdfFileDatasetProperties + ("data",)
     # all continuous data types have a time axis
-    _selectionKeyWords = BaseData._selectionKeyWords + ('latency',)
+    _selectionKeyWords = BaseData._selectionKeyWords + ("latency",)
 
     @property
     def data(self):
@@ -63,8 +65,7 @@ class ContinuousData(BaseData, ABC):
             if self._data.id.valid == 0:
                 lgl = "open HDF5 file"
                 act = "backing HDF5 file {} has been closed"
-                raise SPYValueError(legal=lgl, actual=act.format(self.filename),
-                                    varname="data")
+                raise SPYValueError(legal=lgl, actual=act.format(self.filename), varname="data")
         return self._data
 
     @data.setter
@@ -90,11 +91,16 @@ class ContinuousData(BaseData, ABC):
 
     def __str__(self):
         # Get list of print-worthy attributes
-        ppattrs = [attr for attr in self.__dir__()
-                   if not (attr.startswith("_") or attr in ["log", "trialdefinition"])]
-        ppattrs = [attr for attr in ppattrs
-                   if not (inspect.ismethod(getattr(self, attr))
-                           or isinstance(getattr(self, attr), Iterator))]
+        ppattrs = [
+            attr
+            for attr in self.__dir__()
+            if not (attr.startswith("_") or attr in ["log", "trialdefinition"])
+        ]
+        ppattrs = [
+            attr
+            for attr in ppattrs
+            if not (inspect.ismethod(getattr(self, attr)) or isinstance(getattr(self, attr), Iterator))
+        ]
         if self.__class__.__name__ == "CrossSpectralData":
             ppattrs.remove("channel")
         ppattrs.sort()
@@ -107,28 +113,34 @@ class ContinuousData(BaseData, ABC):
         printString = "{0:>" + str(maxKeyLength + 5) + "} : {1:}\n"
         for attr in ppattrs:
             value = getattr(self, attr)
-            if hasattr(value, 'shape') and attr == "data" and self.sampleinfo is not None:
+            if hasattr(value, "shape") and attr == "data" and self.sampleinfo is not None:
                 tlen = np.unique(np.diff(self.sampleinfo))
                 if tlen.size == 1:
                     trlstr = "of length {} ".format(str(tlen[0]))
                 else:
                     trlstr = ""
-                dsize = np.prod(self.data.shape)*self.data.dtype.itemsize/1024**2
+                dsize = np.prod(self.data.shape) * self.data.dtype.itemsize / 1024**2
                 dunit = "MB"
                 if dsize > 1000:
                     dsize /= 1024
                     dunit = "GB"
                 valueString = "{} trials {}defined on ".format(str(len(self.trials)), trlstr)
-                valueString += "[" + " x ".join([str(numel) for numel in value.shape]) \
-                              + "] {dt:s} {tp:s} " +\
-                              "of size {sz:3.2f} {szu:s}"
-                valueString = valueString.format(dt=self.data.dtype.name,
-                                                 tp=self.data.__class__.__name__,
-                                                 sz=dsize,
-                                                 szu=dunit)
-            elif hasattr(value, 'shape'):
-                valueString = "[" + " x ".join([str(numel) for numel in value.shape]) \
-                              + "] element " + str(type(value))
+                valueString += (
+                    "["
+                    + " x ".join([str(numel) for numel in value.shape])
+                    + "] {dt:s} {tp:s} "
+                    + "of size {sz:3.2f} {szu:s}"
+                )
+                valueString = valueString.format(
+                    dt=self.data.dtype.name,
+                    tp=self.data.__class__.__name__,
+                    sz=dsize,
+                    szu=dunit,
+                )
+            elif hasattr(value, "shape"):
+                valueString = (
+                    "[" + " x ".join([str(numel) for numel in value.shape]) + "] element " + str(type(value))
+                )
             elif isinstance(value, list):
                 if attr == "dimord" and value is not None:
                     valueString = dsep.join(dim for dim in self.dimord)
@@ -138,8 +150,10 @@ class ContinuousData(BaseData, ABC):
                 msg = "dictionary with {nk:s}keys{ks:s}"
                 keylist = value.keys()
                 showkeys = len(keylist) < 7
-                valueString = msg.format(nk=str(len(keylist)) + " " if not showkeys else "",
-                                         ks=" '" + "', '".join(key for key in keylist) + "'" if showkeys else "")
+                valueString = msg.format(
+                    nk=str(len(keylist)) + " " if not showkeys else "",
+                    ks=" '" + "', '".join(key for key in keylist) + "'" if showkeys else "",
+                )
             else:
                 valueString = str(value)
             ppstr += printString.format(attr, valueString)
@@ -156,13 +170,12 @@ class ContinuousData(BaseData, ABC):
 
     @property
     def channel(self):
-        """ :class:`numpy.ndarray` : list of recording channel names """
+        """:class:`numpy.ndarray` : list of recording channel names"""
         # if data exists but no user-defined channel labels, create them on the fly
         if self._channel is None and self._data is not None:
             nChannel = self.data.shape[self.dimord.index("channel")]
             # default labels
-            return np.array(["channel" + str(i + 1).zfill(len(str(nChannel)))
-                           for i in range(nChannel)])
+            return np.array(["channel" + str(i + 1).zfill(len(str(nChannel))) for i in range(nChannel)])
         return self._channel
 
     @channel.setter
@@ -173,11 +186,16 @@ class ContinuousData(BaseData, ABC):
             return
 
         if self.data is None:
-            raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
-                  "Please assign data first")
+            raise SPYValueError(
+                "Syncopy: Cannot assign `channels` without data. " + "Please assign data first"
+            )
 
-        array_parser(channel, varname="channel", ntype="str",
-                     dims=(self.data.shape[self.dimord.index("channel")],))
+        array_parser(
+            channel,
+            varname="channel",
+            ntype="str",
+            dims=(self.data.shape[self.dimord.index("channel")],),
+        )
 
         self._channel = np.array(channel)
 
@@ -192,13 +210,11 @@ class ContinuousData(BaseData, ABC):
             self._samplerate = None
             return
 
-        scalar_parser(sr, varname="samplerate", lims=[np.finfo('float').eps, np.inf])
+        scalar_parser(sr, varname="samplerate", lims=[np.finfo("float").eps, np.inf])
         self._samplerate = float(sr)
         # we need a new TimeIndexer
         if self.trialdefinition is not None:
-            self._time = TimeIndexer(self.trialdefinition,
-                                     self.samplerate,
-                                     list(self._trial_ids))
+            self._time = TimeIndexer(self.trialdefinition, self.samplerate, list(self._trial_ids))
 
     @BaseData.trialdefinition.setter
     def trialdefinition(self, trldef):
@@ -213,17 +229,21 @@ class ContinuousData(BaseData, ABC):
             if trldef.shape[-1] < 3:
                 lgl = "trialdefinition with at least 3 columns: [start, stop, offset]"
                 act = f"got only {trldef.shape[-1]} columns"
-                raise SPYValueError(lgl, 'trialdefinition', act)
+                raise SPYValueError(lgl, "trialdefinition", act)
 
-            array_parser(trldef[:, :2], varname="sampleinfo", hasnan=False,
-                         hasinf=False, ntype="int_like", lims=[0, scount])
+            array_parser(
+                trldef[:, :2],
+                varname="sampleinfo",
+                hasnan=False,
+                hasinf=False,
+                ntype="int_like",
+                lims=[0, scount],
+            )
 
             self._trialdefinition = trldef.copy()
             self._trial_ids = np.arange(self.sampleinfo.shape[0])
 
-        self._time = TimeIndexer(self.trialdefinition,
-                                 self.samplerate,
-                                 list(self._trial_ids))
+        self._time = TimeIndexer(self.trialdefinition, self.samplerate, list(self._trial_ids))
 
     @property
     def time(self):
@@ -338,7 +358,7 @@ class ContinuousData(BaseData, ABC):
         self._data = None
         self._time = None
 
-        self.samplerate = samplerate     # use setter for error-checking
+        self.samplerate = samplerate  # use setter for error-checking
 
         # Call initializer
         super().__init__(data=data, **kwargs)
@@ -384,16 +404,18 @@ class AnalogData(ContinuousData):
     _infoFileProperties = ContinuousData._infoFileProperties
     _defaultDimord = ["time", "channel"]
     _stackingDimLabel = "time"
-    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel',)
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ("channel",)
 
     # "Constructor"
-    def __init__(self,
-                 data=None,
-                 filename=None,
-                 trialdefinition=None,
-                 samplerate=None,
-                 channel=None,
-                 dimord=None):
+    def __init__(
+        self,
+        data=None,
+        filename=None,
+        trialdefinition=None,
+        samplerate=None,
+        channel=None,
+        dimord=None,
+    ):
         """Initialize an :class:`AnalogData` object.
 
         Parameters
@@ -425,15 +447,20 @@ class AnalogData(ContinuousData):
             dimord = self._defaultDimord
 
         # Call parent initializer
-        super().__init__(data=data,
-                         filename=filename,
-                         trialdefinition=trialdefinition,
-                         samplerate=samplerate,
-                         channel=channel,
-                         dimord=dimord)
+        super().__init__(
+            data=data,
+            filename=filename,
+            trialdefinition=trialdefinition,
+            samplerate=samplerate,
+            channel=channel,
+            dimord=dimord,
+        )
 
         # set as instance attribute to allow modification
-        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + ("samplerate", "channel",)
+        self._hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + (
+            "samplerate",
+            "channel",
+        )
 
     # implement plotting
     def singlepanelplot(self, shifted=True, **show_kwargs):
@@ -491,7 +518,12 @@ class AnalogData(ContinuousData):
         if not __pynwb__:
             raise SPYError("NWB support is not available. Please install the 'pynwb' package.")
 
-        nwbfile = _analog_timelocked_to_nwbfile(self, nwbfile=nwbfile, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
+        nwbfile = _analog_timelocked_to_nwbfile(
+            self,
+            nwbfile=nwbfile,
+            with_trialdefinition=with_trialdefinition,
+            is_raw=is_raw,
+        )
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:
             io.write(nwbfile)
@@ -506,20 +538,29 @@ class SpectralData(ContinuousData):
     and optionally a time axis. The datatype can be complex or float.
     """
 
-    _infoFileProperties = ContinuousData._infoFileProperties + ("taper", "freq",)
-    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
-        ("samplerate", "channel", "freq",)
+    _infoFileProperties = ContinuousData._infoFileProperties + (
+        "taper",
+        "freq",
+    )
+    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + (
+        "samplerate",
+        "channel",
+        "freq",
+    )
     _defaultDimord = ["time", "taper", "freq", "channel"]
     _stackingDimLabel = "time"
-    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel', 'frequency', 'taper',)
+    _selectionKeyWords = ContinuousData._selectionKeyWords + (
+        "channel",
+        "frequency",
+        "taper",
+    )
 
     @property
     def taper(self):
-        """ :class:`numpy.ndarray` : list of window functions used """
+        """:class:`numpy.ndarray` : list of window functions used"""
         if self._taper is None and self._data is not None:
             nTaper = self.data.shape[self.dimord.index("taper")]
-            return np.array(["taper" + str(i + 1).zfill(len(str(nTaper)))
-                            for i in range(nTaper)])
+            return np.array(["taper" + str(i + 1).zfill(len(str(nTaper))) for i in range(nTaper)])
         return self._taper
 
     @taper.setter
@@ -530,12 +571,15 @@ class SpectralData(ContinuousData):
             return
 
         if self.data is None:
-            print("Syncopy core - taper: Cannot assign `taper` without data. "+\
-                  "Please assing data first")
+            print("Syncopy core - taper: Cannot assign `taper` without data. " + "Please assing data first")
 
         try:
-            array_parser(tpr, dims=(self.data.shape[self.dimord.index("taper")],),
-                         varname="taper", ntype="str", )
+            array_parser(
+                tpr,
+                dims=(self.data.shape[self.dimord.index("taper")],),
+                varname="taper",
+                ntype="str",
+            )
         except Exception as exc:
             raise exc
 
@@ -543,7 +587,7 @@ class SpectralData(ContinuousData):
 
     @property
     def freq(self):
-        """:class:`numpy.ndarray`: frequency axis in Hz """
+        """:class:`numpy.ndarray`: frequency axis in Hz"""
         # if data exists but no user-defined frequency axis, create one on the fly
         if self._freq is None and self._data is not None:
             return np.arange(self.data.shape[self.dimord.index("freq")])
@@ -557,12 +601,16 @@ class SpectralData(ContinuousData):
             return
 
         if self.data is None:
-            print("Syncopy core - freq: Cannot assign `freq` without data. "+\
-                  "Please assing data first")
+            print("Syncopy core - freq: Cannot assign `freq` without data. " + "Please assing data first")
             return
 
-        array_parser(freq, varname="freq", hasnan=False, hasinf=False,
-                     dims=(self.data.shape[self.dimord.index("freq")],))
+        array_parser(
+            freq,
+            varname="freq",
+            hasnan=False,
+            hasinf=False,
+            dims=(self.data.shape[self.dimord.index("freq")],),
+        )
         self._freq = np.array(freq)
 
     # Helper function that extracts frequency-related indices
@@ -591,15 +639,17 @@ class SpectralData(ContinuousData):
         return selFreq
 
     # "Constructor"
-    def __init__(self,
-                 data=None,
-                 filename=None,
-                 trialdefinition=None,
-                 samplerate=None,
-                 channel=None,
-                 taper=None,
-                 freq=None,
-                 dimord=None):
+    def __init__(
+        self,
+        data=None,
+        filename=None,
+        trialdefinition=None,
+        samplerate=None,
+        channel=None,
+        taper=None,
+        freq=None,
+        dimord=None,
+    ):
 
         self._taper = None
         self._freq = None
@@ -609,12 +659,14 @@ class SpectralData(ContinuousData):
             dimord = self._defaultDimord
 
         # Call parent initializer
-        super().__init__(data=data,
-                         filename=filename,
-                         trialdefinition=trialdefinition,
-                         samplerate=samplerate,
-                         channel=channel,
-                         dimord=dimord)
+        super().__init__(
+            data=data,
+            filename=filename,
+            trialdefinition=trialdefinition,
+            samplerate=samplerate,
+            channel=channel,
+            dimord=dimord,
+        )
 
         # If __init__ attached data, be careful
         if self.data is not None:
@@ -654,13 +706,25 @@ class CrossSpectralData(ContinuousData):
     """
 
     # Adapt `infoFileProperties` and `hdfFileAttributeProperties` from `ContinuousData`
-    _infoFileProperties = BaseData._infoFileProperties +\
-        ("samplerate", "channel_i", "channel_j", "freq", )
-    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties +\
-        ("samplerate", "channel_i", "channel_j", "freq", )
+    _infoFileProperties = BaseData._infoFileProperties + (
+        "samplerate",
+        "channel_i",
+        "channel_j",
+        "freq",
+    )
+    _hdfFileAttributeProperties = BaseData._hdfFileAttributeProperties + (
+        "samplerate",
+        "channel_i",
+        "channel_j",
+        "freq",
+    )
     _defaultDimord = ["time", "freq", "channel_i", "channel_j"]
     _stackingDimLabel = "time"
-    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel_i', 'channel_j', 'frequency',)
+    _selectionKeyWords = ContinuousData._selectionKeyWords + (
+        "channel_i",
+        "channel_j",
+        "frequency",
+    )
     _channel_i = None
     _channel_j = None
     _samplerate = None
@@ -685,29 +749,33 @@ class CrossSpectralData(ContinuousData):
 
     @property
     def channel_i(self):
-        """ :class:`numpy.ndarray` : list of recording channel names """
+        """:class:`numpy.ndarray` : list of recording channel names"""
         # if data exists but no user-defined channel labels, create them on the fly
         if self._channel_i is None and self._data is not None:
             nChannel = self.data.shape[self.dimord.index("channel_i")]
-            return np.array(["channel" + str(i + 1).zfill(len(str(nChannel)))
-                             for i in range(nChannel)])
+            return np.array(["channel" + str(i + 1).zfill(len(str(nChannel))) for i in range(nChannel)])
 
         return self._channel_i
 
     @channel_i.setter
     def channel_i(self, channel_i):
-        """ :class:`numpy.ndarray` : list of channel labels """
+        """:class:`numpy.ndarray` : list of channel labels"""
         if channel_i is None:
             self._channel_i = None
             return
 
         if self.data is None:
-            raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
-                  "Please assign data first")
+            raise SPYValueError(
+                "Syncopy: Cannot assign `channels` without data. " + "Please assign data first"
+            )
 
         try:
-            array_parser(channel_i, varname="channel_i", ntype="str",
-                         dims=(self.data.shape[self.dimord.index("channel_i")],))
+            array_parser(
+                channel_i,
+                varname="channel_i",
+                ntype="str",
+                dims=(self.data.shape[self.dimord.index("channel_i")],),
+            )
         except Exception as exc:
             raise exc
 
@@ -715,52 +783,55 @@ class CrossSpectralData(ContinuousData):
 
     @property
     def channel_j(self):
-        """ :class:`numpy.ndarray` : list of recording channel names """
+        """:class:`numpy.ndarray` : list of recording channel names"""
         # if data exists but no user-defined channel labels, create them on the fly
         if self._channel_j is None and self._data is not None:
             nChannel = self.data.shape[self.dimord.index("channel_j")]
-            return np.array(["channel" + str(i + 1).zfill(len(str(nChannel)))
-                             for i in range(nChannel)])
+            return np.array(["channel" + str(i + 1).zfill(len(str(nChannel))) for i in range(nChannel)])
 
         return self._channel_j
 
     @channel_j.setter
     def channel_j(self, channel_j):
-        """ :class:`numpy.ndarray` : list of channel labels """
+        """:class:`numpy.ndarray` : list of channel labels"""
         if channel_j is None:
             self._channel_j = None
             return
 
         if self.data is None:
-            raise SPYValueError("Syncopy: Cannot assign `channels` without data. " +
-                  "Please assign data first")
+            raise SPYValueError(
+                "Syncopy: Cannot assign `channels` without data. " + "Please assign data first"
+            )
 
         try:
-            array_parser(channel_j, varname="channel_j", ntype="str",
-                         dims=(self.data.shape[self.dimord.index("channel_j")],))
+            array_parser(
+                channel_j,
+                varname="channel_j",
+                ntype="str",
+                dims=(self.data.shape[self.dimord.index("channel_j")],),
+            )
         except Exception as exc:
             raise exc
 
         self._channel_j = np.array(channel_j)
 
-    def __init__(self,
-                 data=None,
-                 filename=None,
-                 channel_i=None,
-                 channel_j=None,
-                 samplerate=None,
-                 freq=None,
-                 dimord=None):
+    def __init__(
+        self,
+        data=None,
+        filename=None,
+        channel_i=None,
+        channel_j=None,
+        samplerate=None,
+        freq=None,
+        dimord=None,
+    ):
 
         self._freq = None
         # Set dimensional labels
         self.dimord = dimord
 
         # Call parent initializer
-        super().__init__(data=data,
-                         filename=filename,
-                         samplerate=samplerate,
-                         dimord=dimord)
+        super().__init__(data=data, filename=filename, samplerate=samplerate, dimord=dimord)
 
         if freq is not None:
             # set frequencies
@@ -779,17 +850,19 @@ class TimeLockData(ContinuousData):
 
     _infoFileProperties = ContinuousData._infoFileProperties
     _defaultDimord = ["time", "channel"]
-    _selectionKeyWords = ContinuousData._selectionKeyWords + ('channel',)
+    _selectionKeyWords = ContinuousData._selectionKeyWords + ("channel",)
     _stackingDimLabel = "time"
 
     # "Constructor"
-    def __init__(self,
-                 data=None,
-                 filename=None,
-                 trialdefinition=None,
-                 samplerate=None,
-                 channel=None,
-                 dimord=None):
+    def __init__(
+        self,
+        data=None,
+        filename=None,
+        trialdefinition=None,
+        samplerate=None,
+        channel=None,
+        dimord=None,
+    ):
 
         """
         Initialize an :class:`TimeLockData` object.
@@ -816,12 +889,14 @@ class TimeLockData(ContinuousData):
 
         # Call parent initializer
         # trialdefinition has to come from a CR!
-        super().__init__(data=data,
-                         filename=filename,
-                         trialdefinition=trialdefinition,
-                         samplerate=samplerate,
-                         channel=channel,
-                         dimord=dimord)
+        super().__init__(
+            data=data,
+            filename=filename,
+            trialdefinition=trialdefinition,
+            samplerate=samplerate,
+            channel=channel,
+            dimord=dimord,
+        )
 
         # A `h5py.Dataset` holding the average of `data`, or `None` if not computed yet.
         self._avg = None
@@ -833,7 +908,11 @@ class TimeLockData(ContinuousData):
         self._cov = None
 
         # set as instance attribute to allow modification
-        self._hdfFileDatasetProperties = ContinuousData._hdfFileDatasetProperties + ("avg", "var", "cov",)
+        self._hdfFileDatasetProperties = ContinuousData._hdfFileDatasetProperties + (
+            "avg",
+            "var",
+            "cov",
+        )
 
     @property
     def avg(self):
@@ -869,7 +948,7 @@ class TimeLockData(ContinuousData):
         if not self.is_time_locked:
             lgl = "trialdefinition with equally sized trials and common offsets"
             act = "not timelock compatible trialdefinition"
-            raise SPYValueError(lgl, 'trialdefinition', act)
+            raise SPYValueError(lgl, "trialdefinition", act)
 
     # TODO - overload `time` property, as there is only one by definition!
     # implement plotting
@@ -916,7 +995,9 @@ class TimeLockData(ContinuousData):
         if not __pynwb__:
             raise SPYError("NWB support is not available. Please install the 'pynwb' package.")
 
-        nwbfile = _analog_timelocked_to_nwbfile(self, nwbfile=None, with_trialdefinition=with_trialdefinition, is_raw=is_raw)
+        nwbfile = _analog_timelocked_to_nwbfile(
+            self, nwbfile=None, with_trialdefinition=with_trialdefinition, is_raw=is_raw
+        )
         # Write the file to disk.
         with NWBHDF5IO(outpath, "w") as io:
             io.write(nwbfile)

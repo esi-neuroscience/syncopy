@@ -16,7 +16,7 @@ from syncopy.shared.errors import SPYValueError, SPYWarning
 from syncopy.statistics.compRoutines import NumpyStatDim
 from syncopy.shared.kwarg_decorators import unwrap_select, detect_parallel_client
 
-__all__ = ['mean', 'std', 'var', 'median', 'itc']
+__all__ = ["mean", "std", "var", "median", "itc"]
 
 
 @unwrap_select
@@ -50,11 +50,7 @@ def mean(spy_data, dim, keeptrials=True, **kwargs):
     """
 
     # call general backend function with desired operation
-    return _statistics(spy_data,
-                       operation='mean',
-                       dim=dim,
-                       keeptrials=keeptrials,
-                       **kwargs)
+    return _statistics(spy_data, operation="mean", dim=dim, keeptrials=keeptrials, **kwargs)
 
 
 @unwrap_select
@@ -87,11 +83,7 @@ def std(spy_data, dim, keeptrials=True, **kwargs):
     """
 
     # call general backend function with desired operation
-    return _statistics(spy_data,
-                       operation='std',
-                       dim=dim,
-                       keeptrials=keeptrials,
-                       **kwargs)
+    return _statistics(spy_data, operation="std", dim=dim, keeptrials=keeptrials, **kwargs)
 
 
 @unwrap_select
@@ -124,11 +116,7 @@ def var(spy_data, dim, keeptrials=True, **kwargs):
     """
 
     # call general backend function with desired operation
-    return _statistics(spy_data,
-                       operation='var',
-                       dim=dim,
-                       keeptrials=keeptrials,
-                       **kwargs)
+    return _statistics(spy_data, operation="var", dim=dim, keeptrials=keeptrials, **kwargs)
 
 
 @unwrap_select
@@ -161,11 +149,8 @@ def median(spy_data, dim, keeptrials=True, **kwargs):
     """
 
     # call general backend function with desired operation
-    return _statistics(spy_data,
-                       operation='median',
-                       dim=dim,
-                       keeptrials=keeptrials,
-                       **kwargs)
+    return _statistics(spy_data, operation="median", dim=dim, keeptrials=keeptrials, **kwargs)
+
 
 @unwrap_select
 def itc(spec_data, **kwargs):
@@ -199,22 +184,21 @@ def itc(spec_data, **kwargs):
         the inter trial coherence
     """
 
-    data_parser(spec_data,
-                varname='spec_data',
-                dataclass='SpectralData',
-                empty=False)
+    data_parser(spec_data, varname="spec_data", dataclass="SpectralData", empty=False)
 
     if spec_data.data.dtype != np.complex64 and spec_data.data.dtype != np.complex128:
         lgl = "complex valued spectra, set `output='fourier` in spy.freqanalysis!"
         act = "real valued spectral data"
-        raise SPYValueError(lgl, 'spec_data', act)
+        raise SPYValueError(lgl, "spec_data", act)
 
     logger = logging.getLogger("syncopy_" + platform.node())
-    logger.debug(f"Computing intertrial coherence on SpectralData instance with shape {spec_data.data.shape}.")
+    logger.debug(
+        f"Computing intertrial coherence on SpectralData instance with shape {spec_data.data.shape}."
+    )
 
     # takes care of remaining checks
-    res = _trial_statistics(spec_data, operation='itc')
-    write_log(spec_data, res, kwargs, op_name='itc')
+    res = _trial_statistics(spec_data, operation="itc")
+    write_log(spec_data, res, kwargs, op_name="itc")
     # attach cfg
     res.cfg.update(spec_data.cfg)
     return res
@@ -256,20 +240,24 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
     """
 
     # check that we have a non-empty Syncopy data object
-    data_parser(spy_data, varname='spy_data', empty=False)
+    data_parser(spy_data, varname="spy_data", empty=False)
 
-    if dim != 'trials' and dim not in spy_data.dimord:
+    if dim != "trials" and dim not in spy_data.dimord:
         lgl = f"one of {spy_data.dimord} or 'trials'"
         act = dim
-        raise SPYValueError(lgl, 'dim', act)
+        raise SPYValueError(lgl, "dim", act)
 
-    log_dict = {'input': spy_data.filename,
-                'operation': operation,
-                'dim': dim,
-                'keeptrials': keeptrials}
+    log_dict = {
+        "input": spy_data.filename,
+        "operation": operation,
+        "dim": dim,
+        "keeptrials": keeptrials,
+    }
 
     logger = logging.getLogger("syncopy_" + platform.node())
-    logger.debug(f"Computing descriptive statistic {operation} on input from {spy_data.filename} along dimension {dim}, keeptrials={keeptrials}.")
+    logger.debug(
+        f"Computing descriptive statistic {operation} on input from {spy_data.filename} along dimension {dim}, keeptrials={keeptrials}."
+    )
 
     # If no active selection is present, create a "fake" all-to-all selection
     # to harmonize processing down the road (and attach `_cleanup` attribute for later removal)
@@ -278,25 +266,25 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
         spy_data.selection._cleanup = True
     else:
         # log also possible selections
-        log_dict['selection'] = getattr(spy_data.selection, dim)
+        log_dict["selection"] = getattr(spy_data.selection, dim)
 
     # trial statistics
-    if dim == 'trials':
-        if kwargs.get('parallel'):
+    if dim == "trials":
+        if kwargs.get("parallel"):
             msg = "Trial statistics can be only computed sequentially, ignoring `parallel` keyword"
             SPYWarning(msg)
         out = _trial_statistics(spy_data, operation)
 
         # we have to attach the log here as no CR is involved
         # strip of non-sensical parameter
-        log_dict.pop('keeptrials')
-        write_log(spy_data, out, log_dict, 'trial statistics')
+        log_dict.pop("keeptrials")
+        write_log(spy_data, out, log_dict, "trial statistics")
 
     # any other statistic
     else:
 
-        chan_per_worker = kwargs.get('chan_per_worker')
-        if chan_per_worker is not None and 'channel' in dim:
+        chan_per_worker = kwargs.get("chan_per_worker")
+        if chan_per_worker is not None and "channel" in dim:
             msg = "Parallelization over channels not possible for channel averages"
             SPYWarning(msg)
             chan_per_worker = None
@@ -311,13 +299,17 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
         # initialize output object of same datatype
         out = spy_data.__class__(dimord=spy_data.dimord)
 
-        avCR.initialize(spy_data, spy_data._stackingDim,
-                        keeptrials=keeptrials, chan_per_worker=chan_per_worker)
+        avCR.initialize(
+            spy_data,
+            spy_data._stackingDim,
+            keeptrials=keeptrials,
+            chan_per_worker=chan_per_worker,
+        )
         avCR.compute(spy_data, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
     # revert helper all-to-all selection
-    if hasattr(spy_data.selection, '_cleanup'):
-        spy_data.cfg.pop('selectdata')
+    if hasattr(spy_data.selection, "_cleanup"):
+        spy_data.cfg.pop("selectdata")
         spy_data.selection = None
 
     # re-attach config
@@ -326,7 +318,7 @@ def _statistics(spy_data, operation, dim, keeptrials=True, **kwargs):
     return out
 
 
-def _trial_statistics(in_data, operation='mean'):
+def _trial_statistics(in_data, operation="mean"):
     """
     Calculates simple statistics (mean, std, ...) over trials. No trivial
     parallelization is possible here, hence we fallback to good ol' sequential
@@ -346,7 +338,7 @@ def _trial_statistics(in_data, operation='mean'):
     if nTrials < 1:
         lgl = "at least 1 trial"
         act = f"got {nTrials} trials"
-        raise SPYValueError(lgl, 'in_data', act)
+        raise SPYValueError(lgl, "in_data", act)
 
     # index 1st selected trial
     idx0 = in_data.selection.trial_ids[0]
@@ -358,7 +350,7 @@ def _trial_statistics(in_data, operation='mean'):
         if trl.shape != out_shape:
             lgl = "all trials to have the same shape"
             act = f"found trials of different shape: {out_shape} and {trl.shape}"
-            raise SPYValueError(lgl, 'in_data', act)
+            raise SPYValueError(lgl, "in_data", act)
 
     # this is the target array, such that we will have
     # the data of 2 trials concurrently in memory
@@ -366,18 +358,18 @@ def _trial_statistics(in_data, operation='mean'):
 
     # --- now we can compute the desired statistic ---
 
-    if operation == 'mean':
+    if operation == "mean":
         result = _trial_average(in_data, result)
-    elif operation == 'var':
+    elif operation == "var":
         result = _trial_var(in_data, result)
-    elif operation == 'std':
+    elif operation == "std":
         result = np.sqrt(_trial_var(in_data, result))
-    elif operation == 'itc':
+    elif operation == "itc":
         # itc is only available for SpectralData
         # ..get's checked in `spy.itc` above
         result = _trial_circ_average(in_data, result)
         # average out tapers (if any)
-        taper_ax = in_data.dimord.index('taper')
+        taper_ax = in_data.dimord.index("taper")
         result = np.mean(result, axis=taper_ax, keepdims=True)
         # now take the abs to get the resultant vector
         result = np.abs(result)
@@ -386,14 +378,12 @@ def _trial_statistics(in_data, operation='mean'):
 
     # there is no apparent clever way to achieve
     # this efficiently over multiple dimensions
-    elif operation == 'median':
+    elif operation == "median":
         raise NotImplementedError("Trial median not supported at the moment")
 
     # --- Consctruct the single-trial(!) Syncopy output object
 
-    out_data = in_data.__class__(data=result,
-                                 dimord=in_data.dimord,
-                                 samplerate=in_data.samplerate)
+    out_data = in_data.__class__(data=result, dimord=in_data.dimord, samplerate=in_data.samplerate)
 
     # only 1 trial left, all trials had to have the same shape
     # so just copy from the 1st
@@ -408,8 +398,8 @@ def _trial_statistics(in_data, operation='mean'):
             setattr(out_data, prop, getattr(in_data, prop)[selection])
 
     # revert helper all-to-all selection
-    if hasattr(in_data.selection, '_cleanup'):
-        in_data.cfg.pop('selectdata')
+    if hasattr(in_data.selection, "_cleanup"):
+        in_data.cfg.pop("selectdata")
         in_data.selection = None
 
     return out_data
@@ -458,7 +448,7 @@ def _trial_var(in_data, out_arr):
     trials = in_data.selection.trials
     for trl in trials:
         # absolute value for complex numbers
-        out_arr += np.abs(trl - average)**2
+        out_arr += np.abs(trl - average) ** 2
 
     # normalize
     out_arr /= len(trials)
@@ -506,9 +496,10 @@ def write_log(data, out, log_dict, op_name):
     logHead = f"computed {op_name} with settings\n"
     logOpts = ""
     for k, v in log_dict.items():
-        logOpts += "\t{key:s} = {value:s}\n".format(key=k,
-                                                    value=str(v) if len(str(v)) < 80
-                                                    else str(v)[:30] + ", ..., " + str(v)[-30:])
+        logOpts += "\t{key:s} = {value:s}\n".format(
+            key=k,
+            value=str(v) if len(str(v)) < 80 else str(v)[:30] + ", ..., " + str(v)[-30:],
+        )
     out.log = logHead + logOpts
 
 
@@ -528,9 +519,9 @@ def _attach_stat_doc(orig_doc):
     def _attach_doc(func):
         # delete the `spy_data` entries which
         # are not needed (got self in the methods)
-        doc = orig_doc.replace(' ``spy_data``', '')
-        idx1 = doc.find('spy_data')
-        idx2 = doc.find('dim', idx1)
+        doc = orig_doc.replace(" ``spy_data``", "")
+        idx1 = doc.find("spy_data")
+        idx2 = doc.find("dim", idx1)
         doc = doc[:idx1] + doc[idx2:]
 
         func.__doc__ = doc

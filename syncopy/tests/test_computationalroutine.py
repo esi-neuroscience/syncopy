@@ -56,23 +56,29 @@ class LowPassFilter(ComputationalRoutine):
 
 @unwrap_cfg
 @unwrap_select
-def filter_manager(data, b=None, a=None,
-                   out=None, select=None, chan_per_worker=None, keeptrials=True,
-                   parallel=False, parallel_store=None, log_dict=None):
+def filter_manager(
+    data,
+    b=None,
+    a=None,
+    out=None,
+    select=None,
+    chan_per_worker=None,
+    keeptrials=True,
+    parallel=False,
+    parallel_store=None,
+    log_dict=None,
+):
     newOut = False
     if out is None:
         newOut = True
         out = AnalogData(dimord=AnalogData._defaultDimord)
     myfilter = LowPassFilter(b, a=a)
     myfilter.initialize(data, out._stackingDim, chan_per_worker=chan_per_worker, keeptrials=keeptrials)
-    myfilter.compute(data, out,
-                     parallel=parallel,
-                     parallel_store=parallel_store,
-                     log_dict=log_dict)
+    myfilter.compute(data, out, parallel=parallel, parallel_store=parallel_store, log_dict=log_dict)
     return out if newOut else None
 
 
-class TestComputationalRoutine():
+class TestComputationalRoutine:
 
     # Construct linear combination of low- and high-frequency sine waves
     # and use an IIR filter to reconstruct the low-frequency component
@@ -100,31 +106,41 @@ class TestComputationalRoutine():
         trl[ntrial, :] = np.array([ntrial * fs, (ntrial + 1) * fs, -500])
 
     # Create reference AnalogData objects with equidistant trial spacing
-    sigdata = AnalogData(data=sig, samplerate=fs, trialdefinition=trl,
-                         dimord=["time", "channel"])
-    origdata = AnalogData(data=orig, samplerate=fs, trialdefinition=trl,
-                          dimord=["time", "channel"])
+    sigdata = AnalogData(data=sig, samplerate=fs, trialdefinition=trl, dimord=["time", "channel"])
+    origdata = AnalogData(data=orig, samplerate=fs, trialdefinition=trl, dimord=["time", "channel"])
 
     # Set by-worker channel-count for channel-parallelization
     chanPerWrkr = 7
 
     # Data selections to be tested w/`sigdata`
-    sigdataSelections = [None,
-                         {"trials": [3, 1, 0],
-                          "channel": ["channel" + str(i) for i in range(12, 28)][::-1]},
-                         {"trials": [0, 1, 2],
-                          "channel": range(0, int(nChannels / 2)),
-                          "latency": [-0.25, 0.25]}]
+    sigdataSelections = [
+        None,
+        {
+            "trials": [3, 1, 0],
+            "channel": ["channel" + str(i) for i in range(12, 28)][::-1],
+        },
+        {
+            "trials": [0, 1, 2],
+            "channel": range(0, int(nChannels / 2)),
+            "latency": [-0.25, 0.25],
+        },
+    ]
 
     # Data selections to be tested w/`artdata` generated below (use fixed but arbitrary
     seed = np.random.RandomState(13)
-    artdataSelections = [None,
-                         {"trials": [3, 1, 0],
-                          "channel": ["channel" + str(i) for i in range(12, 28)][::-1],
-                          "latency": None},
-                         {"trials": [0, 1, 2],
-                          "channel": range(0, int(nChannels / 2)),
-                          "latency": [-0.5, 0.6]}]
+    artdataSelections = [
+        None,
+        {
+            "trials": [3, 1, 0],
+            "channel": ["channel" + str(i) for i in range(12, 28)][::-1],
+            "latency": None,
+        },
+        {
+            "trials": [0, 1, 2],
+            "channel": range(0, int(nChannels / 2)),
+            "latency": [-0.5, 0.6],
+        },
+    ]
 
     # Error tolerances and respective quality metrics (depend on data selection!)
     tols = [1e-6, 1e-6, 1e-2]
@@ -162,7 +178,7 @@ class TestComputationalRoutine():
 
             # check correct signal filtering (especially wrt data-selection)
             if select is None:
-                reference = self.orig[:self.t.size, :]
+                reference = self.orig[: self.t.size, :]
             else:
                 ref = np.zeros(out.trials[0].shape)
                 for tk, trlno in enumerate(sel.trial_ids):
@@ -185,11 +201,13 @@ class TestComputationalRoutine():
 
     def test_sequential_nonequidistant(self):
         for overlapping in [False, True]:
-            nonequidata = generate_artificial_data(nTrials=self.nTrials,
-                                                   nChannels=self.nChannels,
-                                                   equidistant=False,
-                                                   overlapping=overlapping,
-                                                   inmemory=False)
+            nonequidata = generate_artificial_data(
+                nTrials=self.nTrials,
+                nChannels=self.nChannels,
+                equidistant=False,
+                overlapping=overlapping,
+                inmemory=False,
+            )
 
             for select in self.artdataSelections:
                 sel = Selector(nonequidata, select)
@@ -221,8 +239,13 @@ class TestComputationalRoutine():
     def test_sequential_saveload(self):
         for sk, select in enumerate(self.sigdataSelections):
             sel = Selector(self.sigdata, select)
-            out = filter_manager(self.sigdata, self.b, self.a, select=select,
-                                 log_dict={"a": "this is a", "b": "this is b"})
+            out = filter_manager(
+                self.sigdata,
+                self.b,
+                self.a,
+                select=select,
+                log_dict={"a": "this is a", "b": "this is b"},
+            )
 
             assert len(out.trials) == len(sel.trial_ids)
             # ensure our `log_dict` specification was respected
@@ -235,8 +258,7 @@ class TestComputationalRoutine():
                 selected = self.sigdata.selectdata()
             else:
                 selected = self.sigdata.selectdata(**select)
-            out_sel = filter_manager(selected, self.b, self.a,
-                                     log_dict={"a": "this is a", "b": "this is b"})
+            out_sel = filter_manager(selected, self.b, self.a, log_dict={"a": "this is a", "b": "this is b"})
             assert len(out.trials) == len(out_sel.trials)
             assert "lowpass" in out._log
             assert "a = this is a" in out._log
@@ -251,7 +273,9 @@ class TestComputationalRoutine():
                 print(f"test_computationalroutine: loading...")
                 dummy = load(fname)
                 print(f"test_computationalroutine: loading done")
-                assert out.filename == dummy.filename, f"save: expected out.filename '{out.filename}' == dummy.filename '{dummy.filename}'."
+                assert (
+                    out.filename == dummy.filename
+                ), f"save: expected out.filename '{out.filename}' == dummy.filename '{dummy.filename}'."
                 if select is None:
                     reference = self.orig
                 else:
@@ -283,9 +307,15 @@ class TestComputationalRoutine():
                     if chan_per_worker is not None:
                         select = None
                     sel = Selector(self.sigdata, select)
-                    out = filter_manager(self.sigdata, self.b, self.a, select=select,
-                                         chan_per_worker=chan_per_worker, parallel=True,
-                                         parallel_store=parallel_store)
+                    out = filter_manager(
+                        self.sigdata,
+                        self.b,
+                        self.a,
+                        select=select,
+                        chan_per_worker=chan_per_worker,
+                        parallel=True,
+                        parallel_store=parallel_store,
+                    )
 
                     assert out.data.is_virtual == parallel_store
 
@@ -308,29 +338,41 @@ class TestComputationalRoutine():
                         if chan_per_worker is None:
                             assert nfiles == len(sel.trial_ids)
                         else:
-                            assert nfiles == len(sel.trial_ids) * (int(out.channel.size /
-                                                                    chan_per_worker) +
-                                                                int(out.channel.size % chan_per_worker > 0))
+                            assert nfiles == len(sel.trial_ids) * (
+                                int(out.channel.size / chan_per_worker)
+                                + int(out.channel.size % chan_per_worker > 0)
+                            )
 
                     # ensure pre-selection is equivalent to in-place selection
                     if select is None:
                         selected = self.sigdata.selectdata()
                     else:
                         selected = self.sigdata.selectdata(**select)
-                    out_sel = filter_manager(selected, self.b, self.a,
-                                             chan_per_worker=chan_per_worker, parallel=True,
-                                             parallel_store=parallel_store)
+                    out_sel = filter_manager(
+                        selected,
+                        self.b,
+                        self.a,
+                        chan_per_worker=chan_per_worker,
+                        parallel=True,
+                        parallel_store=parallel_store,
+                    )
                     assert np.allclose(out.data, out_sel.data)
                     assert np.array_equal(out.channel, out_sel.channel)
                     assert np.array_equal(out.time, out_sel.time)
 
-                    out = filter_manager(self.sigdata, self.b, self.a, select=select,
-                                         parallel=True, parallel_store=parallel_store,
-                                         keeptrials=False)
+                    out = filter_manager(
+                        self.sigdata,
+                        self.b,
+                        self.a,
+                        select=select,
+                        parallel=True,
+                        parallel_store=parallel_store,
+                        keeptrials=False,
+                    )
 
                     # check correct signal filtering (especially wrt data-selection)
                     if select is None:
-                        reference = self.orig[:self.t.size, :]
+                        reference = self.orig[: self.t.size, :]
                     else:
                         ref = np.zeros(out.trials[0].shape)
                         for trlno, trlno in enumerate(sel.trial_ids):
@@ -343,9 +385,14 @@ class TestComputationalRoutine():
                     assert out.data.is_virtual == False
 
                     # ensure pre-selection is equivalent to in-place selection
-                    out_sel = filter_manager(selected, self.b, self.a,
-                                             parallel=True, parallel_store=parallel_store,
-                                             keeptrials=False)
+                    out_sel = filter_manager(
+                        selected,
+                        self.b,
+                        self.a,
+                        parallel=True,
+                        parallel_store=parallel_store,
+                        keeptrials=False,
+                    )
                     assert np.allclose(out.data, out_sel.data)
                     assert np.array_equal(out.channel, out_sel.channel)
                     assert np.array_equal(out.time, out_sel.time)
@@ -355,11 +402,13 @@ class TestComputationalRoutine():
     def test_parallel_nonequidistant(self, testcluster):
         client = dd.Client(testcluster)
         for overlapping in [False, True]:
-            nonequidata = generate_artificial_data(nTrials=self.nTrials,
-                                                    nChannels=self.nChannels,
-                                                    equidistant=False,
-                                                    overlapping=overlapping,
-                                                    inmemory=False)
+            nonequidata = generate_artificial_data(
+                nTrials=self.nTrials,
+                nChannels=self.nChannels,
+                equidistant=False,
+                overlapping=overlapping,
+                inmemory=False,
+            )
 
             for parallel_store in [True, False]:
                 for chan_per_worker in [None, self.chanPerWrkr]:
@@ -368,9 +417,15 @@ class TestComputationalRoutine():
                         if chan_per_worker is not None:
                             select = None
                         sel = Selector(nonequidata, select)
-                        out = filter_manager(nonequidata, self.b, self.a, select=select,
-                                             chan_per_worker=chan_per_worker, parallel=True,
-                                             parallel_store=parallel_store)
+                        out = filter_manager(
+                            nonequidata,
+                            self.b,
+                            self.a,
+                            select=select,
+                            chan_per_worker=chan_per_worker,
+                            parallel=True,
+                            parallel_store=parallel_store,
+                        )
 
                         # compare expected w/actual shape of computed data
                         reference = 0
@@ -379,7 +434,10 @@ class TestComputationalRoutine():
                             # check for correct time selection
                             # FIXME: remove `if` below as soon as `time` prop for lists is fixed
                             if not isinstance(sel.time[0], list):
-                                assert np.array_equal(out.time[tk], nonequidata.time[trlno][sel.time[trlno]])
+                                assert np.array_equal(
+                                    out.time[tk],
+                                    nonequidata.time[trlno][sel.time[trlno]],
+                                )
                         assert out.data.shape[0] == reference
                         assert np.array_equal(out.channel, nonequidata.channel[sel.channel])
                         assert out.data.is_virtual == parallel_store
@@ -389,18 +447,24 @@ class TestComputationalRoutine():
                             if chan_per_worker is None:
                                 assert nfiles == len(sel.trial_ids)
                             else:
-                                assert nfiles == len(sel.trial_ids) * (int(out.channel.size /
-                                                                        chan_per_worker) +
-                                                                    int(out.channel.size % chan_per_worker > 0))
+                                assert nfiles == len(sel.trial_ids) * (
+                                    int(out.channel.size / chan_per_worker)
+                                    + int(out.channel.size % chan_per_worker > 0)
+                                )
 
                         # ensure pre-selection is equivalent to in-place selection
                         if select is None:
                             selected = nonequidata.selectdata()
                         else:
                             selected = nonequidata.selectdata(**select)
-                        out_sel = filter_manager(selected, self.b, self.a,
-                                                 chan_per_worker=chan_per_worker, parallel=True,
-                                                 parallel_store=parallel_store)
+                        out_sel = filter_manager(
+                            selected,
+                            self.b,
+                            self.a,
+                            chan_per_worker=chan_per_worker,
+                            parallel=True,
+                            parallel_store=parallel_store,
+                        )
                         assert np.allclose(out.data, out_sel.data)
                         assert np.array_equal(out.channel, out_sel.channel)
                         for tk in range(len(out.trials)):
@@ -413,9 +477,15 @@ class TestComputationalRoutine():
         for parallel_store in [True, False]:
             for sk, select in enumerate(self.sigdataSelections):
                 sel = Selector(self.sigdata, select)
-                out = filter_manager(self.sigdata, self.b, self.a, select=select,
-                                     log_dict={"a": "this is a", "b": "this is b"},
-                                     parallel=True, parallel_store=parallel_store)
+                out = filter_manager(
+                    self.sigdata,
+                    self.b,
+                    self.a,
+                    select=select,
+                    log_dict={"a": "this is a", "b": "this is b"},
+                    parallel=True,
+                    parallel_store=parallel_store,
+                )
 
                 assert len(out.trials) == len(sel.trial_ids)
                 # ensure our `log_dict` specification was respected
@@ -428,9 +498,14 @@ class TestComputationalRoutine():
                     selected = self.sigdata.selectdata()
                 else:
                     selected = self.sigdata.selectdata(**select)
-                out_sel = filter_manager(selected, self.b, self.a,
-                                         log_dict={"a": "this is a", "b": "this is b"},
-                                         parallel=True, parallel_store=parallel_store)
+                out_sel = filter_manager(
+                    selected,
+                    self.b,
+                    self.a,
+                    log_dict={"a": "this is a", "b": "this is b"},
+                    parallel=True,
+                    parallel_store=parallel_store,
+                )
                 # only keyword args (`a` in this case here) are stored in `cfg`
                 assert len(out.trials) == len(sel.trial_ids)
                 # ensure our `log_dict` specification was respected
@@ -451,7 +526,10 @@ class TestComputationalRoutine():
                         ref = []
                         for tk, trlno in enumerate(sel.trial_ids):
                             ref.append(self.origdata.trials[trlno][sel.time[trlno], sel.channel])
-                            assert np.array_equal(dummy.time[tk], self.sigdata.time[trlno][sel.time[trlno]])
+                            assert np.array_equal(
+                                dummy.time[tk],
+                                self.sigdata.time[trlno][sel.time[trlno]],
+                            )
                         reference = np.vstack(ref)
                     assert self.metrix[sk](np.abs(dummy.data - reference)) < self.tols[sk]
                     assert np.array_equal(dummy.channel, self.sigdata.channel[sel.channel])
@@ -469,6 +547,6 @@ class TestComputationalRoutine():
 
         client.close()
 
+
 if __name__ == "__main__":
     T1 = TestComputationalRoutine()
-

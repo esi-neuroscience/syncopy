@@ -42,7 +42,7 @@ def plot_AnalogData(spy_data, shifted=True, **show_kwargs):
 
     # right now we have to enforce
     # single trial selection only
-    trl = show_kwargs.get('trials', None)
+    trl = show_kwargs.get("trials", None)
     if not isinstance(trl, Number) and len(spy_data.trials) > 1:
         SPYWarning("Please select a single trial for plotting.")
         return None, None
@@ -65,9 +65,8 @@ def plot_AnalogData(spy_data, shifted=True, **show_kwargs):
     # multiple channels?
     labels = plot_helpers.parse_channel(spy_data, show_kwargs)
 
-    fig, ax = _plotting.mk_line_figax(ylabel='')
-    _plotting.plot_lines(ax, data_x, data_y,
-                         label=labels, shifted=shifted)
+    fig, ax = _plotting.mk_line_figax(ylabel="")
+    _plotting.plot_lines(ax, data_x, data_y, label=labels, shifted=shifted)
     fig.tight_layout()
     return fig, ax
 
@@ -99,7 +98,7 @@ def plot_SpectralData(spy_data, logscale=True, **show_kwargs):
 
     # right now we have to enforce
     # single trial selection only
-    trl = show_kwargs.get('trials', None)
+    trl = show_kwargs.get("trials", None)
     if not isinstance(trl, Number) and len(spy_data.trials) > 1:
         SPYWarning("Please select a single trial for plotting.")
         return None, None
@@ -112,7 +111,7 @@ def plot_SpectralData(spy_data, logscale=True, **show_kwargs):
         # multiple channels?
         label = plot_helpers.parse_channel(spy_data, show_kwargs)
         # only relevant for mtmconvol
-        if 'taper' in show_kwargs:
+        if "taper" in show_kwargs:
             SPYWarning("Taper selection not supported for time-frequency spectra!\nSkipping plot..")
             return None, None
 
@@ -131,19 +130,18 @@ def plot_SpectralData(spy_data, logscale=True, **show_kwargs):
         # need freq x time for plotting
         data_yx = spy_data.show(**show_kwargs).T
         _plotting.plot_tfreq(ax, data_yx, time, freqs)
-        ax.set_title(label, fontsize=pltConfig['sTitleSize'])
+        ax.set_title(label, fontsize=pltConfig["sTitleSize"])
         fig.tight_layout()
 
     # just a line plot
     else:
 
         msg = False
-        if 'latency' in show_kwargs:
-            show_kwargs.pop('latency')
+        if "latency" in show_kwargs:
+            show_kwargs.pop("latency")
             msg = True
         if msg:
-            msg = ("Line spectra don't have a time axis, "
-                   "ignoring `toi/toilim` selection!")
+            msg = "Line spectra don't have a time axis, " "ignoring `toi/toilim` selection!"
             SPYWarning(msg)
 
         # multiple channels?
@@ -151,7 +149,7 @@ def plot_SpectralData(spy_data, logscale=True, **show_kwargs):
 
         # just multiple tapers or multiple channels in one plot
         if len(spy_data.taper) != 1:
-            taper = show_kwargs.get('taper')
+            taper = show_kwargs.get("taper")
             if not isinstance(taper, (Number, str)) and not isinstance(channels, str):
                 msg = "Please select a single taper or a single channel \nfor plotting multi-taper spectra.. aborting plotting\n"
                 SPYWarning(msg)
@@ -166,37 +164,35 @@ def plot_SpectralData(spy_data, logscale=True, **show_kwargs):
             labels = channels
         # get the data to plot
         data_x = plot_helpers.parse_foi(spy_data, show_kwargs)
-        output = plot_helpers.get_output(spy_data, 'freqanalysis')
+        output = plot_helpers.get_output(spy_data, "freqanalysis")
 
-        pow_or_fooof = 'fooof' in output or output == 'pow'
+        pow_or_fooof = "fooof" in output or output == "pow"
 
         # only log10 the absolute squared spectra
         if pow_or_fooof and logscale:
             data_y = np.log10(spy_data.show(**show_kwargs))
-            ylabel = 'power (dB)'
-        elif output in ['fourier', 'complex']:
-            SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as freqanalysis output.. aborting plotting")
+            ylabel = "power (dB)"
+        elif output in ["fourier", "complex"]:
+            SPYWarning(
+                "Can't plot complex valued spectra, choose 'real' or 'imag' as freqanalysis output.. aborting plotting"
+            )
             return None, None
         else:
             data_y = spy_data.show(**show_kwargs)
-            ylabel = f'{output} (a.u.)'
+            ylabel = f"{output} (a.u.)"
 
         # for itc.. needs to be improved
         if output is None:
-            ylabel = ''
+            ylabel = ""
 
         # flip if required
         if data_y.ndim > 1:
             if data_y.shape[1] == len(data_x):
                 data_y = data_y.T
 
-        fig, ax = _plotting.mk_line_figax(xlabel='frequency (Hz)',
-                                          ylabel=ylabel)
+        fig, ax = _plotting.mk_line_figax(xlabel="frequency (Hz)", ylabel=ylabel)
 
-        _plotting.plot_lines(ax, data_x, data_y,
-                             label=labels,
-                             lw=1.5,
-                             alpha=0.8)
+        _plotting.plot_lines(ax, data_x, data_y, label=labels, lw=1.5, alpha=0.8)
         fig.tight_layout()
 
     return fig, ax
@@ -224,16 +220,16 @@ def plot_CrossSpectralData(spy_data, **show_kwargs):
 
     # right now we have to enforce
     # single trial selection only
-    trl = show_kwargs.get('trials', 0)
+    trl = show_kwargs.get("trials", 0)
     if not isinstance(trl, int) and len(spy_data.trials) > 1:
         SPYWarning("Please select a single trial for plotting.")
         return None, None
 
     # what channel combination
-    if 'channel_i' not in show_kwargs or 'channel_j' not in show_kwargs:
+    if "channel_i" not in show_kwargs or "channel_j" not in show_kwargs:
         SPYWarning("Please select a channel combination `channel_i` and `channel_j` for plotting.")
         return None, None
-    chi, chj = show_kwargs['channel_i'], show_kwargs['channel_j']
+    chi, chj = show_kwargs["channel_i"], show_kwargs["channel_j"]
     # parse labels
     if isinstance(chi, str):
         chi_label = chi
@@ -251,27 +247,27 @@ def plot_CrossSpectralData(spy_data, **show_kwargs):
         chj_label = chj
 
     # what data do we have?
-    method = plot_helpers.get_method(spy_data, 'connectivityanalysis')
-    output = plot_helpers.get_output(spy_data, 'connectivityanalysis')
+    method = plot_helpers.get_method(spy_data, "connectivityanalysis")
+    output = plot_helpers.get_output(spy_data, "connectivityanalysis")
 
-    if method == 'granger':
-        xlabel = 'frequency (Hz)'
-        ylabel = 'Granger causality'
+    if method == "granger":
+        xlabel = "frequency (Hz)"
+        ylabel = "Granger causality"
         label = rf"{chi_label} $\rightarrow$ {chj_label}"
         data_x = plot_helpers.parse_foi(spy_data, show_kwargs)
-    elif method == 'coh':
-        xlabel = 'frequency (Hz)'
-        ylabel = f'{output} coherence'
+    elif method == "coh":
+        xlabel = "frequency (Hz)"
+        ylabel = f"{output} coherence"
         label = rf"{chi_label} - {chj_label}"
         data_x = plot_helpers.parse_foi(spy_data, show_kwargs)
-    elif method == 'ppc':
-        xlabel = 'frequency (Hz)'
-        ylabel = 'PPC'
+    elif method == "ppc":
+        xlabel = "frequency (Hz)"
+        ylabel = "PPC"
         label = rf"{chi_label} - {chj_label}"
         data_x = plot_helpers.parse_foi(spy_data, show_kwargs)
-    elif method == 'corr':
-        xlabel = 'lag'
-        ylabel = 'correlation'
+    elif method == "corr":
+        xlabel = "lag"
+        ylabel = "correlation"
         label = rf"{chi_label} - {chj_label}"
         data_x = plot_helpers.parse_toi(spy_data, trl, show_kwargs)
     # that's all the methods we got so far
@@ -281,7 +277,7 @@ def plot_CrossSpectralData(spy_data, **show_kwargs):
     is_tf = plot_helpers.check_if_time_freq(spy_data)
 
     # time dependent coherence
-    if method in ['coh', 'ppc'] and is_tf:
+    if method in ["coh", "ppc"] and is_tf:
         # here we always need a new axes
         fig, ax = _plotting.mk_img_figax()
 
@@ -292,8 +288,8 @@ def plot_CrossSpectralData(spy_data, **show_kwargs):
         # dimord is time x freq x channel_i x channel_j
         # need freq x time for plotting
         data_yx = spy_data.show(**show_kwargs).T
-        _plotting.plot_tfreq(ax, data_yx, time, freqs, cmap='cividis')
-        ax.set_title(f"{method}: " + label, fontsize=pltConfig['sTitleSize'])
+        _plotting.plot_tfreq(ax, data_yx, time, freqs, cmap="cividis")
+        ax.set_title(f"{method}: " + label, fontsize=pltConfig["sTitleSize"])
         fig.tight_layout()
 
         return fig, ax
@@ -309,13 +305,13 @@ def plot_CrossSpectralData(spy_data, **show_kwargs):
         # create the axes and figure if needed
         # persistent axes allows for plotting different
         # channel combinations into the same figure
-        if not hasattr(spy_data, 'fig') or not _plotting.ppl.fignum_exists(spy_data.fig.number):
+        if not hasattr(spy_data, "fig") or not _plotting.ppl.fignum_exists(spy_data.fig.number):
             spy_data.fig, spy_data.ax = _plotting.mk_line_figax(xlabel, ylabel)
         _plotting.plot_lines(spy_data.ax, data_x, data_y, label=label)
         # format axes
-        if method in ['granger', 'coh'] and output in ['pow', 'abs']:
-            spy_data.ax.set_ylim((-.02, 1.02))
-        elif method == 'corr':
+        if method in ["granger", "coh"] and output in ["pow", "abs"]:
+            spy_data.ax.set_ylim((-0.02, 1.02))
+        elif method == "corr":
             spy_data.ax.set_ylim((-1.02, 1.02))
         spy_data.ax.legend(ncol=1)
 

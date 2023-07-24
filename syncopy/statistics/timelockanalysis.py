@@ -12,11 +12,14 @@ from copy import deepcopy
 
 import syncopy as spy
 from syncopy.shared.parsers import data_parser
-from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
-                                             detect_parallel_client)
+from syncopy.shared.kwarg_decorators import (
+    unwrap_cfg,
+    unwrap_select,
+    detect_parallel_client,
+)
 from syncopy.shared.input_processors import (
     check_effective_parameters,
-    check_passed_kwargs
+    check_passed_kwargs,
 )
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, SPYWarning
@@ -31,13 +34,9 @@ __all__ = ["timelockanalysis"]
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def timelockanalysis(data,
-                     latency='maxperiod',
-                     covariance=False,
-                     ddof=None,
-                     trials='all',
-                     keeptrials=False,
-                     **kwargs):
+def timelockanalysis(
+    data, latency="maxperiod", covariance=False, ddof=None, trials="all", keeptrials=False, **kwargs
+):
     """
     Average, variance and covariance for :class:`~syncopy.AnalogData` objects across trials.
 
@@ -75,20 +74,19 @@ def timelockanalysis(data,
 
     # -- check user input --
 
-    data_parser(data, varname="data", empty=False,
-                dataclass="AnalogData")
+    data_parser(data, varname="data", empty=False, dataclass="AnalogData")
 
     if ddof is not None:
         if not isinstance(ddof, int) or ddof < 0:
             lgl = "positive integer value"
             act = ddof
-            raise SPYValueError(lgl, 'ddof', act)
+            raise SPYValueError(lgl, "ddof", act)
 
     if not isinstance(covariance, bool):
-        raise SPYTypeError(covariance, varname='covariance', expected='bool')
+        raise SPYTypeError(covariance, varname="covariance", expected="bool")
 
     if not isinstance(keeptrials, bool):
-        raise SPYTypeError(covariance, varname='keeptrials', expected='bool')
+        raise SPYTypeError(covariance, varname="keeptrials", expected="bool")
 
     # latency gets checked within selectdata(latency=...)
 
@@ -101,11 +99,12 @@ def timelockanalysis(data,
     # save frontend call in cfg
     new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
 
-    log_dict = {'latency': latency,
-                'covariance': covariance,
-                'ddof': ddof,
-                'trials': trials
-                }
+    log_dict = {
+        "latency": latency,
+        "covariance": covariance,
+        "ddof": ddof,
+        "trials": trials,
+    }
 
     # -- create outtput object --
 
@@ -114,22 +113,22 @@ def timelockanalysis(data,
 
     # -- propagate old cfg and attach this one --
     tld.cfg.update(data.cfg)
-    tld.cfg.update({'timelockanalysis': new_cfg})
+    tld.cfg.update({"timelockanalysis": new_cfg})
 
     # to restore later as we apply selection inside here
     select_backup = None if data.selection is None else deepcopy(data.selection.select)
 
     if data.selection is not None:
-        if trials != 'all' and data.selection.select.get('trials') is not None:
+        if trials != "all" and data.selection.select.get("trials") is not None:
             lgl = "either `trials != 'all'` or selection"
             act = "trial keyword and trial selection"
-            raise SPYValueError(lgl, 'trials', act)
+            raise SPYValueError(lgl, "trials", act)
         # evaluate legacy `trials` keyword value as selection
-        elif trials != 'all':
+        elif trials != "all":
             select = data.selection.select
-            select['trials'] = trials
+            select["trials"] = trials
             data.selectdata(select, inplace=True)
-    elif trials != 'all':
+    elif trials != "all":
         # error handling done here
         data.selectdata(trials=trials, inplace=True)
 
@@ -160,21 +159,19 @@ def timelockanalysis(data,
 
     # stream copy cut/selected trials/time window into new dataset
     # by exploiting the in place selection
-    dset = _dataset_from_trials(data,
-                                dset_name='data',
-                                filename=tld._gen_filename())
+    dset = _dataset_from_trials(data, dset_name="data", filename=tld._gen_filename())
 
     # no copy here
     tld.data = dset
     tld.trialdefinition = data.selection.trialdefinition
 
     # now calculate via standard statistics
-    avg = spy.mean(tld, dim='trials', parallel=False)
-    var = spy.var(tld, dim='trials', parallel=False)
+    avg = spy.mean(tld, dim="trials", parallel=False)
+    var = spy.var(tld, dim="trials", parallel=False)
 
     # attach data to TimeLockData
-    tld._update_dataset('avg', avg.data)
-    tld._update_dataset('var', var.data)
+    tld._update_dataset("avg", avg.data)
+    tld._update_dataset("var", var.data)
 
     # explicitly delete unneeded objects but keep the data
     avg._persistent_hdf5, var._persistent_hdf5 = True, True
@@ -183,8 +180,8 @@ def timelockanalysis(data,
     # -- set up covariance CR --
 
     if covariance:
-        check_effective_parameters(Covariance, defaults, lcls, besides=['covariance', 'trials', 'latency'])
-        covCR = Covariance(ddof=ddof, statAxis=data.dimord.index('time'))
+        check_effective_parameters(Covariance, defaults, lcls, besides=["covariance", "trials", "latency"])
+        covCR = Covariance(ddof=ddof, statAxis=data.dimord.index("time"))
         # dimord is time x freq x channel x channel
         out = spy.CrossSpectralData(dimord=spy.CrossSpectralData._defaultDimord)
 
@@ -197,7 +194,7 @@ def timelockanalysis(data,
         covCR.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
         # attach computed cov as array
-        tld._update_dataset('cov', out.data[:, 0, ...].squeeze())
+        tld._update_dataset("cov", out.data[:, 0, ...].squeeze())
 
     # -- restore initial selection or wipe --
 
@@ -207,12 +204,12 @@ def timelockanalysis(data,
     else:
         data.selection = None
         # erase local selection entry
-        data.cfg.pop('selectdata')
+        data.cfg.pop("selectdata")
 
     return tld
 
 
-def _dataset_from_trials(spy_data, dset_name='new_data', filename=None):
+def _dataset_from_trials(spy_data, dset_name="new_data", filename=None):
     """
     Helper to construct a new dataset from
     a TrialIndexer, respecting selections
@@ -246,7 +243,7 @@ def _dataset_from_trials(spy_data, dset_name='new_data', filename=None):
         filename = spy_data._gen_filename()
 
     # create new hdf5 File and dataset
-    with h5py.File(filename, mode='w') as h5f:
+    with h5py.File(filename, mode="w") as h5f:
         new_ds = h5f.create_dataset(dset_name, shape=new_shape)
 
         # all-to-all indexer
@@ -264,4 +261,4 @@ def _dataset_from_trials(spy_data, dset_name='new_data', filename=None):
             new_ds[tuple(idx)] = trl
 
     # open again for reading and return dataset directly
-    return h5py.File(filename, mode='r+')[dset_name]
+    return h5py.File(filename, mode="r+")[dset_name]

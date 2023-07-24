@@ -18,10 +18,10 @@ from syncopy.shared.kwarg_decorators import process_io, detect_parallel_client
 
 import dask.distributed as dd
 
-__all__ = ['concat']
+__all__ = ["concat"]
 
 
-def concat(spy_obj1, spy_obj2, dim='channel'):
+def concat(spy_obj1, spy_obj2, dim="channel"):
     """
     Concatenate two Syncopy data objects trial-by-trial along `dim` axis.
 
@@ -38,20 +38,27 @@ def concat(spy_obj1, spy_obj2, dim='channel'):
     # -- sanity checks --
 
     if not issubclass(spy_obj1.__class__, ContinuousData):
-        raise SPYTypeError(spy_obj1, 'spy_obj1', 'continuous data type')
+        raise SPYTypeError(spy_obj1, "spy_obj1", "continuous data type")
 
     data_parser(spy_obj1, empty=False)
     data_parser(spy_obj2, empty=False)
 
     # catches also differing classes
     if spy_obj1.dimord != spy_obj2.dimord:
-        raise SPYValueError("objects with equal dimensional layout", 'spy object dimensions',
-                            f"{spy_obj1.dimord} and {spy_obj2.dimord}")
+        raise SPYValueError(
+            "objects with equal dimensional layout",
+            "spy object dimensions",
+            f"{spy_obj1.dimord} and {spy_obj2.dimord}",
+        )
 
     if dim not in spy_obj1.dimord:
-        raise SPYValueError(f"object which has a `{dim}` dimension", 'spy_obj1.dimord', f"{spy_obj1.dimord}")
+        raise SPYValueError(
+            f"object which has a `{dim}` dimension",
+            "spy_obj1.dimord",
+            f"{spy_obj1.dimord}",
+        )
 
-    if dim != 'channel':
+    if dim != "channel":
         raise NotImplementedError("Only `channel` concatenation supported atm")
 
     concat_axis = spy_obj1.dimord.index(dim)
@@ -60,9 +67,11 @@ def concat(spy_obj1, spy_obj2, dim='channel'):
     shape_zip = zip(spy_obj1.data.shape, spy_obj2.data.shape)
     for axis, (s1, s2) in enumerate(shape_zip):
         if axis != concat_axis and s1 != s2:
-            raise SPYValueError("objects with matching shapes", 'spy objects',
-                                f"{spy_obj1.data.shape}  and {spy_obj2.data.shape}"
-                                )
+            raise SPYValueError(
+                "objects with matching shapes",
+                "spy objects",
+                f"{spy_obj1.data.shape}  and {spy_obj2.data.shape}",
+            )
 
     # new size of the concatenation axis/dimension
     # this works for `time`, `channel`, `freq` and even `trials`
@@ -82,20 +91,15 @@ def concat(spy_obj1, spy_obj2, dim='channel'):
     except ValueError:
         parallel = False
 
-    CR = SpyConcat(obj2_idxs,  # get unpacked to `trl2_idx` for each concat_cF
-                   hdf5_path=spy_obj2.filename,
-                   axis=concat_axis,
-                   new_size=new_size)
+    CR = SpyConcat(
+        obj2_idxs,  # get unpacked to `trl2_idx` for each concat_cF
+        hdf5_path=spy_obj2.filename,
+        axis=concat_axis,
+        new_size=new_size,
+    )
 
-    CR.initialize(spy_obj1,
-                  result._stackingDim,
-                  chan_per_worker=None,
-                  keeptrials=True)
-    log_dict = {
-        "obj1": spy_obj1.filename,
-        "obj2": spy_obj2.filename,
-        "dim": dim
-        }
+    CR.initialize(spy_obj1, result._stackingDim, chan_per_worker=None, keeptrials=True)
+    log_dict = {"obj1": spy_obj1.filename, "obj2": spy_obj2.filename, "dim": dim}
 
     CR.compute(spy_obj1, result, parallel=parallel, log_dict=log_dict)
 
@@ -103,8 +107,15 @@ def concat(spy_obj1, spy_obj2, dim='channel'):
 
 
 @process_io
-def concat_cF(trl1_dat, trl2_idx, hdf5_path=None, axis=-1, new_size=None,
-              noCompute=False, chunkShape=None):
+def concat_cF(
+    trl1_dat,
+    trl2_idx,
+    hdf5_path=None,
+    axis=-1,
+    new_size=None,
+    noCompute=False,
+    chunkShape=None,
+):
     """
     Concatenate 2 trials along `axis`
 
@@ -151,7 +162,7 @@ def concat_cF(trl1_dat, trl2_idx, hdf5_path=None, axis=-1, new_size=None,
 
     # get the 2nd trial as array
     with h5py.File(hdf5_path, "r") as h5file:
-        trl2_dat = h5file['data'][trl2_idx]
+        trl2_dat = h5file["data"][trl2_idx]
 
     return np.concatenate([trl1_dat, trl2_dat], axis=axis)
 
@@ -178,7 +189,7 @@ class SpyConcat(ComputationalRoutine):
         else:
             revert = False
 
-        concat_dim = baseObj.dimord[self.cfg['axis']]
+        concat_dim = baseObj.dimord[self.cfg["axis"]]
 
         # Get/set timing-related selection modifiers
         out.trialdefinition = baseObj.selection.trialdefinition

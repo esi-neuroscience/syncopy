@@ -12,12 +12,15 @@ from numpy.lib import stride_tricks
 from .psth import psth
 
 # syncopy imports
-from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
+from syncopy.shared.computational_routine import (
+    ComputationalRoutine,
+    propagate_properties,
+)
 from syncopy.shared.kwarg_decorators import process_io
 
 
 @process_io
-def npstats_cF(trl_dat, operation='mean', axis=0, noCompute=False, chunkShape=None):
+def npstats_cF(trl_dat, operation="mean", axis=0, noCompute=False, chunkShape=None):
 
     """
     Numpy summary statistics on single-trial arrays along indicated `axis`.
@@ -48,7 +51,7 @@ def npstats_cF(trl_dat, operation='mean', axis=0, noCompute=False, chunkShape=No
     if noCompute:
         # initialize result array
         out_shape = list(trl_dat.shape)
-        out_shape[axis] = 1   # this axis will be summed over
+        out_shape[axis] = 1  # this axis will be summed over
 
         return out_shape, trl_dat.dtype
 
@@ -73,18 +76,19 @@ class NumpyStatDim(ComputationalRoutine):
     _trial_statistics: Sequential computation of statistics over trials
     """
 
-    methods = {'mean': np.nanmean,
-               'std': np.nanstd,
-               'var': np.nanvar,
-               'median': np.nanmedian
-               }
+    methods = {
+        "mean": np.nanmean,
+        "std": np.nanstd,
+        "var": np.nanvar,
+        "median": np.nanmedian,
+    }
 
     computeFunction = staticmethod(npstats_cF)
 
     def process_metadata(self, in_data, out_data):
 
         # the dimension over which the statistic got computed
-        dim = in_data.dimord[self.cfg['axis']]
+        dim = in_data.dimord[self.cfg["axis"]]
 
         out_data.samplerate = in_data.samplerate
 
@@ -92,20 +96,19 @@ class NumpyStatDim(ComputationalRoutine):
         # We've set a fallback all-to-all selection in any case
 
         # time axis really gone, only one trial and time got averaged out
-        if dim == 'time' and not self.keeptrials:
+        if dim == "time" and not self.keeptrials:
             trldef = np.array([[0, 1, 0]])
 
         # trial average, needs equal trial lengths.. just copy from 1st
-        elif dim != 'time' and not self.keeptrials:
+        elif dim != "time" and not self.keeptrials:
             trldef = in_data.selection.trialdefinition[0, :][None, :]
 
         # each trial has empty time axis, so we attach trivial trialdefinition:
         # 1 sample per trial for stacking
-        elif dim == 'time' and self.keeptrials:
+        elif dim == "time" and self.keeptrials:
             nTrials = len(in_data.selection.trials)
             stacking_time = np.arange(nTrials)[:, None]
-            trldef = np.hstack((stacking_time, stacking_time + 1,
-                               np.zeros((nTrials, 1))))
+            trldef = np.hstack((stacking_time, stacking_time + 1, np.zeros((nTrials, 1))))
 
         # nothing happened on the time axis
         else:
@@ -127,17 +130,14 @@ class NumpyStatDim(ComputationalRoutine):
                 # set to singleton or None
                 else:
                     # numerical freq axis is gone after averaging
-                    if dim == 'freq':
+                    if dim == "freq":
                         out_data.freq = None
                     else:
-                        setattr(out_data, prop, [self.cfg['operation']])
+                        setattr(out_data, prop, [self.cfg["operation"]])
+
 
 @process_io
-def cov_cF(trl_dat,
-           ddof=None,
-           statAxis=0,
-           noCompute=False,
-           chunkShape=None):
+def cov_cF(trl_dat, ddof=None, statAxis=0, noCompute=False, chunkShape=None):
 
     """
     Covariance between channels via ``np.cov``
@@ -187,7 +187,7 @@ class Covariance(ComputationalRoutine):
     -----
     Outputs a :class:`~syncopy.CrossSpectralData` object with singleton time and freq
     axis. The backing hdf5 dataset then gets stripped of the empty axes and attached
-    as additional ``.cov`` dataset to a :class:`~syncopy.TimeLockData` object in 
+    as additional ``.cov`` dataset to a :class:`~syncopy.TimeLockData` object in
     the respective frontend.
 
     See also
@@ -211,11 +211,16 @@ class Covariance(ComputationalRoutine):
             chanSec = slice(None)
             time = np.arange(len(data.trials))
             time = time.reshape((time.size, 1))
-            trldef = np.hstack((time, time + 1,
-                                np.zeros((len(data.trials), 1)),
-                                np.array(data.trialinfo)))
+            trldef = np.hstack(
+                (
+                    time,
+                    time + 1,
+                    np.zeros((len(data.trials), 1)),
+                    np.array(data.trialinfo),
+                )
+            )
 
-        # Attach constructed trialdef-array, time axis is gone 
+        # Attach constructed trialdef-array, time axis is gone
         if self.keeptrials:
             out.trialdefinition = trldef
         else:
@@ -228,16 +233,18 @@ class Covariance(ComputationalRoutine):
 
 
 @process_io
-def psth_cF(trl_dat,
-            trl_start,
-            onset,
-            trl_end,
-            chan_unit_combs=None,
-            tbins=None,
-            output='rate',
-            samplerate=1000,
-            noCompute=False,
-            chunkShape=None):
+def psth_cF(
+    trl_dat,
+    trl_start,
+    onset,
+    trl_end,
+    chan_unit_combs=None,
+    tbins=None,
+    output="rate",
+    samplerate=1000,
+    noCompute=False,
+    chunkShape=None,
+):
 
     """
     Peristimulus time histogram
@@ -308,9 +315,16 @@ def psth_cF(trl_dat,
         return outShape, np.float32
 
     # call backend method
-    counts, bins = psth(trl_dat, trl_start, onset, trl_end,
-                        chan_unit_combs=chan_unit_combs,
-                        tbins=tbins, samplerate=samplerate, output=output)
+    counts, bins = psth(
+        trl_dat,
+        trl_start,
+        onset,
+        trl_end,
+        chan_unit_combs=chan_unit_combs,
+        tbins=tbins,
+        samplerate=samplerate,
+        output=output,
+    )
 
     return counts
 
@@ -336,7 +350,7 @@ class PSTH(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        tbins = self.cfg['tbins']
+        tbins = self.cfg["tbins"]
         # compute new time axis / samplerate
         bin_midpoints = stride_tricks.sliding_window_view(tbins, (2,)).mean(axis=1)
         srate = 1 / np.diff(bin_midpoints).mean()
@@ -369,7 +383,7 @@ class PSTH(ComputationalRoutine):
         out.samplerate = srate
         # join labels for final unitX_channelY channel labels
         chan_str = "channel{}_unit{}"
-        out.channel = [chan_str.format(c, u) for c, u in self.cfg['chan_unit_combs']]
+        out.channel = [chan_str.format(c, u) for c, u in self.cfg["chan_unit_combs"]]
 
         if not self.keeptrials:
             # the ad-hoc averaging does not work well here because of NaNs

@@ -14,14 +14,19 @@ from glob import glob
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
 from syncopy.shared.parsers import io_parser, data_parser, filename_parser, array_parser
-from syncopy.shared.errors import (SPYTypeError, SPYValueError, SPYIOError,
-                                   SPYError, SPYWarning)
+from syncopy.shared.errors import (
+    SPYTypeError,
+    SPYValueError,
+    SPYIOError,
+    SPYError,
+    SPYWarning,
+)
 from syncopy.io.utils import hash_file, startInfoDict
 import syncopy.datatype as spd
 import syncopy as spy
 
 # to allow loading older spy containers
-legacy_not_required = ['info']
+legacy_not_required = ["info"]
 
 __all__ = ["load"]
 
@@ -172,12 +177,11 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
             array_parser(dataclass, varname="dataclass", ntype=str)
         except Exception as exc:
             raise exc
-        dataclass = ["." + dclass if not dclass.startswith(".") else dclass
-                     for dclass in dataclass]
+        dataclass = ["." + dclass if not dclass.startswith(".") else dclass for dclass in dataclass]
         extensions = set(dataclass).intersection(FILE_EXT["data"])
         if len(extensions) == 0:
-                lgl = "extension(s) '" + "or '".join(ext + "' " for ext in FILE_EXT["data"])
-                raise SPYValueError(legal=lgl, varname="dataclass", actual=str(dataclass))
+            lgl = "extension(s) '" + "or '".join(ext + "' " for ext in FILE_EXT["data"])
+            raise SPYValueError(legal=lgl, varname="dataclass", actual=str(dataclass))
 
     # Avoid any misunderstandings here...
     if not isinstance(checksum, bool):
@@ -200,10 +204,13 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
             for tag in tags:
                 fileList.extend(glob(os.path.join(container, tag + ext)))
         if len(fileList) == 0:
-            fsloc = os.path.join(container, "" + \
-                                 "or ".join(tag + " " for tag in tags) + \
-                                 "with extensions " + \
-                                 "or ".join(ext + " " for ext in extensions))
+            fsloc = os.path.join(
+                container,
+                ""
+                + "or ".join(tag + " " for tag in tags)
+                + "with extensions "
+                + "or ".join(ext + " " for ext in extensions),
+            )
             raise SPYIOError(fsloc, exists=False)
         if len(fileList) == 1:
             return _load(fileList[0], checksum, mode, out)
@@ -220,10 +227,8 @@ def load(filename, tag=None, dataclass=None, checksum=False, mode="r+", out=None
 
         if dataclass is not None:
             if os.path.splitext(fileInfo["filename"])[1] not in dataclass:
-                lgl = "extension '" + \
-                    "or '".join(dclass + "' " for dclass in dataclass)
-                raise SPYValueError(legal=lgl, varname="filename",
-                                    actual=fileInfo["filename"])
+                lgl = "extension '" + "or '".join(dclass + "' " for dclass in dataclass)
+                raise SPYValueError(legal=lgl, varname="filename", actual=fileInfo["filename"])
         return _load(filename, checksum, mode, out)
 
 
@@ -257,10 +262,11 @@ def _load(filename, checksum, mode, out):
 
     for key in requiredFields:
         if key not in jsonDict.keys() and key not in legacy_not_required:
-            raise SPYError("Required field {field} for {cls} not in {file}"
-                           .format(field=key,
-                                   cls=dataclass.__name__,
-                                   file=jsonFile))
+            raise SPYError(
+                "Required field {field} for {cls} not in {file}".format(
+                    field=key, cls=dataclass.__name__, file=jsonFile
+                )
+            )
 
     # FIXME: add version comparison (syncopy.__version__ vs jsonDict["_version"])
 
@@ -269,9 +275,11 @@ def _load(filename, checksum, mode, out):
         hsh_msg = "hash = {hsh:s}"
         hsh = hash_file(hdfFile)
         if hsh != jsonDict["file_checksum"]:
-            raise SPYValueError(legal=hsh_msg.format(hsh=jsonDict["file_checksum"]),
-                                varname=os.path.basename(hdfFile),
-                                actual=hsh_msg.format(hsh=hsh))
+            raise SPYValueError(
+                legal=hsh_msg.format(hsh=jsonDict["file_checksum"]),
+                varname=os.path.basename(hdfFile),
+                actual=hsh_msg.format(hsh=hsh),
+            )
 
     # Parsing is done, create new or check provided object
     dimord = jsonDict.pop("dimord")
@@ -292,29 +300,38 @@ def _load(filename, checksum, mode, out):
     # If the JSON contains `_hdfFileDatasetProperties`, load all datasets listed in there. Otherwise, load the ones
     # already defined by `out._hdfFileDatasetProperties` and defined in the respective data class.
     # This is needed to load both new files with, and legacy files without the `_hdfFileDatasetProperties` in the JSON.
-    json_hdfFileDatasetProperties = jsonDict.pop("_hdfFileDatasetProperties", None) # They may not be in there for legacy files, so allow None.
+    json_hdfFileDatasetProperties = jsonDict.pop(
+        "_hdfFileDatasetProperties", None
+    )  # They may not be in there for legacy files, so allow None.
     if json_hdfFileDatasetProperties is not None:
-        out._hdfFileDatasetProperties = tuple(json_hdfFileDatasetProperties) # It's a list in the JSON, so convert to tuple.
+        out._hdfFileDatasetProperties = tuple(
+            json_hdfFileDatasetProperties
+        )  # It's a list in the JSON, so convert to tuple.
     for datasetProperty in out._hdfFileDatasetProperties:
         targetProperty = datasetProperty if datasetProperty == "data" else "_" + datasetProperty
         try:
             setattr(out, targetProperty, h5py.File(hdfFile, mode="r")[datasetProperty])
         except KeyError:
             if datasetProperty == "data":
-                raise SPYError("Data file {file} does not contain a dataset named 'data'.".format(file=hdfFile))
+                raise SPYError(
+                    "Data file {file} does not contain a dataset named 'data'.".format(file=hdfFile)
+                )
             else:
-                spy.log(f"Dataset '{datasetProperty}' not present in HDF5 file, cannot load it. Setting to None.", level="DEBUG")
+                spy.log(
+                    f"Dataset '{datasetProperty}' not present in HDF5 file, cannot load it. Setting to None.",
+                    level="DEBUG",
+                )
                 # It is fine if an extra dataset is not present in the file, e.g., the SpikeData waveform dataset is not present when set to None.
                 setattr(out, targetProperty, None)
-
 
     # Abuse ``definetrial`` to set trial-related props
     trialdef = h5py.File(hdfFile, mode="r")["trialdefinition"][()]
     out.definetrial(trialdef)
 
     # Assign metadata
-    for key in [prop for prop in dataclass._infoFileProperties if
-                prop != "dimord" and prop in jsonDict.keys()]:
+    for key in [
+        prop for prop in dataclass._infoFileProperties if prop != "dimord" and prop in jsonDict.keys()
+    ]:
         setattr(out, key, jsonDict[key])
 
     thisMethod = sys._getframe().f_code.co_name.replace("_", "")

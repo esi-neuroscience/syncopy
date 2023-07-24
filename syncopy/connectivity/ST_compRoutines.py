@@ -18,15 +18,16 @@ from .csd import csd
 # syncopy imports
 from syncopy.shared.const_def import spectralDTypes
 from syncopy.shared.tools import best_match
-from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
+from syncopy.shared.computational_routine import (
+    ComputationalRoutine,
+    propagate_properties,
+)
 from syncopy.shared.metadata import metadata_from_hdf5_file, check_freq_hashes
 from syncopy.shared.kwarg_decorators import process_io
 
 
 @process_io
-def spectral_dyadic_product_cF(specs,
-                               chunkShape=None,
-                               noCompute=False):
+def spectral_dyadic_product_cF(specs, chunkShape=None, noCompute=False):
     """
     Single trial cross spectra directly from complex power spectra,
     hence no Fourier transforms are needed and all what is
@@ -110,27 +111,23 @@ class SpectralDyadicProduct(ComputationalRoutine):
     """
 
     # The hard wired dimord of the cF
-    dimord = ['time', 'freq', 'channel_i', 'channel_j']
+    dimord = ["time", "freq", "channel_i", "channel_j"]
 
     computeFunction = staticmethod(spectral_dyadic_product_cF)
 
     # 1st argument, the data, gets omitted.
     valid_kws = list(signature(spectral_dyadic_product_cF).parameters.keys())[1:]
-    valid_kws += ['output']
+    valid_kws += ["output"]
 
     def process_metadata(self, data, out):
 
-        time_axis = np.any(np.diff(data.trialdefinition)[:,0] != 1)
+        time_axis = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
         propagate_properties(data, out, self.keeptrials, time_axis)
         out.freq = data.freq
 
 
 @process_io
-def ppc_column_cF(cross_spectrum,
-                  trl2_idx=None,
-                  hdf5_path=None,
-                  chunkShape=None,
-                  noCompute=False):
+def ppc_column_cF(cross_spectrum, trl2_idx=None, hdf5_path=None, chunkShape=None, noCompute=False):
     r"""
     The PPC involves computations on all nTrials(nTrials-1) pairs. This compute function
     in combination with the PPC CR can be used to compute one column, consisting
@@ -194,7 +191,7 @@ def ppc_column_cF(cross_spectrum,
 
     # get the 2nd trial as array
     with h5py.File(hdf5_path, "r") as h5file:
-        cross_spectrum2 = h5file['data'][trl2_idx]
+        cross_spectrum2 = h5file["data"][trl2_idx]
 
     # first compute the conjugate product for the complete cross spectra
     # (all channels, all freqs and even time if applicable)
@@ -239,19 +236,20 @@ class PPC_column(ComputationalRoutine):
         propagate_properties(data, out, self.keeptrials, time_axis)
 
 
-
 @process_io
-def cross_spectra_cF(trl_dat,
-                     samplerate=1,
-                     nSamples=None,
-                     foi=None,
-                     taper="hann",
-                     taper_opt=None,
-                     demean_taper=False,
-                     polyremoval=False,
-                     timeAxis=0,
-                     chunkShape=None,
-                     noCompute=False):
+def cross_spectra_cF(
+    trl_dat,
+    samplerate=1,
+    nSamples=None,
+    foi=None,
+    taper="hann",
+    taper_opt=None,
+    demean_taper=False,
+    polyremoval=False,
+    timeAxis=0,
+    chunkShape=None,
+    noCompute=False,
+):
 
     """
     Single trial Fourier cross spectral estimates between all channels
@@ -347,7 +345,7 @@ def cross_spectra_cF(trl_dat,
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
+        dat = trl_dat.T  # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
 
@@ -377,20 +375,22 @@ def cross_spectra_cF(trl_dat,
     # detrend
     if polyremoval == 0:
         # SciPy's overwrite_data not working for type='constant' :/
-        dat = detrend(dat, type='constant', axis=0, overwrite_data=True)
+        dat = detrend(dat, type="constant", axis=0, overwrite_data=True)
     elif polyremoval == 1:
-        dat = detrend(dat, type='linear', axis=0, overwrite_data=True)
+        dat = detrend(dat, type="linear", axis=0, overwrite_data=True)
 
-    CS_ij, freqs = csd(dat,
-                       samplerate,
-                       nSamples,
-                       taper=taper,
-                       taper_opt=taper_opt,
-                       demean_taper=demean_taper)
+    CS_ij, freqs = csd(
+        dat,
+        samplerate,
+        nSamples,
+        taper=taper,
+        taper_opt=taper_opt,
+        demean_taper=demean_taper,
+    )
 
     # Hash the freqs and add to second return value.
-    freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
-    metadata = {'freqs_hash': np.array(freqs_hash)}  # Will have dtype='|S128'
+    freqs_hash = blake2b(freqs).hexdigest().encode("utf-8")
+    metadata = {"freqs_hash": np.array(freqs_hash)}  # Will have dtype='|S128'
 
     return CS_ij[np.newaxis, freq_idx, ...], metadata
 
@@ -413,14 +413,14 @@ class CrossSpectra(ComputationalRoutine):
     """
 
     # the hard wired dimord of the cF
-    dimord = ['time', 'freq', 'channel_i', 'channel_j']
+    dimord = ["time", "freq", "channel_i", "channel_j"]
 
     computeFunction = staticmethod(cross_spectra_cF)
 
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(cross_spectra_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
-    valid_kws += ['tapsmofrq', 'nTaper', 'pad', 'output']
+    valid_kws += ["tapsmofrq", "nTaper", "pad", "output"]
 
     def process_metadata(self, data, out):
 
@@ -430,18 +430,20 @@ class CrossSpectra(ComputationalRoutine):
         metadata = metadata_from_hdf5_file(out.filename)
         check_freq_hashes(metadata, out)
 
-        out.freq = self.cfg['foi']
+        out.freq = self.cfg["foi"]
 
 
 @process_io
-def cross_covariance_cF(trl_dat,
-                        samplerate=1,
-                        polyremoval=0,
-                        timeAxis=0,
-                        norm=False,
-                        fullOutput=False,
-                        chunkShape=None,
-                        noCompute=False):
+def cross_covariance_cF(
+    trl_dat,
+    samplerate=1,
+    polyremoval=0,
+    timeAxis=0,
+    norm=False,
+    fullOutput=False,
+    chunkShape=None,
+    noCompute=False,
+):
 
     """
     Single trial covariance estimates between all channels
@@ -499,7 +501,7 @@ def cross_covariance_cF(trl_dat,
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
+        dat = trl_dat.T  # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
 
@@ -524,22 +526,22 @@ def cross_covariance_cF(trl_dat,
     # detrend, has to be done after noCompute!
     if polyremoval == 0:
         # SciPy's overwrite_data not working for type='constant' :/
-        dat = detrend(dat, type='constant', axis=0, overwrite_data=True)
+        dat = detrend(dat, type="constant", axis=0, overwrite_data=True)
     elif polyremoval == 1:
-        detrend(dat, type='linear', axis=0, overwrite_data=True)
+        detrend(dat, type="linear", axis=0, overwrite_data=True)
 
     # re-normalize output for different effective overlaps
-    norm_overlap = np.arange(nSamples, nSamples // 2, step = -1)
+    norm_overlap = np.arange(nSamples, nSamples // 2, step=-1)
 
     CC = np.empty(outShape)
     for i in range(nChannels):
         for j in range(i + 1):
-            cc12 = fftconvolve(dat[:, i], dat[::-1, j], mode='same')
-            CC[:, 0, i, j] = cc12[nSamples // 2:] / norm_overlap
+            cc12 = fftconvolve(dat[:, i], dat[::-1, j], mode="same")
+            CC[:, 0, i, j] = cc12[nSamples // 2 :] / norm_overlap
             if i != j:
                 # cross-correlation is symmetric with C(tau) = C(-tau)^T
                 cc21 = cc12[::-1]
-                CC[:, 0, j, i] = cc21[nSamples // 2:] / norm_overlap
+                CC[:, 0, j, i] = cc21[nSamples // 2 :] / norm_overlap
 
     # normalize with products of std
     if norm:
@@ -569,7 +571,7 @@ class CrossCovariance(ComputationalRoutine):
     """
 
     # the hard wired dimord of the cF
-    dimord = ['time', 'freq', 'channel_i', 'channel_j']
+    dimord = ["time", "freq", "channel_i", "channel_j"]
 
     computeFunction = staticmethod(cross_covariance_cF)
 
