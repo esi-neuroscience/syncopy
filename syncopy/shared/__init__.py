@@ -4,8 +4,7 @@
 #
 
 # Import __all__ routines from local modules
-from . import (queries, errors, parsers, kwarg_decorators,
-               computational_routine, tools)
+from . import queries, errors, parsers, kwarg_decorators, computational_routine, tools
 from .queries import *
 from .errors import *
 from .parsers import *

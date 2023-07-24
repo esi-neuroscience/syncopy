@@ -18,7 +18,7 @@ from syncopy.plotting.config import pltErrMsg, pltConfig
 
 
 @plot_helpers.revert_selection
-def plot_single_figure_SpikeData(data, on_yaxis='trials', **show_kwargs):
+def plot_single_figure_SpikeData(data, on_yaxis="trials", **show_kwargs):
     """
     Plot a single unit/trial of a SpikeData object as a spike raster plot.
     Use `on_yaxis` to index spikes either by trials, unit or channel.
@@ -37,10 +37,10 @@ def plot_single_figure_SpikeData(data, on_yaxis='trials', **show_kwargs):
     ax  : `matplotlib.axes.Axes` instance (or `None` in case of errors), the plot axes.
     """
 
-    trl_sel = show_kwargs.get('trials')
+    trl_sel = show_kwargs.get("trials")
 
-    if on_yaxis not in ('channel', 'unit', 'trials'):
-        raise SPYValueError("either 'trials', 'unit' or 'channel'", 'on_yaxis', on_yaxis)
+    if on_yaxis not in ("channel", "unit", "trials"):
+        raise SPYValueError("either 'trials', 'unit' or 'channel'", "on_yaxis", on_yaxis)
 
     # attach in place selection and get the only trial
     data.selectdata(inplace=True, **show_kwargs)
@@ -50,7 +50,7 @@ def plot_single_figure_SpikeData(data, on_yaxis='trials', **show_kwargs):
 
     fig, ax = _plotting.mk_line_figax(ylabel=on_yaxis)
 
-    if on_yaxis != 'trials':
+    if on_yaxis != "trials":
 
         if not isinstance(trl_sel, Number) and len(data.trials) > 1:
             raise SPYError("Please select a single trial for plotting!")
@@ -58,36 +58,31 @@ def plot_single_figure_SpikeData(data, on_yaxis='trials', **show_kwargs):
         ids, labels = _extract_ids_labels(data, on_yaxis, show_kwargs)
         id_axis = data.dimord.index(on_yaxis)
 
-        _plot_single_trial(ax, trl, ids,
-                           id_axis,
-                           data.samplerate,
-                           trl_start - offset)
+        _plot_single_trial(ax, trl, ids, id_axis, data.samplerate, trl_start - offset)
 
     # single unit on trial y-axis
     else:
         # still need to get the single unit label
-        ids, unit_label = _extract_ids_labels(data, 'unit', show_kwargs)
+        ids, unit_label = _extract_ids_labels(data, "unit", show_kwargs)
         if np.array(ids).size != 1:
             raise SPYError("Please select a single unit for plotting!")
 
-        labels = ['trial' + str(trl_id) for trl_id in data.selection.trial_ids]
+        labels = ["trial" + str(trl_id) for trl_id in data.selection.trial_ids]
 
-        _plot_single_unit(ax, data,
-                          int(ids),
-                          data.samplerate)
+        _plot_single_unit(ax, data, int(ids), data.samplerate)
         ax.set_title(unit_label)
     # for less than 25 units/channels, plot all the labels
     if len(labels) <= 25:
         loc = np.arange(len(labels))
         ax.set_yticks(loc, labels)
-        ax.set_ylabel('')
+        ax.set_ylabel("")
 
     fig.tight_layout()
     return fig, ax
 
 
 @plot_helpers.revert_selection
-def plot_multi_figure_SpikeData(data, on_yaxis='trials', **show_kwargs):
+def plot_multi_figure_SpikeData(data, on_yaxis="trials", **show_kwargs):
     """
     Plot a few trials (max. 25) of a SpikeData object as a multi-axis figure of
     spike raster plots. Use `on_yaxis` to index spikes either by channel or unit.
@@ -113,15 +108,16 @@ def plot_multi_figure_SpikeData(data, on_yaxis='trials', **show_kwargs):
     data.selectdata(inplace=True, **show_kwargs)
     nTrials = len(data.selection.trials)
 
-    if on_yaxis not in ('channel', 'unit', 'trials'):
-        raise SPYValueError("either 'trials', 'unit' or 'channel'", 'on_yaxis', on_yaxis)
+    if on_yaxis not in ("channel", "unit", "trials"):
+        raise SPYValueError("either 'trials', 'unit' or 'channel'", "on_yaxis", on_yaxis)
 
-    if on_yaxis != 'trials':
+    if on_yaxis != "trials":
 
         if nTrials > subplots_max:
-            msg = (f"Cannot plot {nTrials} trials at once!\n"
-                   f"Please select maximum {subplots_max} trials for multipanel plotting.. skipping plot!"
-                   )
+            msg = (
+                f"Cannot plot {nTrials} trials at once!\n"
+                f"Please select maximum {subplots_max} trials for multipanel plotting.. skipping plot!"
+            )
             raise SPYError(msg)
 
         # determine axes layout, prefer columns over rows due to common landscape display aspect ratio
@@ -133,12 +129,13 @@ def plot_multi_figure_SpikeData(data, on_yaxis='trials', **show_kwargs):
     # trial y-axis
     else:
         # still need to get the unit labels, id
-        ids, labels = _extract_ids_labels(data, 'unit', show_kwargs)
-        nUnits =  np.array(ids).size
+        ids, labels = _extract_ids_labels(data, "unit", show_kwargs)
+        nUnits = np.array(ids).size
         if nUnits > subplots_max:
-            msg = (f"Cannot plot {nUnits} units at once!\n"
-                   f"Please select maximum {subplots_max} units for multipanel plotting.. skipping plot!"
-                   )
+            msg = (
+                f"Cannot plot {nUnits} units at once!\n"
+                f"Please select maximum {subplots_max} units for multipanel plotting.. skipping plot!"
+            )
             raise SPYError(msg)
 
         # determine axes layout, prefer columns over rows due to common landscape display aspect ratio
@@ -146,17 +143,14 @@ def plot_multi_figure_SpikeData(data, on_yaxis='trials', **show_kwargs):
 
     fig, axes = _plotting.mk_multi_line_figax(nrows, ncols, x_size=2, y_size=1.4)
 
-    if on_yaxis != 'trials':
+    if on_yaxis != "trials":
 
         for trl_id, ax in zip(data.selection.trial_ids, axes.flatten()):
             trl = data.selection.trials[trl_id]
             trl_start = data.trialdefinition[trl_id][0]
             offset = data.trialdefinition[trl_id][2]
-            _plot_single_trial(ax, trl, ids,
-                               id_axis,
-                               data.samplerate,
-                               trl_start - offset)
-            ax.set_title('trial' + str(trl_id))
+            _plot_single_trial(ax, trl, ids, id_axis, data.samplerate, trl_start - offset)
+            ax.set_title("trial" + str(trl_id))
 
     # trial on y-axis
     else:
@@ -164,7 +158,7 @@ def plot_multi_figure_SpikeData(data, on_yaxis='trials', **show_kwargs):
             _plot_single_unit(ax, data, unit_id, data.samplerate)
             ax.set_title(unit_label)
         # overwrite labels
-        labels = ['trial' + str(trl_id) for trl_id in data.selection.trial_ids]
+        labels = ["trial" + str(trl_id) for trl_id in data.selection.trial_ids]
 
     # for less than 25 labels, plot all the labels
     # on the leftmost axes
@@ -172,7 +166,7 @@ def plot_multi_figure_SpikeData(data, on_yaxis='trials', **show_kwargs):
     for ax in axes[:, 0]:
         if len(labels) <= 25:
             ax.set_yticks(loc, labels)
-            ax.set_ylabel('')
+            ax.set_ylabel("")
         else:
             ax.set_ylabel(on_yaxis)
 
@@ -201,7 +195,6 @@ def _plot_single_trial(ax, trl, ids, id_axis, samplerate, sample_shift):
         to arrive at offset relative spike times
     """
 
-
     # collect each channel/unit spike times
     all_spikes = []
     for _id in ids:
@@ -212,11 +205,11 @@ def _plot_single_trial(ax, trl, ids, id_axis, samplerate, sample_shift):
         spikes = spikes - sample_shift
         all_spikes.append(spikes / samplerate)
 
-    ax.eventplot(all_spikes, alpha=0.5, lineoffsets=1, linelengths=0.8, color='k')
+    ax.eventplot(all_spikes, alpha=0.5, lineoffsets=1, linelengths=0.8, color="k")
 
     # add 0 line if pre-stim is available
     if np.any(ax.get_xticks() < 0):
-        ax.plot([0, 0], [-.5, len(ids) - .5], 'r--', lw=1.3)
+        ax.plot([0, 0], [-0.5, len(ids) - 0.5], "r--", lw=1.3)
 
 
 def _plot_single_unit(ax, data, unit_id, samplerate):
@@ -233,7 +226,6 @@ def _plot_single_unit(ax, data, unit_id, samplerate):
         The sampling rate
     """
 
-
     # collect each channel/unit spike times
     all_spikes = []
     for i, trl in enumerate(data.selection.trials):
@@ -247,11 +239,11 @@ def _plot_single_unit(ax, data, unit_id, samplerate):
         spikes = spikes - sample_shift
         all_spikes.append(spikes / samplerate)
 
-    ax.eventplot(all_spikes, alpha=0.5, lineoffsets=1, linelengths=0.8, color='k')
+    ax.eventplot(all_spikes, alpha=0.5, lineoffsets=1, linelengths=0.8, color="k")
 
     # add 0 line if pre-stim is available
     if np.any(ax.get_xticks() < 0):
-        ax.plot([0, 0], [-.5, len(data.selection.trials) - .5], 'r--', lw=1.3)
+        ax.plot([0, 0], [-0.5, len(data.selection.trials) - 0.5], "r--", lw=1.3)
 
 
 def _extract_ids_labels(data, on_yaxis, show_kwargs):
@@ -260,17 +252,17 @@ def _extract_ids_labels(data, on_yaxis, show_kwargs):
     the units/channels to plot
     """
 
-    if on_yaxis == 'channel':
+    if on_yaxis == "channel":
         # that are the integer values encoding the channels in the data
         ids = np.arange(len(data.channel))[data.selection.channel]
         # the associated string labels
         labels = data.channel[ids]
 
-    elif on_yaxis == 'unit':
+    elif on_yaxis == "unit":
 
         # unit selections are "special" (see `SpikeData._get_unit`)
         # and we need to digest manually to get the ids
-        unit_sel = show_kwargs.get('unit')
+        unit_sel = show_kwargs.get("unit")
         if unit_sel is None:
             unit_sel = slice(None)
         # single number/string

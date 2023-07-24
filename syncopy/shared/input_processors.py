@@ -16,7 +16,11 @@ from scipy.signal import windows
 from syncopy.specest.mtmfft import _get_dpss_pars
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo
 from syncopy.shared.parsers import scalar_parser, array_parser
-from syncopy.shared.const_def import availableTapers, generalParameters, availablePaddingOpt
+from syncopy.shared.const_def import (
+    availableTapers,
+    generalParameters,
+    availablePaddingOpt,
+)
 
 
 def process_padding(pad, lenTrials, samplerate):
@@ -67,17 +71,15 @@ def process_padding(pad, lenTrials, samplerate):
     # zero padding of ALL trials the same way
     if isinstance(pad, numbers.Number):
 
-        scalar_parser(pad,
-                      varname='pad',
-                      lims=[lenTrials.max() / samplerate, np.inf])
+        scalar_parser(pad, varname="pad", lims=[lenTrials.max() / samplerate, np.inf])
         abs_pad = int(pad * samplerate)
 
     # or pad to optimal FFT lengths
-    elif pad == 'nextpow2':
+    elif pad == "nextpow2":
         abs_pad = _nextpow2(int(lenTrials.max()))
 
     # no padding in case of equal length trials
-    elif pad == 'maxperlen':
+    elif pad == "maxperlen":
         abs_pad = int(lenTrials.max())
         if lenTrials.min() != lenTrials.max():
             msg = f"Unequal trial lengths present, padding all trials to {abs_pad} samples"
@@ -126,12 +128,17 @@ def process_foi(foi, foilim, samplerate):
             if foi == "all":
                 foi = None
             else:
-                raise SPYValueError(legal="'all' or `None` or list/array",
-                                    varname="foi", actual=foi)
+                raise SPYValueError(legal="'all' or `None` or list/array", varname="foi", actual=foi)
         else:
             try:
-                array_parser(foi, varname="foi", hasinf=False, hasnan=False,
-                             lims=[0, samplerate / 2], dims=(None,))
+                array_parser(
+                    foi,
+                    varname="foi",
+                    hasinf=False,
+                    hasnan=False,
+                    lims=[0, samplerate / 2],
+                    dims=(None,),
+                )
             except Exception as exc:
                 raise exc
             foi = np.array(foi, dtype="float")
@@ -141,11 +148,20 @@ def process_foi(foi, foilim, samplerate):
             if foilim == "all":
                 foilim = None
             else:
-                raise SPYValueError(legal="'all' or `None` or `[fmin, fmax]`",
-                                    varname="foilim", actual=foilim)
+                raise SPYValueError(
+                    legal="'all' or `None` or `[fmin, fmax]`",
+                    varname="foilim",
+                    actual=foilim,
+                )
         else:
-            array_parser(foilim, varname="foilim", hasinf=False, hasnan=False,
-                         lims=[0, samplerate / 2], dims=(2,))
+            array_parser(
+                foilim,
+                varname="foilim",
+                hasinf=False,
+                hasnan=False,
+                lims=[0, samplerate / 2],
+                dims=(2,),
+            )
 
             # QUICKFIX for #392
             foilim = [float(f) for f in foilim]
@@ -159,15 +175,17 @@ def process_foi(foi, foilim, samplerate):
     return foi, foilim
 
 
-def process_taper(taper,
-                  taper_opt,
-                  tapsmofrq,
-                  nTaper,
-                  keeptapers,
-                  foimax,
-                  samplerate,
-                  nSamples,
-                  output):
+def process_taper(
+    taper,
+    taper_opt,
+    tapsmofrq,
+    nTaper,
+    keeptapers,
+    foimax,
+    samplerate,
+    nSamples,
+    output,
+):
 
     """
     General taper validation and Slepian/dpss input sanitization.
@@ -214,9 +232,9 @@ def process_taper(taper,
         an empty dictionary in case selected taper has no further args.
     """
 
-    if taper == 'dpss':
+    if taper == "dpss":
         lgl = "set `tapsmofrq` parameter directly for multi-tapering"
-        raise SPYValueError(legal=lgl, varname='taper', actual=taper)
+        raise SPYValueError(legal=lgl, varname="taper", actual=taper)
 
     # no tapering at all
     if taper is None and tapsmofrq is None:
@@ -246,14 +264,14 @@ def process_taper(taper,
         supported_kws = list(parameters.keys())
         # 'M' is the kw for the window length
         # for all of scipy's windows
-        supported_kws.remove('M')
-        supported_kws.remove('sym')
+        supported_kws.remove("M")
+        supported_kws.remove("sym")
 
         if taper_opt is not None:
 
             if len(supported_kws) == 0:
                 lgl = f"`None`, taper '{taper}' has no additional parameters"
-                raise SPYValueError(lgl, varname='taper_opt', actual=taper_opt)
+                raise SPYValueError(lgl, varname="taper_opt", actual=taper_opt)
 
             for key in taper_opt:
                 if key not in supported_kws:
@@ -268,16 +286,16 @@ def process_taper(taper,
 
         elif len(supported_kws) > 0:
             lgl = f"additional parameters for taper '{taper}': {supported_kws}"
-            raise SPYValueError(lgl, varname='taper_opt', actual=taper_opt)
+            raise SPYValueError(lgl, varname="taper_opt", actual=taper_opt)
         else:
             # taper_opt was None and taper needs no additional parameters
             return taper, {}
 
     # -- multi-tapering --
     else:
-        if taper != 'hann':
+        if taper != "hann":
             lgl = "`None` for multi-tapering, just set `tapsmofrq`"
-            raise SPYValueError(lgl, varname='taper', actual=taper)
+            raise SPYValueError(lgl, varname="taper", actual=taper)
 
         if taper_opt is not None:
             msg = "For multi-tapering use `tapsmofrq` and `nTaper` to control frequency smoothing, `taper_opt` has no effect"
@@ -285,9 +303,12 @@ def process_taper(taper,
 
         # direct mtm estimate (averaging) only valid for spectral power
         if not keeptapers and output != "pow":
-            lgl = (f"'pow'|False or '{output}'|True, set either keeptapers=True "
-                   "or `output='pow'`!")
-            raise SPYValueError(legal=lgl, varname="output|keeptapers", actual=f"'{output}'|{keeptapers}")
+            lgl = f"'pow'|False or '{output}'|True, set either keeptapers=True " "or `output='pow'`!"
+            raise SPYValueError(
+                legal=lgl,
+                varname="output|keeptapers",
+                actual=f"'{output}'|{keeptapers}",
+            )
 
         # --- minimal smoothing bandwidth ---
         # --- such that Kmax/nTaper is at least 1
@@ -296,8 +317,12 @@ def process_taper(taper,
 
         # --- maximal smoothing bandwidth ---
         # --- such that Kmax < nSamples and NW < nSamples / 2
-        maxBw = np.min([samplerate / 2 - 1 / nSamples,
-                        samplerate * (nSamples + 1) / (2 * nSamples)])
+        maxBw = np.min(
+            [
+                samplerate / 2 - 1 / nSamples,
+                samplerate * (nSamples + 1) / (2 * nSamples),
+            ]
+        )
         # -----------------------------------
 
         try:
@@ -307,12 +332,12 @@ def process_taper(taper,
             raise SPYValueError(legal=lgl, varname="tapsmofrq", actual=tapsmofrq)
 
         if tapsmofrq < minBw:
-            msg = f'Setting tapsmofrq to the minimal attainable bandwidth of {minBw:.2f}Hz'
+            msg = f"Setting tapsmofrq to the minimal attainable bandwidth of {minBw:.2f}Hz"
             SPYInfo(msg)
             tapsmofrq = minBw
 
         if tapsmofrq > maxBw:
-            msg = f'Setting tapsmofrq to the maximal attainable bandwidth of {maxBw:.2f}Hz'
+            msg = f"Setting tapsmofrq to the maximal attainable bandwidth of {maxBw:.2f}Hz"
             SPYInfo(msg)
             tapsmofrq = maxBw
 
@@ -327,27 +352,25 @@ def process_taper(taper,
         # the recommended way:
         # set nTaper automatically to achieve exact effective smoothing bandwidth
         if nTaper is None:
-            msg = f'Using {Kmax} taper(s) for multi-tapering'
+            msg = f"Using {Kmax} taper(s) for multi-tapering"
             SPYInfo(msg)
-            dpss_opt = {'NW': NW, 'Kmax': Kmax}
-            return 'dpss', dpss_opt
+            dpss_opt = {"NW": NW, "Kmax": Kmax}
+            return "dpss", dpss_opt
 
         elif nTaper is not None:
 
-            scalar_parser(nTaper,
-                          varname="nTaper",
-                          ntype="int_like", lims=[1, np.inf])
+            scalar_parser(nTaper, varname="nTaper", ntype="int_like", lims=[1, np.inf])
 
             if nTaper != Kmax:
-                msg = f'''
+                msg = f"""
                 Manually setting the number of tapers is not recommended
                 and may (strongly) distort the effective smoothing bandwidth!\n
                 The optimal number of tapers is {Kmax}, you have chosen to use {nTaper}.
-                '''
+                """
                 SPYWarning(msg)
 
-            dpss_opt = {'NW': NW, 'Kmax': nTaper}
-            return 'dpss', dpss_opt
+            dpss_opt = {"NW": NW, "Kmax": nTaper}
+            return "dpss", dpss_opt
 
 
 def check_effective_parameters(CR, defaults, lcls, besides=None):
@@ -379,7 +402,7 @@ def check_effective_parameters(CR, defaults, lcls, besides=None):
     for name in relevant:
         if name not in expected and (lcls[name] != defaults[name]):
             msg = f"option `{name}` has no effect for `{CR.__name__}`!"
-            SPYWarning(msg, caller=__name__.split('.')[-1])
+            SPYWarning(msg, caller=__name__.split(".")[-1])
 
 
 def check_passed_kwargs(lcls, defaults, frontend_name):
@@ -397,12 +420,12 @@ def check_passed_kwargs(lcls, defaults, frontend_name):
         return
 
     relevant = list(kw_dict.keys())
-    expected = [name for name in defaults] + ['chan_per_worker']
+    expected = [name for name in defaults] + ["chan_per_worker"]
 
     for name in relevant:
         if name not in expected:
             msg = f"option `{name}` has no effect in `{frontend_name}`!"
-            SPYWarning(msg, caller=__name__.split('.')[-1])
+            SPYWarning(msg, caller=__name__.split(".")[-1])
 
 
 def _nextpow2(number):

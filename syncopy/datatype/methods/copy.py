@@ -49,11 +49,8 @@ def copy(spydata):
     # Make sure `data` is a valid Syncopy data object
     data_parser(spydata, varname="data", writable=None, empty=False)
 
-    dsize = np.prod(spydata.data.shape) * spydata.data.dtype.itemsize / 1024 ** 2
-    msg = (
-        f"Copying {dsize:.2f} MB of data "
-        f"to create new {spydata.__class__.__name__} object on disk"
-    )
+    dsize = np.prod(spydata.data.shape) * spydata.data.dtype.itemsize / 1024**2
+    msg = f"Copying {dsize:.2f} MB of data " f"to create new {spydata.__class__.__name__} object on disk"
     SPYInfo(msg)
 
     # Shallow copy, captures also non-default/temporary attributes.

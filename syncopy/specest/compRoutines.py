@@ -36,20 +36,20 @@ from .fooofspy import fooofspy
 # Local imports
 from syncopy.shared.errors import SPYValueError, SPYWarning, SPYParallelLog
 from syncopy.shared.tools import best_match
-from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
+from syncopy.shared.computational_routine import (
+    ComputationalRoutine,
+    propagate_properties,
+)
 from syncopy.shared.kwarg_decorators import process_io
 from syncopy.shared.metadata import (
     encode_unique_md_label,
     decode_unique_md_label,
     metadata_from_hdf5_file,
     check_freq_hashes,
-    metadata_nest
+    metadata_nest,
 )
 
-from syncopy.shared.const_def import (
-    spectralConversions,
-    spectralDTypes
-)
+from syncopy.shared.const_def import spectralConversions, spectralDTypes
 
 # -----------------------
 # MultiTaper FFT
@@ -57,9 +57,17 @@ from syncopy.shared.const_def import (
 
 
 @process_io
-def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
-              polyremoval=None, output="pow",
-              noCompute=False, chunkShape=None, method_kwargs=None):
+def mtmfft_cF(
+    trl_dat,
+    foi=None,
+    timeAxis=0,
+    keeptapers=True,
+    polyremoval=None,
+    output="pow",
+    noCompute=False,
+    chunkShape=None,
+    method_kwargs=None,
+):
 
     """
     Compute (multi-)tapered Fourier transform of multi-channel time series data
@@ -133,14 +141,14 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     """
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
+        dat = trl_dat.T  # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
 
-    if method_kwargs['nSamples'] is None:
+    if method_kwargs["nSamples"] is None:
         nSamples = dat.shape[0]
     else:
-        nSamples = method_kwargs['nSamples']
+        nSamples = method_kwargs["nSamples"]
 
     nChannels = dat.shape[1]
 
@@ -149,7 +157,7 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     freqs = np.fft.rfftfreq(nSamples, 1 / method_kwargs["samplerate"])
     _, freq_idx = best_match(freqs, foi, squash_duplicates=True)
     nFreq = freq_idx.size
-    nTaper = method_kwargs["taper_opt"].get('Kmax', 1)
+    nTaper = method_kwargs["taper_opt"].get("Kmax", 1)
     outShape = (1, max(1, nTaper * keeptapers), nFreq, nChannels)
 
     # For initialization of computational routine,
@@ -159,9 +167,9 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
 
     # detrend, does not work with 'FauxTrial' data..
     if polyremoval == 0:
-        dat = signal.detrend(dat, type='constant', axis=0, overwrite_data=True)
+        dat = signal.detrend(dat, type="constant", axis=0, overwrite_data=True)
     elif polyremoval == 1:
-        dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
+        dat = signal.detrend(dat, type="linear", axis=0, overwrite_data=True)
 
     # call actual specest method
     res, freqs = mtmfft(dat, **method_kwargs)
@@ -171,8 +179,8 @@ def mtmfft_cF(trl_dat, foi=None, timeAxis=0, keeptapers=True,
     spec = spectralConversions[output](spec)
 
     # Hash the freqs and add to second return value.
-    freqs_hash = blake2b(freqs).hexdigest().encode('utf-8')
-    metadata = {'freqs_hash': np.array(freqs_hash)}  # Will have dtype='|S128'
+    freqs_hash = blake2b(freqs).hexdigest().encode("utf-8")
+    metadata = {"freqs_hash": np.array(freqs_hash)}  # Will have dtype='|S128'
 
     # Average across tapers if wanted
     # averaging is only valid spectral estimate
@@ -202,7 +210,7 @@ class MultiTaperFFT(ComputationalRoutine):
     valid_kws = list(signature(mtmfft).parameters.keys())[1:]
     valid_kws += list(signature(mtmfft_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
-    valid_kws += ['tapsmofrq', 'nTaper', 'pad', 'fooof_opt']
+    valid_kws += ["tapsmofrq", "nTaper", "pad", "fooof_opt"]
 
     def process_metadata(self, data, out):
 
@@ -216,10 +224,10 @@ class MultiTaperFFT(ComputationalRoutine):
 
         taper_kw = self.cfg["method_kwargs"]["taper"]
         if taper_kw is None:
-            out.taper = np.array(['None'])
+            out.taper = np.array(["None"])
         # multi-tapering
-        elif taper_kw == 'dpss':
-            nTaper =  self.outputShape[out.dimord.index("taper")]
+        elif taper_kw == "dpss":
+            nTaper = self.outputShape[out.dimord.index("taper")]
             out.taper = np.array([taper_kw + str(i) for i in range(nTaper)])
         # just a single taper
         else:
@@ -235,15 +243,22 @@ class MultiTaperFFT(ComputationalRoutine):
 # Local workhorse that performs the computational heavy lifting
 @process_io
 def mtmconvol_cF(
-        trl_dat,
-        soi,
-        postselect,
-        equidistant=True,
-        toi=None,
-        foi=None,
-        nTaper=1, tapsmofrq=None, timeAxis=0,
-        keeptapers=True, polyremoval=0, output="pow",
-        noCompute=False, chunkShape=None, method_kwargs=None):
+    trl_dat,
+    soi,
+    postselect,
+    equidistant=True,
+    toi=None,
+    foi=None,
+    nTaper=1,
+    tapsmofrq=None,
+    timeAxis=0,
+    keeptapers=True,
+    polyremoval=0,
+    output="pow",
+    noCompute=False,
+    chunkShape=None,
+    method_kwargs=None,
+):
     """
     Perform time-frequency analysis on multi-channel time series data using a sliding window FFT
 
@@ -335,22 +350,22 @@ def mtmconvol_cF(
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = trl_dat.T       # does not copy but creates view of `trl_dat`
+        dat = trl_dat.T  # does not copy but creates view of `trl_dat`
     else:
         dat = trl_dat
 
     # Get shape of output for dry-run phase
     nChannels = dat.shape[1]
-    if isinstance(toi, np.ndarray):     # `toi` is an array of time-points
+    if isinstance(toi, np.ndarray):  # `toi` is an array of time-points
         nTime = toi.size
         stftBdry = None
         stftPad = False
-    else:                               # `toi` is either 'all' or a percentage
-        nTime = np.ceil(dat.shape[0] / (method_kwargs['nperseg'] - method_kwargs['noverlap'])).astype(np.intp)
+    else:  # `toi` is either 'all' or a percentage
+        nTime = np.ceil(dat.shape[0] / (method_kwargs["nperseg"] - method_kwargs["noverlap"])).astype(np.intp)
         stftBdry = "zeros"
         stftPad = True
     nFreq = foi.size
-    taper_opt = method_kwargs['taper_opt']
+    taper_opt = method_kwargs["taper_opt"]
     if taper_opt:
         nTaper = taper_opt.get("Kmax", 1)
     outShape = (nTime, max(1, nTaper * keeptapers), nFreq, nChannels)
@@ -359,16 +374,14 @@ def mtmconvol_cF(
 
     # detrending options for each segment
     if polyremoval == 0:
-        detrend = 'constant'
+        detrend = "constant"
     elif polyremoval == 1:
-        detrend = 'linear'
+        detrend = "linear"
     else:
         detrend = False
 
     # additional keyword args for `stft` in dictionary
-    method_kwargs.update({"boundary": stftBdry,
-                          "padded": stftPad,
-                          "detrend": detrend})
+    method_kwargs.update({"boundary": stftBdry, "padded": stftPad, "detrend": detrend})
 
     if equidistant:
         ftr, freqs = mtmconvol(dat[soi, :], **method_kwargs)
@@ -379,8 +392,8 @@ def mtmconvol_cF(
     else:
         # in this case only a single window gets centered on
         # every individual soi, so we can use mtmfft!
-        samplerate = method_kwargs['samplerate']
-        taper = method_kwargs['taper']
+        samplerate = method_kwargs["samplerate"]
+        taper = method_kwargs["taper"]
 
         # In case tapers aren't preserved allocate `spec` "too big"
         # and average afterwards
@@ -399,6 +412,7 @@ def mtmconvol_cF(
     if not keeptapers:
         return np.nanmean(spec, axis=1, keepdims=True)
     return spec
+
 
 class MultiTaperFFTConvol(ComputationalRoutine):
     """
@@ -419,7 +433,7 @@ class MultiTaperFFTConvol(ComputationalRoutine):
     valid_kws = list(signature(mtmconvol).parameters.keys())[1:]
     valid_kws += list(signature(mtmconvol_cF).parameters.keys())[1:]
     # hardcode some parameter names which got digested from the frontend
-    valid_kws += ['tapsmofrq', 't_ftimwin', 'nTaper']
+    valid_kws += ["tapsmofrq", "t_ftimwin", "nTaper"]
 
     def process_metadata(self, data, out):
 
@@ -448,10 +462,10 @@ class MultiTaperFFTConvol(ComputationalRoutine):
 
         taper_kw = self.cfg["method_kwargs"]["taper"]
         if taper_kw is None:
-            out.taper = np.array(['None'])
+            out.taper = np.array(["None"])
         # multi-tapering
-        elif taper_kw == 'dpss':
-            nTaper =  self.outputShape[out.dimord.index("taper")]
+        elif taper_kw == "dpss":
+            nTaper = self.outputShape[out.dimord.index("taper")]
             out.taper = np.array([taper_kw + str(i) for i in range(nTaper)])
         # just a single taper
         else:
@@ -566,9 +580,9 @@ def wavelet_cF(
 
     # detrend, does not work with 'FauxTrial' data..
     if polyremoval == 0:
-        dat = signal.detrend(dat, type='constant', axis=0, overwrite_data=True)
+        dat = signal.detrend(dat, type="constant", axis=0, overwrite_data=True)
     elif polyremoval == 1:
-        dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
+        dat = signal.detrend(dat, type="linear", axis=0, overwrite_data=True)
 
     # ------------------
     # actual method call
@@ -629,7 +643,7 @@ class WaveletTransform(ComputationalRoutine):
         out.freq = 1 / self.cfg["method_kwargs"]["wavelet"].fourier_period(
             self.cfg["method_kwargs"]["scales"]
         )
-        out.taper = np.array(['None'])
+        out.taper = np.array(["None"])
 
 
 # -----------------
@@ -734,9 +748,9 @@ def superlet_cF(
 
     # detrend, does not work with 'FauxTrial' data..
     if polyremoval == 0:
-        dat = signal.detrend(dat, type='constant', axis=0, overwrite_data=True)
+        dat = signal.detrend(dat, type="constant", axis=0, overwrite_data=True)
     elif polyremoval == 1:
-        dat = signal.detrend(dat, type='linear', axis=0, overwrite_data=True)
+        dat = signal.detrend(dat, type="linear", axis=0, overwrite_data=True)
 
     # ------------------
     # actual method call
@@ -793,7 +807,7 @@ class SuperletTransform(ComputationalRoutine):
         out.channel = np.array(data.channel[chanSec])
         # for the SL Morlets the conversion is straightforward
         out.freq = 1 / (2 * np.pi * self.cfg["method_kwargs"]["scales"])
-        out.taper = np.array(['None'])
+        out.taper = np.array(["None"])
 
 
 def _make_trialdef(cfg, trialdefinition, samplerate):
@@ -865,7 +879,7 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
     # If `toi` was a percentage, some cumsum/winSize algebra is required
     # Note: if `toi` was "all", simply use provided `trialdefinition` and `samplerate`
     elif np.issubdtype(type(toi), np.number):
-        mKw = cfg['method_kwargs']
+        mKw = cfg["method_kwargs"]
         winSize = mKw["nperseg"] - mKw["noverlap"]
         trialdefinitionLens = np.ceil(np.diff(trialdefinition[:, :2]) / winSize)
         sumLens = np.cumsum(trialdefinitionLens).reshape(trialdefinitionLens.shape)
@@ -888,9 +902,18 @@ def _make_trialdef(cfg, trialdefinition, samplerate):
 # FOOOF
 # -----------------------
 
+
 @process_io
-def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
-                output='fooof', fooof_settings=None, noCompute=False, chunkShape=None, method_kwargs=None):
+def fooofspy_cF(
+    trl_dat,
+    foi=None,
+    timeAxis=0,
+    output="fooof",
+    fooof_settings=None,
+    noCompute=False,
+    chunkShape=None,
+    method_kwargs=None,
+):
     """
     Run FOOOF
 
@@ -938,22 +961,28 @@ def fooofspy_cF(trl_dat, foi=None, timeAxis=0,
     syncopy.freqanalysis : parent metafunction
     """
     if timeAxis != 0:
-        raise SPYValueError("timeaxis of input spectral data to be 0. Non-standard axes not supported with FOOOF.", actual=timeAxis)
+        raise SPYValueError(
+            "timeaxis of input spectral data to be 0. Non-standard axes not supported with FOOOF.",
+            actual=timeAxis,
+        )
 
     outShape = trl_dat.shape
     # For initialization of computational routine,
     # just return output shape and dtype
     if noCompute:
-        return outShape, spectralDTypes['pow']
-
-
+        return outShape, spectralDTypes["pow"]
 
     # Call actual fooof method
-    res, metadata = fooofspy(trl_dat[0, 0, :, :], in_freqs=fooof_settings['in_freqs'], freq_range=fooof_settings['freq_range'], out_type=output,
-                      fooof_opt=method_kwargs)
+    res, metadata = fooofspy(
+        trl_dat[0, 0, :, :],
+        in_freqs=fooof_settings["in_freqs"],
+        freq_range=fooof_settings["freq_range"],
+        out_type=output,
+        fooof_opt=method_kwargs,
+    )
 
-    if 'settings_used' in metadata:
-        del metadata['settings_used']  # We like to keep this in the return value of the
+    if "settings_used" in metadata:
+        del metadata["settings_used"]  # We like to keep this in the return value of the
     # backend functions for now (the vast majority of unit tests rely on it), but
     # nested dicts are not allowed in the additional return value of cFs, so we remove
     # it before passing the return value on.
@@ -991,13 +1020,22 @@ class FooofSpy(ComputationalRoutine):
     #: Please
     #: refer to the `FOOOF docs <https://fooof-tools.github.io/fooof/generated/fooof.FOOOF.html#fooof.FOOOF>`_
     #: for the meanings.
-    metadata_keys = ('aperiodic_params', 'error', 'gaussian_params', 'n_peaks', 'peak_params', 'r_squared',)
-
+    metadata_keys = (
+        "aperiodic_params",
+        "error",
+        "gaussian_params",
+        "n_peaks",
+        "peak_params",
+        "r_squared",
+    )
 
     # To attach metadata to the output of the CF
     def process_metadata(self, data, out):
 
-        SPYParallelLog(f"Fetching FOOOF output metadata from file '{out.filename}'.", loglevel="DEBUG")
+        SPYParallelLog(
+            f"Fetching FOOOF output metadata from file '{out.filename}'.",
+            loglevel="DEBUG",
+        )
 
         # General-purpose loading of metadata.
         mdata = metadata_from_hdf5_file(out.filename)
@@ -1006,13 +1044,19 @@ class FooofSpy(ComputationalRoutine):
         # made in the call to `freqanalysis`, because the mtmfft run before will have
         # consumed them. So the trial indices are always relative.
 
-        SPYParallelLog(f"Decoding FOOOF output metadata from HDF5 datastructures.", loglevel="DEBUG")
+        SPYParallelLog(
+            f"Decoding FOOOF output metadata from HDF5 datastructures.",
+            loglevel="DEBUG",
+        )
 
         # Backend-specific post-processing. May or may not be needed, depending on what
         # you need to do in the cF to fit the return values into hdf5.
         out.metadata = metadata_nest(FooofSpy.decode_metadata_fooof_alltrials_from_hdf5(mdata))
 
-        SPYParallelLog(f"Copying recording information to output syncopy data instance.", loglevel="DEBUG")
+        SPYParallelLog(
+            f"Copying recording information to output syncopy data instance.",
+            loglevel="DEBUG",
+        )
 
         # Some index gymnastics to get trial begin/end "samples"
         if data.selection is not None:
@@ -1028,7 +1072,7 @@ class FooofSpy(ComputationalRoutine):
 
     @staticmethod
     def encode_singletrial_metadata_fooof_for_hdf5(metadata_fooof_backend):
-        """ Reformat the gaussian and peak params for inclusion in the 2nd return value and hdf5 file.
+        """Reformat the gaussian and peak params for inclusion in the 2nd return value and hdf5 file.
 
         For several channels, the number of peaks may differ, and thus we cannot simply
         call something like `np.array(gaussian_params)` in that case, as that will create
@@ -1039,8 +1083,8 @@ class FooofSpy(ComputationalRoutine):
         see from the `n_peaks` return value how many (and thus which) rows belong to
         which channel.
         """
-        metadata_fooof_backend['gaussian_params'] = np.vstack(metadata_fooof_backend['gaussian_params'])
-        metadata_fooof_backend['peak_params'] = np.vstack(metadata_fooof_backend['peak_params'])
+        metadata_fooof_backend["gaussian_params"] = np.vstack(metadata_fooof_backend["gaussian_params"])
+        metadata_fooof_backend["peak_params"] = np.vstack(metadata_fooof_backend["peak_params"])
         return metadata_fooof_backend
 
     @staticmethod
@@ -1066,12 +1110,17 @@ class FooofSpy(ComputationalRoutine):
             label, trial_idx, call_idx = decode_unique_md_label(unique_attr_label)
             if label == "n_peaks":
                 n_peaks = v
-                SPYParallelLog(f"FOOOF detected {n_peaks} peaks in data of trial {trial_idx} call {call_idx}.", loglevel="DEBUG")
+                SPYParallelLog(
+                    f"FOOOF detected {n_peaks} peaks in data of trial {trial_idx} call {call_idx}.",
+                    loglevel="DEBUG",
+                )
                 gaussian_params_out = list()
                 peak_params_out = list()
                 start_idx = 0
-                unique_attr_label_gaussian_params = encode_unique_md_label('gaussian_params', trial_idx, call_idx)
-                unique_attr_label_peak_params = encode_unique_md_label('peak_params', trial_idx, call_idx)
+                unique_attr_label_gaussian_params = encode_unique_md_label(
+                    "gaussian_params", trial_idx, call_idx
+                )
+                unique_attr_label_peak_params = encode_unique_md_label("peak_params", trial_idx, call_idx)
                 gaussian_params_in = metadata_fooof_hdf5[unique_attr_label_gaussian_params]
                 peak_params_in = metadata_fooof_hdf5[unique_attr_label_peak_params]
                 for trial_idx in range(len(n_peaks)):

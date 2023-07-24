@@ -9,7 +9,12 @@ import syncopy as spy
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 
-__all__ = ["raw_adata_to_mne_raw", "raw_mne_to_adata", "tldata_to_mne_epochs", "mne_epochs_to_tldata"]
+__all__ = [
+    "raw_adata_to_mne_raw",
+    "raw_mne_to_adata",
+    "tldata_to_mne_epochs",
+    "mne_epochs_to_tldata",
+]
 
 
 def raw_adata_to_mne_raw(adata):
@@ -32,9 +37,15 @@ def raw_adata_to_mne_raw(adata):
     except ImportError:
         raise ImportError("MNE Python not installed, but package 'mne' is required for this function.")
     data_parser(adata, varname="adata", dataclass="AnalogData")
-    if len(adata.trials) > 1:  # Check that we have single-trial data, otherwise our concatination of trials along the time axis will lead to unexpected results in the exported data.
-        raise SPYValueError(legal="AnalogData instance with no trial definition, or a single trial spanning the full data", varname="adata", actual=f"AnalogData instance with {len(adata.trials)} trials.")
-    info = mne.io.meas_info.create_info(list(adata.channel), adata.samplerate, ch_types='misc')
+    if (
+        len(adata.trials) > 1
+    ):  # Check that we have single-trial data, otherwise our concatination of trials along the time axis will lead to unexpected results in the exported data.
+        raise SPYValueError(
+            legal="AnalogData instance with no trial definition, or a single trial spanning the full data",
+            varname="adata",
+            actual=f"AnalogData instance with {len(adata.trials)} trials.",
+        )
+    info = mne.io.meas_info.create_info(list(adata.channel), adata.samplerate, ch_types="misc")
     offset = adata.trialdefinition[0, 2]  # offset in samples, identical over trials.
     ar = mne.io.RawArray((adata.data[()]).T, info, first_samp=offset)
     return ar
@@ -62,16 +73,20 @@ def raw_mne_to_adata(ar):
     if type(ar) != mne.io.RawArray:
         raise SPYTypeError(ar, varname="ar", expected="mne.io.RawArray")
 
-    adata = spy.AnalogData(data=ar.get_data().T, samplerate=ar.info['sfreq'], channel=ar.ch_names)
+    adata = spy.AnalogData(data=ar.get_data().T, samplerate=ar.info["sfreq"], channel=ar.ch_names)
 
-    samplerate = ar.info['sfreq']
+    samplerate = ar.info["sfreq"]
     offset = ar.first_samp
 
     # set offset in trial definition
     nSamples = ar.get_data().shape[1]
-    trldef = np.vstack([np.arange(0, nSamples, nSamples),
-                        np.arange(0, nSamples, nSamples) + nSamples,
-                        np.ones(1) * offset]).T
+    trldef = np.vstack(
+        [
+            np.arange(0, nSamples, nSamples),
+            np.arange(0, nSamples, nSamples) + nSamples,
+            np.ones(1) * offset,
+        ]
+    ).T
     adata.trialdefinition = trldef
 
     return adata
@@ -98,24 +113,31 @@ def tldata_to_mne_epochs(tldata):
 
     if type(tldata) == spy.AnalogData:
         if not tldata.is_time_locked:
-            raise SPYValueError(legal="TimeLockData instance, or AnalogData instance with is_time_locked == True", varname="tldata", actual=f"AnalogData instance with is_time_locked == False")
+            raise SPYValueError(
+                legal="TimeLockData instance, or AnalogData instance with is_time_locked == True",
+                varname="tldata",
+                actual=f"AnalogData instance with is_time_locked == False",
+            )
 
-    info = mne.io.meas_info.create_info(list(tldata.channel), tldata.samplerate, ch_types='misc')
+    info = mne.io.meas_info.create_info(list(tldata.channel), tldata.samplerate, ch_types="misc")
 
     # for MNE, the data needs to have shape (n_epochs, n_channels, n_times) but our
     # TimeLockData has shape (n_times, n_channels) with trials concatenated along the time axis
     num_trials = len(tldata.trials)
     num_channels = len(tldata.channel)
-    trial_len = tldata.trials[0].shape[0]  # Known to be identical for all trials to due to is_time_locked() check
+    trial_len = tldata.trials[0].shape[
+        0
+    ]  # Known to be identical for all trials to due to is_time_locked() check
     data_with_trial_axis = np.zeros((num_trials, num_channels, trial_len), dtype=tldata.data.dtype)
     for trial_idx in range(len(tldata.trials)):
-        data_with_trial_axis[trial_idx,:,:] = tldata.trials[trial_idx].T
+        data_with_trial_axis[trial_idx, :, :] = tldata.trials[trial_idx].T
 
     offset = tldata.trialdefinition[0, 2]  # offset in samples, identical over trials.
-    tmin = - offset / tldata.samplerate
+    tmin = -offset / tldata.samplerate
 
     ea = mne.EpochsArray(data_with_trial_axis, info, tmin=tmin)
     return ea
+
 
 def mne_epochs_to_tldata(ea):
     """
@@ -145,16 +167,20 @@ def mne_epochs_to_tldata(ea):
     spy_data = np.zeros((n_times * n_epochs, n_channels), dtype=np.float32)
 
     for chan_idx in range(n_channels):
-        spy_data[:, chan_idx] = ea.get_data()[:,chan_idx,:].flatten()
+        spy_data[:, chan_idx] = ea.get_data()[:, chan_idx, :].flatten()
 
-    samplerate = ea.info['sfreq']
+    samplerate = ea.info["sfreq"]
     tldata = spy.AnalogData(data=spy_data, samplerate=samplerate, channel=ea.ch_names)
 
-    offset = -ea.tmin * samplerate # offset in samples
+    offset = -ea.tmin * samplerate  # offset in samples
 
     nSamples = n_times
-    trldef = np.vstack([np.arange(0, nSamples * n_epochs, nSamples),
-                        np.arange(0, nSamples * n_epochs, nSamples) + nSamples,
-                        np.ones(n_epochs) * offset]).T
+    trldef = np.vstack(
+        [
+            np.arange(0, nSamples * n_epochs, nSamples),
+            np.arange(0, nSamples * n_epochs, nSamples) + nSamples,
+            np.ones(n_epochs) * offset,
+        ]
+    ).T
     tldata.trialdefinition = trldef
     return tldata

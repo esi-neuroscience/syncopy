@@ -12,16 +12,19 @@ import logging
 import platform
 
 # Constants
-available_fooof_out_types = ['fooof', 'fooof_aperiodic', 'fooof_peaks']
-default_fooof_opt = {'peak_width_limits': (0.5, 12.0), 'max_n_peaks': np.inf,
-                     'min_peak_height': 0.0, 'peak_threshold': 2.0,
-                     'aperiodic_mode': 'fixed', 'verbose': False}
+available_fooof_out_types = ["fooof", "fooof_aperiodic", "fooof_peaks"]
+default_fooof_opt = {
+    "peak_width_limits": (0.5, 12.0),
+    "max_n_peaks": np.inf,
+    "min_peak_height": 0.0,
+    "peak_threshold": 2.0,
+    "aperiodic_mode": "fixed",
+    "verbose": False,
+}
 available_fooof_options = list(default_fooof_opt)
 
 
-def fooofspy(data_arr, in_freqs, freq_range=None,
-             fooof_opt=None,
-             out_type='fooof'):
+def fooofspy(data_arr, in_freqs, freq_range=None, fooof_opt=None, out_type="fooof"):
     """
     Parameterization of neural power spectra using
     the FOOOF mothod by Donoghue et al: fitting oscillations & one over f.
@@ -94,23 +97,39 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         fooof_opt = {**default_fooof_opt, **fooof_opt}
 
     if in_freqs is None:
-        raise ValueError('infreqs: The input frequencies are required and must not be None.')
+        raise ValueError("infreqs: The input frequencies are required and must not be None.")
 
     logger = logging.getLogger("syncopy_" + platform.node())
     logger.debug(f"Running FOOOF backend function on data chunk with shape {data_arr.shape}.")
 
     invalid_fooof_opts = [i for i in fooof_opt.keys() if i not in available_fooof_options]
     if invalid_fooof_opts:
-        raise ValueError("fooof_opt: invalid keys: '{inv}', allowed keys are: '{lgl}'.".format(inv=invalid_fooof_opts, lgl=fooof_opt.keys()))
+        raise ValueError(
+            "fooof_opt: invalid keys: '{inv}', allowed keys are: '{lgl}'.".format(
+                inv=invalid_fooof_opts, lgl=fooof_opt.keys()
+            )
+        )
 
     if out_type not in available_fooof_out_types:
-        raise ValueError("out_type: invalid value '{inv}', expected one of '{lgl}'.".format(inv=out_type, lgl=available_fooof_out_types))
+        raise ValueError(
+            "out_type: invalid value '{inv}', expected one of '{lgl}'.".format(
+                inv=out_type, lgl=available_fooof_out_types
+            )
+        )
 
     if in_freqs.size != data_arr.shape[0]:
-        raise ValueError("data_arr/in_freqs: The signal length {sl} must match the number of frequency labels {ll}.".format(sl=data_arr.shape[0], ll=in_freqs.size))
+        raise ValueError(
+            "data_arr/in_freqs: The signal length {sl} must match the number of frequency labels {ll}.".format(
+                sl=data_arr.shape[0], ll=in_freqs.size
+            )
+        )
 
     if in_freqs[0] == 0:
-        raise ValueError("in_freqs: invalid frequency range {minf} to {maxf}, expected a frequency range that does not include zero.".format(minf=min(in_freqs), maxf=max(in_freqs)))
+        raise ValueError(
+            "in_freqs: invalid frequency range {minf} to {maxf}, expected a frequency range that does not include zero.".format(
+                minf=min(in_freqs), maxf=max(in_freqs)
+            )
+        )
 
     num_channels = data_arr.shape[1]
 
@@ -118,13 +137,13 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
 
     # Prepare output data structures
     out_spectra = np.zeros_like(data_arr, data_arr.dtype)
-    if fm.aperiodic_mode == 'knee':
+    if fm.aperiodic_mode == "knee":
         aperiodic_params = np.zeros(shape=(3, num_channels), dtype=np.float64)
     else:
         aperiodic_params = np.zeros(shape=(2, num_channels), dtype=np.float64)
-    n_peaks = np.zeros(shape=(num_channels), dtype=np.int32)    # helper: number of peaks fit.
+    n_peaks = np.zeros(shape=(num_channels), dtype=np.int32)  # helper: number of peaks fit.
     r_squared = np.zeros(shape=(num_channels), dtype=np.float64)  # helper: R squared of fit.
-    error = np.zeros(shape=(num_channels), dtype=np.float64)      # helper: model error.
+    error = np.zeros(shape=(num_channels), dtype=np.float64)  # helper: model error.
     gaussian_params = list()  # Gaussian fit parameters of peaks
     peak_params = list()  # Peak fit parameters, a modified version of gaussian_parameters. See FOOOF docs.
 
@@ -135,7 +154,7 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
 
         # compute aperiodic fit
         offset = fm.aperiodic_params_[0]
-        if fm.aperiodic_mode == 'fixed':
+        if fm.aperiodic_mode == "fixed":
             exp = fm.aperiodic_params_[1]
             aperiodic_spec = offset - np.log10(in_freqs**exp)
         else:  # fm.aperiodic_mode == 'knee':
@@ -143,15 +162,21 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
             exp = fm.aperiodic_params_[2]
             aperiodic_spec = offset - np.log10(knee + in_freqs**exp)
 
-        if out_type == 'fooof':
-            out_spectrum = 10 ** fm.fooofed_spectrum_  # The powers. Need to undo log10, which is used internally by fooof.
+        if out_type == "fooof":
+            out_spectrum = (
+                10**fm.fooofed_spectrum_
+            )  # The powers. Need to undo log10, which is used internally by fooof.
         elif out_type == "fooof_aperiodic":
-            out_spectrum = 10 ** aperiodic_spec
+            out_spectrum = 10**aperiodic_spec
         elif out_type == "fooof_peaks":
-            out_spectrum = (10 ** fm.fooofed_spectrum_) - (10 ** aperiodic_spec)
+            out_spectrum = (10**fm.fooofed_spectrum_) - (10**aperiodic_spec)
             out_spectrum += 1e-16  # Prevent zero values in areas without peaks/periodic parts. These would result in log plotting issues.
         else:
-            raise ValueError("out_type: invalid value '{inv}', expected one of '{lgl}'.".format(inv=out_type, lgl=available_fooof_out_types))
+            raise ValueError(
+                "out_type: invalid value '{inv}', expected one of '{lgl}'.".format(
+                    inv=out_type, lgl=available_fooof_out_types
+                )
+            )
 
         out_spectra[:, channel_idx] = out_spectrum
         aperiodic_params[:, channel_idx] = fm.aperiodic_params_
@@ -161,16 +186,25 @@ def fooofspy(data_arr, in_freqs, freq_range=None,
         gaussian_params.append(fm.gaussian_params_)
         peak_params.append(fm.peak_params_)
 
-    settings_used = {'fooof_opt': fooof_opt, 'out_type': out_type, 'freq_range': freq_range}
+    settings_used = {
+        "fooof_opt": fooof_opt,
+        "out_type": out_type,
+        "freq_range": freq_range,
+    }
     #  Note: we add the 'settings_used' here in the backend, but they get stripped in the middle layer
     #       (in the 'compRoutines.py/fooofspy_cF()'), so they do not reach the frontend.
     #        The reason for removing them there is that we/h5py do not support nested dicts as
     #        dataset/group attributes, and thus we cannot encode them in hdf5. We could work around
     #        that, but due to our log, we do not really need to.
     #        Returning them from here still has the benefit that we can test for them in backend tests.
-    metadata = {'aperiodic_params': aperiodic_params, 'gaussian_params': gaussian_params,
-               'peak_params': peak_params, 'n_peaks': n_peaks, 'r_squared': r_squared,
-               'error': error, 'settings_used': settings_used}
+    metadata = {
+        "aperiodic_params": aperiodic_params,
+        "gaussian_params": gaussian_params,
+        "peak_params": peak_params,
+        "n_peaks": n_peaks,
+        "r_squared": r_squared,
+        "error": error,
+        "settings_used": settings_used,
+    }
 
     return out_spectra, metadata
-

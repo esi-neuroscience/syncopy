@@ -71,8 +71,7 @@ def test_resample():
     assert orig_fs % rs_fs > 1  # strictly > 0 would be enough..
 
     # -- test SciPy default --
-    rs_dataSP = [resampling.resample(signal, orig_fs, rs_fs, lpfreq=-1)
-                 for signal in data]
+    rs_dataSP = [resampling.resample(signal, orig_fs, rs_fs, lpfreq=-1) for signal in data]
 
     rs_powerSP, rs_freqsSP = trl_av_power(rs_dataSP, nSamples, rs_fs)
 
@@ -85,8 +84,7 @@ def test_resample():
 
     # -- use backend with homegrown default firws --
 
-    rs_data = [resampling.resample(signals, orig_fs, rs_fs, lpfreq=None, order=None)
-               for signals in data]
+    rs_data = [resampling.resample(signals, orig_fs, rs_fs, lpfreq=None, order=None) for signals in data]
     rs_power, rs_freqs = trl_av_power(rs_data, nSamples, rs_fs)
     gain = rs_power.mean() / orig_power.mean()
     # NOTE: this works very well and we can
@@ -114,9 +112,7 @@ def trl_av_power(data, nSamples, fs, tapsmofrq=1):
     power = []
     for signal in data:
         NW, Kmax = mtmfft._get_dpss_pars(tapsmofrq, nSamples, fs)
-        ftr, freqs = mtmfft.mtmfft(
-            signal, samplerate=fs, taper="dpss", taper_opt={"Kmax": Kmax, "NW": NW}
-        )
+        ftr, freqs = mtmfft.mtmfft(signal, samplerate=fs, taper="dpss", taper_opt={"Kmax": Kmax, "NW": NW})
         power.append(np.real(ftr * ftr.conj()).mean(axis=0))
     # trial averaging
     power = np.mean(power, axis=0)

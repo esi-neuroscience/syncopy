@@ -10,9 +10,18 @@ import numpy as np
 from syncopy.shared.parsers import data_parser, scalar_parser, array_parser
 from syncopy.shared.tools import get_defaults, get_frontend_cfg
 from syncopy.datatype import SpectralData
-from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYWarning, SPYInfo, SPYLog
-from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
-                                             detect_parallel_client)
+from syncopy.shared.errors import (
+    SPYValueError,
+    SPYTypeError,
+    SPYWarning,
+    SPYInfo,
+    SPYLog,
+)
+from syncopy.shared.kwarg_decorators import (
+    unwrap_cfg,
+    unwrap_select,
+    detect_parallel_client,
+)
 from syncopy.shared.tools import best_match
 from syncopy.shared.const_def import spectralConversions
 import syncopy as spy
@@ -22,7 +31,7 @@ from syncopy.shared.input_processors import (
     process_foi,
     process_padding,
     check_effective_parameters,
-    check_passed_kwargs
+    check_passed_kwargs,
 )
 
 # method specific imports - they should go!
@@ -38,10 +47,10 @@ from .compRoutines import (
     WaveletTransform,
     MultiTaperFFT,
     MultiTaperFFTConvol,
-    FooofSpy
+    FooofSpy,
 )
 
-availableFooofOutputs = ['fooof', 'fooof_aperiodic', 'fooof_peaks']
+availableFooofOutputs = ["fooof", "fooof_aperiodic", "fooof_peaks"]
 availableOutputs = tuple(spectralConversions.keys())
 availableWavelets = ("Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat")
 availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet", "welch")
@@ -50,13 +59,35 @@ availableMethods = ("mtmfft", "mtmconvol", "wavelet", "superlet", "welch")
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def freqanalysis(data, method='mtmfft', output='pow',
-                 keeptrials=True, foi=None, foilim=None,
-                 pad='maxperlen', polyremoval=0, taper="hann", demean_taper=False,
-                 taper_opt=None, tapsmofrq=None, nTaper=None, keeptapers=False,
-                 toi="all", t_ftimwin=None, wavelet="Morlet", width=6, order=None,
-                 order_max=None, order_min=1, c_1=3, adaptive=False,
-                 out=None, fooof_opt=None, ft_compat=False, **kwargs):
+def freqanalysis(
+    data,
+    method="mtmfft",
+    output="pow",
+    keeptrials=True,
+    foi=None,
+    foilim=None,
+    pad="maxperlen",
+    polyremoval=0,
+    taper="hann",
+    demean_taper=False,
+    taper_opt=None,
+    tapsmofrq=None,
+    nTaper=None,
+    keeptapers=False,
+    toi="all",
+    t_ftimwin=None,
+    wavelet="Morlet",
+    width=6,
+    order=None,
+    order_max=None,
+    order_min=1,
+    c_1=3,
+    adaptive=False,
+    out=None,
+    fooof_opt=None,
+    ft_compat=False,
+    **kwargs,
+):
     """
     Perform (time-)frequency analysis of Syncopy :class:`~syncopy.AnalogData` objects
 
@@ -353,8 +384,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
     """
     # Make sure our one mandatory input object can be processed
     try:
-        data_parser(data, varname="data", dataclass="AnalogData",
-                    writable=None, empty=False)
+        data_parser(data, varname="data", dataclass="AnalogData", writable=None, empty=False)
     except Exception as exc:
         raise exc
     timeAxis = data.dimord.index("time")
@@ -419,12 +449,14 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # --- Padding ---
 
     # Sliding window FFT does not support "fancy" padding
-    if method in ["mtmconvol", "welch"] and isinstance(pad, str) and pad != defaults['pad']:
-        msg = "methods 'mtmconvol' and 'welch' only support in-place padding for windows " +\
-            "exceeding trial boundaries. Your choice of `pad = '{}'` will be ignored. "
+    if method in ["mtmconvol", "welch"] and isinstance(pad, str) and pad != defaults["pad"]:
+        msg = (
+            "methods 'mtmconvol' and 'welch' only support in-place padding for windows "
+            + "exceeding trial boundaries. Your choice of `pad = '{}'` will be ignored. "
+        )
         SPYWarning(msg.format(pad))
 
-    if method == 'mtmfft':
+    if method == "mtmfft":
         # the actual number of samples in case of later padding
         minSampleNum = process_padding(pad, lenTrials, data.samplerate)
     else:
@@ -447,12 +479,14 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
     # Prepare keyword dict for logging (use `lcls` to get actually provided
     # keyword values, not defaults set above)
-    log_dct = {"method": method,
-               "output": output_fooof if is_fooof else output,
-               "keeptapers": keeptapers,
-               "keeptrials": keeptrials,
-               "polyremoval": polyremoval,
-               "pad": pad}
+    log_dct = {
+        "method": method,
+        "output": output_fooof if is_fooof else output,
+        "keeptapers": keeptapers,
+        "keeptrials": keeptrials,
+        "polyremoval": polyremoval,
+        "pad": pad,
+    }
 
     SPYLog(f"Running specest method '{method}'.", loglevel="DEBUG")
 
@@ -460,8 +494,6 @@ def freqanalysis(data, method='mtmfft', output='pow',
     # 1st: Check time-frequency inputs
     # to prepare/sanitize `toi`
     # --------------------------------
-
-
 
     if method in ["mtmconvol", "wavelet", "superlet", "welch"]:
 
@@ -496,8 +528,14 @@ def freqanalysis(data, method='mtmfft', output='pow',
         # this is the sequence type - can only be an interval!
         else:
             try:
-                array_parser(toi, varname="toi", hasinf=False, hasnan=False,
-                             lims=[tStart.min(), tEnd.max()], dims=(None,))
+                array_parser(
+                    toi,
+                    varname="toi",
+                    hasinf=False,
+                    hasnan=False,
+                    lims=[tStart.min(), tEnd.max()],
+                    dims=(None,),
+                )
             except Exception as exc:
                 raise exc
             toi = np.array(toi)
@@ -513,8 +551,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
                     start = int(data.samplerate * (toi[0] - tStart[tk]))
                     stop = int(data.samplerate * (toi[-1] - tStart[tk]) + 1)
                     preSelect.append(slice(max(0, start), max(stop, stop - start)))
-                    smpIdx = np.minimum(lenTrials[tk] - 1,
-                                        data.samplerate * (toi - tStart[tk]) - start)
+                    smpIdx = np.minimum(lenTrials[tk] - 1, data.samplerate * (toi - tStart[tk]) - start)
                     postSelect.append(smpIdx.astype(np.intp))
 
         # get out if sth wasn't right
@@ -536,8 +573,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         if method in ["mtmconvol", "welch"]:
             # get the sliding window size
             try:
-                scalar_parser(t_ftimwin, varname="t_ftimwin",
-                              lims=[dt, minTrialLength])
+                scalar_parser(t_ftimwin, varname="t_ftimwin", lims=[dt, minTrialLength])
             except Exception as exc:
                 SPYInfo("Please specify 't_ftimwin' parameter.. exiting!")
                 raise exc
@@ -547,11 +583,18 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
             if method == "welch":
                 if keeptapers:
-                    raise SPYValueError(legal="keeptapers='False' with method='welch'", varname="keeptapers", actual=keeptapers)
+                    raise SPYValueError(
+                        legal="keeptapers='False' with method='welch'",
+                        varname="keeptapers",
+                        actual=keeptapers,
+                    )
 
                 if output != "pow":
-                    raise SPYValueError(legal="output='pow' with method='welch'", varname="output", actual=output)
-
+                    raise SPYValueError(
+                        legal="output='pow' with method='welch'",
+                        varname="output",
+                        actual=output,
+                    )
 
         # Construct array of maximally attainable frequencies
         freqs = np.fft.rfftfreq(minSampleNum, dt)
@@ -564,8 +607,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
         elif foilim is not None:
             foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
         else:
-            msg = (f"Automatic FFT frequency selection from {freqs[0]:.1f}Hz to "
-                   f"{freqs[-1]:.1f}Hz")
+            msg = f"Automatic FFT frequency selection from {freqs[0]:.1f}Hz to " f"{freqs[-1]:.1f}Hz"
             SPYInfo(msg)
             foi = freqs
         log_dct["foi"] = foi
@@ -577,19 +619,21 @@ def freqanalysis(data, method='mtmfft', output='pow',
             raise SPYValueError(legal=lgl, varname="foi/foilim", actual=act)
 
         # sanitize taper selection and/or retrieve dpss settings
-        taper, taper_opt = process_taper(taper,
-                                         taper_opt,
-                                         tapsmofrq,
-                                         nTaper,
-                                         keeptapers,
-                                         foimax=foi.max(),
-                                         samplerate=data.samplerate,
-                                         nSamples=minSampleNum,
-                                         output=output)
+        taper, taper_opt = process_taper(
+            taper,
+            taper_opt,
+            tapsmofrq,
+            nTaper,
+            keeptapers,
+            foimax=foi.max(),
+            samplerate=data.samplerate,
+            nSamples=minSampleNum,
+            output=output,
+        )
 
         # Update `log_dct` w/method-specific options
         log_dct["taper"] = taper
-        if taper_opt and taper == 'dpss':
+        if taper_opt and taper == "dpss":
             log_dct["nTaper"] = taper_opt["Kmax"]
             log_dct["tapsmofrq"] = tapsmofrq
         elif taper_opt:
@@ -605,12 +649,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         # method specific parameters
         method_kwargs = {
-            'samplerate': data.samplerate,
-            'taper': taper,
-            'taper_opt': taper_opt,
-            'nSamples': minSampleNum,
-            'demean_taper': demean_taper,
-            'ft_compat': ft_compat
+            "samplerate": data.samplerate,
+            "taper": taper,
+            "taper_opt": taper_opt,
+            "nSamples": minSampleNum,
+            "demean_taper": demean_taper,
+            "ft_compat": ft_compat,
         }
 
         # Set up compute-class
@@ -620,7 +664,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
             keeptapers=keeptapers,
             polyremoval=polyremoval,
             output=output,
-            method_kwargs=method_kwargs)
+            method_kwargs=method_kwargs,
+        )
 
     elif method in ["mtmconvol", "welch"]:
 
@@ -656,8 +701,14 @@ def freqanalysis(data, method='mtmfft', output='pow',
                 raise SPYValueError(legal=lgl, varname="toi", actual=toi)
 
             overlap = -1
-            array_parser(toi, varname="toi", hasinf=False, hasnan=False,
-                             lims=[tStart.min(), tEnd.max()], dims=(None,))
+            array_parser(
+                toi,
+                varname="toi",
+                hasinf=False,
+                hasnan=False,
+                lims=[tStart.min(), tEnd.max()],
+                dims=(None,),
+            )
             toi = np.array(toi)
             tSteps = np.diff(toi)
             if (tSteps < 0).any():
@@ -680,8 +731,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
         # trials and check if those trials have *approximately* equal length
         if toi is None:
             if not np.allclose(lenTrials, [minSampleNum] * lenTrials.size):
-                msg = "processing trials of different lengths (min = {}; max = {} samples)" +\
-                    " with `toi = 'all'`"
+                msg = (
+                    "processing trials of different lengths (min = {}; max = {} samples)"
+                    + " with `toi = 'all'`"
+                )
                 SPYWarning(msg.format(int(minSampleNum), int(lenTrials.max())))
 
         # number of samples per window
@@ -744,11 +797,13 @@ def freqanalysis(data, method='mtmfft', output='pow',
             soi = [slice(None)] * numTrials
 
         # Collect keyword args for `mtmconvol` in dictionary
-        method_kwargs = {"samplerate": data.samplerate,
-                         "nperseg": nperseg,
-                         "noverlap": noverlap,
-                         "taper": taper,
-                         "taper_opt": taper_opt}
+        method_kwargs = {
+            "samplerate": data.samplerate,
+            "nperseg": nperseg,
+            "noverlap": noverlap,
+            "taper": taper,
+            "taper_opt": taper_opt,
+        }
 
         # Set up compute-class
         specestMethod = MultiTaperFFTConvol(
@@ -761,7 +816,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
             keeptapers=keeptapers,
             polyremoval=polyremoval,
             output=output,
-            method_kwargs=method_kwargs)
+            method_kwargs=method_kwargs,
+        )
 
     elif method == "wavelet":
 
@@ -772,9 +828,11 @@ def freqanalysis(data, method='mtmfft', output='pow',
             lgl = "'" + "or '".join(opt + "' " for opt in availableWavelets)
             raise SPYValueError(legal=lgl, varname="wavelet", actual=wavelet)
         if wavelet not in ["Morlet", "Paul"]:
-            msg = "the chosen wavelet '{}' is real-valued and does not provide " +\
-                "any information about amplitude or phase of the data. This wavelet function " +\
-                "may be used to isolate peaks or discontinuities in the signal. "
+            msg = (
+                "the chosen wavelet '{}' is real-valued and does not provide "
+                + "any information about amplitude or phase of the data. This wavelet function "
+                + "may be used to isolate peaks or discontinuities in the signal. "
+            )
             SPYWarning(msg.format(wavelet))
 
         # Check for consistency of `width`, `order` and `wavelet`
@@ -812,10 +870,10 @@ def freqanalysis(data, method='mtmfft', output='pow',
             scales = get_optimal_wavelet_scales(
                 wfun.scale_from_period,  # all availableWavelets sport one!
                 int(minTrialLength * data.samplerate),
-                dt)
+                dt,
+            )
             foi = 1 / wfun.fourier_period(scales)
-            msg = (f"Setting frequencies of interest to {foi[0]:.1f}-"
-                   f"{foi[-1]:.1f}Hz")
+            msg = f"Setting frequencies of interest to {foi[0]:.1f}-" f"{foi[-1]:.1f}Hz"
             SPYInfo(msg)
         else:
             if foilim is not None:
@@ -833,9 +891,9 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         # method specific parameters
         method_kwargs = {
-            'samplerate': data.samplerate,
-            'scales': scales,
-            'wavelet': wfun
+            "samplerate": data.samplerate,
+            "scales": scales,
+            "wavelet": wfun,
         }
 
         # Set up compute-class
@@ -846,7 +904,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
             timeAxis=timeAxis,
             polyremoval=polyremoval,
             output=output,
-            method_kwargs=method_kwargs)
+            method_kwargs=method_kwargs,
+        )
 
     elif method == "superlet":
 
@@ -855,32 +914,20 @@ def freqanalysis(data, method='mtmfft', output='pow',
         # check and parse superlet specific arguments
         if order_max is None:
             lgl = "Positive integer needed for order_max"
-            raise SPYValueError(legal=lgl, varname="order_max",
-                                actual=None)
+            raise SPYValueError(legal=lgl, varname="order_max", actual=None)
         else:
-            scalar_parser(
-                order_max,
-                varname="order_max",
-                lims=[1, np.inf],
-                ntype="int_like"
-            )
+            scalar_parser(order_max, varname="order_max", lims=[1, np.inf], ntype="int_like")
 
-        scalar_parser(
-            order_min, varname="order_min",
-            lims=[1, order_max],
-            ntype="int_like"
-        )
+        scalar_parser(order_min, varname="order_min", lims=[1, order_max], ntype="int_like")
         scalar_parser(c_1, varname="c_1", lims=[1, np.inf], ntype="int_like")
 
         # if no frequencies are user selected, take a sensitive default
         if foi is None and foilim is None:
             scales = get_optimal_wavelet_scales(
-                superlet.scale_from_period,
-                int(minTrialLength * data.samplerate),
-                dt)
+                superlet.scale_from_period, int(minTrialLength * data.samplerate), dt
+            )
             foi = 1 / superlet.fourier_period(scales)
-            msg = (f"Setting frequencies of interest to {foi[0]:.1f}-"
-                   f"{foi[-1]:.1f}Hz")
+            msg = f"Setting frequencies of interest to {foi[0]:.1f}-" f"{foi[-1]:.1f}Hz"
             SPYInfo(msg)
         else:
             if foilim is not None:
@@ -888,7 +935,7 @@ def freqanalysis(data, method='mtmfft', output='pow',
                 foi = np.arange(foilim[0], foilim[1] + 1, dtype=float)
             # 0 frequency is not valid
             foi[foi < 0.01] = 0.01
-            scales = superlet.scale_from_period(1. / foi)
+            scales = superlet.scale_from_period(1.0 / foi)
 
         # FASLT needs ordered frequencies low - high
         # meaning the scales have to go high - low
@@ -909,12 +956,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
 
         # method specific parameters
         method_kwargs = {
-            'samplerate': data.samplerate,
-            'scales': scales,
-            'order_max': order_max,
-            'order_min': order_min,
-            'c_1': c_1,
-            'adaptive': adaptive
+            "samplerate": data.samplerate,
+            "scales": scales,
+            "order_max": order_max,
+            "order_min": order_min,
+            "c_1": c_1,
+            "adaptive": adaptive,
         }
 
         # Set up compute-class
@@ -925,7 +972,8 @@ def freqanalysis(data, method='mtmfft', output='pow',
             timeAxis=timeAxis,
             polyremoval=polyremoval,
             output=output,
-            method_kwargs=method_kwargs)
+            method_kwargs=method_kwargs,
+        )
 
     # -------------------------------------------------
     # Sanitize output and call the ComputationalRoutine
@@ -934,10 +982,12 @@ def freqanalysis(data, method='mtmfft', output='pow',
     out = SpectralData(dimord=SpectralData._defaultDimord)
 
     # Perform actual computation
-    specestMethod.initialize(data,
-                             out._stackingDim,
-                             chan_per_worker=kwargs.get("chan_per_worker"),
-                             keeptrials=keeptrials)
+    specestMethod.initialize(
+        data,
+        out._stackingDim,
+        chan_per_worker=kwargs.get("chan_per_worker"),
+        keeptrials=keeptrials,
+    )
     specestMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
 
     # FOOOF is a post-processing method of MTMFFT output, so we handle it here, once
@@ -953,19 +1003,26 @@ def freqanalysis(data, method='mtmfft', output='pow',
             fooof_opt = default_fooof_opt
 
         # These go into the FOOOF constructor, so we keep them separate from the fooof_settings below.
-        fooof_kwargs = {**default_fooof_opt, **fooof_opt}  # Join the ones from fooof_opt (the user) into the default fooof_kwargs.
+        fooof_kwargs = {
+            **default_fooof_opt,
+            **fooof_opt,
+        }  # Join the ones from fooof_opt (the user) into the default fooof_kwargs.
 
         # Settings used during the FOOOF analysis (that are NOT passed to FOOOF constructor).
         # The user cannot influence these: in_freqs is derived from mtmfft output, freq_range is always None (=full mtmfft output spectrum).
         # We still define them here, and they are passed through to the backend and actually used there.
         fooof_settings = {
-            'in_freqs': fooof_data.freq,
-            'freq_range': None  # or something like [2, 40] to limit frequency range (post processing). Currently not exposed to user.
+            "in_freqs": fooof_data.freq,
+            "freq_range": None,  # or something like [2, 40] to limit frequency range (post processing). Currently not exposed to user.
         }
 
         if fooof_data.freq[0] == 0:
             # FOOOF does not work with input frequency zero in the data.
-            raise SPYValueError(legal="a frequency range that does not include zero. Use 'foi' or 'foilim' to restrict.", varname="foi/foilim", actual="Frequency range from {} to {}.".format(min(fooof_data.freq), max(fooof_data.freq)))
+            raise SPYValueError(
+                legal="a frequency range that does not include zero. Use 'foi' or 'foilim' to restrict.",
+                varname="foi/foilim",
+                actual="Frequency range from {} to {}.".format(min(fooof_data.freq), max(fooof_data.freq)),
+            )
 
         # Set up compute-class
         #  - the output must be one of 'fooof', 'fooof_aperiodic',
@@ -973,29 +1030,35 @@ def freqanalysis(data, method='mtmfft', output='pow',
         #  - everything passed as method_kwargs is passed as arguments
         #    to the fooof.FOOOF() constructor or functions, the other args are
         #    used elsewhere.
-        fooofMethod = FooofSpy(output=output_fooof, fooof_settings=fooof_settings, method_kwargs=fooof_kwargs)
+        fooofMethod = FooofSpy(
+            output=output_fooof,
+            fooof_settings=fooof_settings,
+            method_kwargs=fooof_kwargs,
+        )
 
         # Update `log_dct` w/method-specific options
         log_dct["fooof_method"] = output_fooof
         log_dct["fooof_opt"] = fooof_kwargs
 
         # Perform actual computation
-        fooofMethod.initialize(fooof_data,
-                               fooof_out._stackingDim,
-                               chan_per_worker=kwargs.get("chan_per_worker"),
-                               keeptrials=keeptrials)
+        fooofMethod.initialize(
+            fooof_data,
+            fooof_out._stackingDim,
+            chan_per_worker=kwargs.get("chan_per_worker"),
+            keeptrials=keeptrials,
+        )
         fooofMethod.compute(fooof_data, fooof_out, parallel=kwargs.get("parallel"), log_dict=log_dct)
         out = fooof_out
 
     # Perform mtmconvolv post-processing for `method='welch'`.
     if method == "welch":
         welch_data = out
-        out = spy.mean(welch_data, dim='time')
+        out = spy.mean(welch_data, dim="time")
 
     # Attach potential older cfg's from the input
     # to support chained frontend calls.
     out.cfg.update(data.cfg)
 
     # Attach frontend parameters for replay.
-    out.cfg.update({'freqanalysis': new_cfg})
+    out.cfg.update({"freqanalysis": new_cfg})
     return out

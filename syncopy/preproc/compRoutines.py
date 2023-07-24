@@ -11,7 +11,10 @@ import logging, platform
 from inspect import signature
 
 # syncopy imports
-from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
+from syncopy.shared.computational_routine import (
+    ComputationalRoutine,
+    propagate_properties,
+)
 from syncopy.shared.const_def import spectralConversions, spectralDTypes
 from syncopy.shared.kwarg_decorators import process_io
 
@@ -21,18 +24,19 @@ from .resampling import downsample, resample
 
 
 @process_io
-def sinc_filtering_cF(dat,
-                      samplerate=1,
-                      filter_type='lp',
-                      freq=None,
-                      order=None,
-                      window="hamming",
-                      direction='onepass',
-                      polyremoval=None,
-                      timeAxis=0,
-                      noCompute=False,
-                      chunkShape=None
-                      ):
+def sinc_filtering_cF(
+    dat,
+    samplerate=1,
+    filter_type="lp",
+    freq=None,
+    order=None,
+    window="hamming",
+    direction="onepass",
+    polyremoval=None,
+    timeAxis=0,
+    noCompute=False,
+    chunkShape=None,
+):
     """
     Provides basic filtering of signals with FIR (windowed sinc)
     filters. Supported are low-pass, high-pass,
@@ -94,7 +98,7 @@ def sinc_filtering_cF(dat,
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = dat.T       # does not copy but creates view of `dat`
+        dat = dat.T  # does not copy but creates view of `dat`
     else:
         dat = dat
 
@@ -105,9 +109,9 @@ def sinc_filtering_cF(dat,
 
     # detrend
     if polyremoval == 0:
-        dat = sci.detrend(dat, type='constant', axis=0, overwrite_data=True)
+        dat = sci.detrend(dat, type="constant", axis=0, overwrite_data=True)
     elif polyremoval == 1:
-        dat = sci.detrend(dat, type='linear', axis=0, overwrite_data=True)
+        dat = sci.detrend(dat, type="linear", axis=0, overwrite_data=True)
 
     # max order is signal length
     if order is None:
@@ -118,23 +122,23 @@ def sinc_filtering_cF(dat,
 
     # switch to time-domain convolutions if NaNs present
     if np.any(np.isnan(dat)):
-        method = 'direct'
+        method = "direct"
     else:
-        method = 'fft'
+        method = "fft"
     # to pass info to user
-    metadata = {'has_nan': np.array(method == 'direct')}
+    metadata = {"has_nan": np.array(method == "direct")}
 
     # filtering by convolution
-    if direction == 'onepass':
+    if direction == "onepass":
         filtered = apply_fir(dat, fkernel, method)
 
     # for symmetric filters actual
     # filter direction does NOT matter
-    elif direction == 'twopass':
+    elif direction == "twopass":
         filtered = apply_fir(dat, fkernel, method)
         filtered = apply_fir(filtered, fkernel, method)
 
-    elif direction == 'onepass-minphase':
+    elif direction == "onepass-minphase":
         # 0-phase transform
         fkernel = minphaserceps(fkernel)
         filtered = apply_fir(dat, fkernel, method)
@@ -168,17 +172,18 @@ class SincFiltering(ComputationalRoutine):
 
 
 @process_io
-def but_filtering_cF(dat,
-                     samplerate=1,
-                     filter_type='lp',
-                     freq=None,
-                     order=6,
-                     direction='twopass',
-                     polyremoval=None,
-                     timeAxis=0,
-                     noCompute=False,
-                     chunkShape=None
-                     ):
+def but_filtering_cF(
+    dat,
+    samplerate=1,
+    filter_type="lp",
+    freq=None,
+    order=6,
+    direction="twopass",
+    polyremoval=None,
+    timeAxis=0,
+    noCompute=False,
+    chunkShape=None,
+):
     """
     Provides basic filtering of signals with IIR (Butterworth)
     filters. Supported are low-pass, high-pass,
@@ -237,7 +242,7 @@ def but_filtering_cF(dat,
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = dat.T       # does not copy but creates view of `dat`
+        dat = dat.T  # does not copy but creates view of `dat`
     else:
         dat = dat
 
@@ -248,23 +253,23 @@ def but_filtering_cF(dat,
 
     # we can't do anything here, but at least
     # collect this information to pass back to user
-    metadata = {'has_nan': np.array(np.any(np.isnan(dat)))}
+    metadata = {"has_nan": np.array(np.any(np.isnan(dat)))}
 
     # detrend
     if polyremoval == 0:
-        dat = sci.detrend(dat, type='constant', axis=0, overwrite_data=True)
+        dat = sci.detrend(dat, type="constant", axis=0, overwrite_data=True)
     elif polyremoval == 1:
-        dat = sci.detrend(dat, type='linear', axis=0, overwrite_data=True)
+        dat = sci.detrend(dat, type="linear", axis=0, overwrite_data=True)
 
     # design the butterworth filter with "second-order-sections" output
-    sos = sci.butter(order, freq, filter_type, fs=samplerate, output='sos')
+    sos = sci.butter(order, freq, filter_type, fs=samplerate, output="sos")
 
     # do the filtering
-    if direction == 'twopass':
+    if direction == "twopass":
         filtered = sci.sosfiltfilt(sos, dat, axis=0)
         return filtered, metadata
 
-    elif direction == 'onepass':
+    elif direction == "onepass":
         filtered = sci.sosfilt(sos, dat, axis=0)
         return filtered, metadata
 
@@ -357,7 +362,7 @@ class Rectify(ComputationalRoutine):
 
 
 @process_io
-def hilbert_cF(dat, output='abs', timeAxis=0, noCompute=False, chunkShape=None):
+def hilbert_cF(dat, output="abs", timeAxis=0, noCompute=False, chunkShape=None):
 
     """
     Provides Hilbert transformation with various outputs, band-pass filtering
@@ -393,14 +398,14 @@ def hilbert_cF(dat, output='abs', timeAxis=0, noCompute=False, chunkShape=None):
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = dat.T       # does not copy but creates view of `dat`
+        dat = dat.T  # does not copy but creates view of `dat`
     else:
         dat = dat
 
     # operation does not change the shape
     # but may change the number format
     outShape = dat.shape
-    fmt = spectralDTypes["fourier"] if output == 'complex' else spectralDTypes["abs"]
+    fmt = spectralDTypes["fourier"] if output == "complex" else spectralDTypes["abs"]
     if noCompute:
         return outShape, fmt
 
@@ -438,13 +443,7 @@ class Hilbert(ComputationalRoutine):
 
 
 @process_io
-def downsample_cF(dat,
-                  samplerate=1,
-                  new_samplerate=1,
-                  timeAxis=0,
-                  chunkShape=None,
-                  noCompute=False
-                  ):
+def downsample_cF(dat, samplerate=1, new_samplerate=1, timeAxis=0, chunkShape=None, noCompute=False):
     """
     Provides basic downsampling of signals. The `new_samplerate` should be
     an integer division of the original `samplerate`.
@@ -478,7 +477,7 @@ def downsample_cF(dat,
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = dat.T       # does not copy but creates view of `dat`
+        dat = dat.T  # does not copy but creates view of `dat`
     else:
         dat = dat
 
@@ -490,7 +489,9 @@ def downsample_cF(dat,
         return tuple(outShape), dat.dtype
 
     logger = logging.getLogger("syncopy_" + platform.node())
-    logger.debug(f"Downsampling data chunk with shape {dat.shape} from samplerate {samplerate} to {new_samplerate}.")
+    logger.debug(
+        f"Downsampling data chunk with shape {dat.shape} from samplerate {samplerate} to {new_samplerate}."
+    )
 
     resampled = downsample(dat, samplerate, new_samplerate)
 
@@ -521,7 +522,7 @@ class Downsample(ComputationalRoutine):
 
         # we need to re-calculate the downsampling factor
         # that it actually is an 1 / integer gets checked in the frontend
-        factor = self.cfg['new_samplerate'] / data.samplerate
+        factor = self.cfg["new_samplerate"] / data.samplerate
 
         if data.selection is not None:
             chanSec = data.selection.channel
@@ -532,20 +533,21 @@ class Downsample(ComputationalRoutine):
 
         out.trialdefinition = trl
         # now set new samplerate
-        out.samplerate = self.cfg['new_samplerate']
+        out.samplerate = self.cfg["new_samplerate"]
         out.channel = np.array(data.channel[chanSec])
 
 
 @process_io
-def resample_cF(dat,
-                samplerate=1,
-                new_samplerate=1,
-                lpfreq=None,
-                order=None,
-                timeAxis=0,
-                chunkShape=None,
-                noCompute=False
-                ):
+def resample_cF(
+    dat,
+    samplerate=1,
+    new_samplerate=1,
+    lpfreq=None,
+    order=None,
+    timeAxis=0,
+    chunkShape=None,
+    noCompute=False,
+):
     """
     Provides resampling of signals. The `new_samplerate` can be
     any (rational) factor of the original `samplerate`.
@@ -591,7 +593,7 @@ def resample_cF(dat,
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = dat.T       # does not copy but creates view of `dat`
+        dat = dat.T  # does not copy but creates view of `dat`
     else:
         dat = dat
 
@@ -603,13 +605,11 @@ def resample_cF(dat,
         return (new_nSamples, dat.shape[1]), dat.dtype
 
     logger = logging.getLogger("syncopy_" + platform.node())
-    logger.debug(f"Resampling data chunk with shape {dat.shape} from samplerate {samplerate} to {new_samplerate} with lpfreq={lpfreq}, order={order}.")
+    logger.debug(
+        f"Resampling data chunk with shape {dat.shape} from samplerate {samplerate} to {new_samplerate} with lpfreq={lpfreq}, order={order}."
+    )
 
-    resampled = resample(dat,
-                         samplerate,
-                         new_samplerate,
-                         lpfreq=lpfreq,
-                         order=order)
+    resampled = resample(dat, samplerate, new_samplerate, lpfreq=lpfreq, order=order)
 
     return resampled
 
@@ -637,7 +637,7 @@ class Resample(ComputationalRoutine):
     def process_metadata(self, data, out):
 
         # we need to re-calculate the resampling factor
-        factor = self.cfg['new_samplerate'] / data.samplerate
+        factor = self.cfg["new_samplerate"] / data.samplerate
         trafo_trl = _resampling_trl_definition
 
         if data.selection is not None:
@@ -650,7 +650,7 @@ class Resample(ComputationalRoutine):
         out.trialdefinition = trl
 
         # now set new samplerate
-        out.samplerate = self.cfg['new_samplerate']
+        out.samplerate = self.cfg["new_samplerate"]
         out.channel = np.array(data.channel[chanSec])
 
 
@@ -701,7 +701,7 @@ def detrending_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShape
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = dat.T       # does not copy but creates view of `dat`
+        dat = dat.T  # does not copy but creates view of `dat`
     else:
         dat = dat
 
@@ -716,20 +716,20 @@ def detrending_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShape
     # we can't do anything here, but at least
     # collect this information to pass back to user
     has_nan = np.array(np.any(np.isnan(dat)))
-    metadata = {'has_nan': has_nan}
+    metadata = {"has_nan": has_nan}
 
     # demeaning, this 'works' with NaNs (all nan come back)
     if polyremoval == 0:
-        dat = sci.detrend(dat, type='constant', axis=0, overwrite_data=True)
+        dat = sci.detrend(dat, type="constant", axis=0, overwrite_data=True)
     elif polyremoval == 1 and not has_nan:
-        dat = sci.detrend(dat, type='linear', axis=0, overwrite_data=True)
+        dat = sci.detrend(dat, type="linear", axis=0, overwrite_data=True)
     # here we have to nan-all the offending channels ourselves
     elif polyremoval == 1 and has_nan:
         nan_col_sum = np.sum(np.isnan(dat), axis=0)
         nan_cols = np.where(nan_col_sum)[0]
         ok_cols = np.where(nan_col_sum == 0)[0]
         dat[:, nan_cols] = np.nan
-        dat[:, ok_cols] = sci.detrend(dat[:, ok_cols], type='linear', axis=0, overwrite_data=True)
+        dat[:, ok_cols] = sci.detrend(dat[:, ok_cols], type="linear", axis=0, overwrite_data=True)
 
     # renaming
     detrended = dat
@@ -804,7 +804,7 @@ def standardize_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShap
 
     # Re-arrange array if necessary and get dimensional information
     if timeAxis != 0:
-        dat = dat.T       # does not copy but creates view of `dat`
+        dat = dat.T  # does not copy but creates view of `dat`
     else:
         dat = dat
 
@@ -815,9 +815,9 @@ def standardize_cF(dat, polyremoval=None, timeAxis=0, noCompute=False, chunkShap
 
     # detrend
     if polyremoval == 0:
-        dat = sci.detrend(dat, type='constant', axis=0, overwrite_data=True)
+        dat = sci.detrend(dat, type="constant", axis=0, overwrite_data=True)
     elif polyremoval == 1:
-        dat = sci.detrend(dat, type='linear', axis=0, overwrite_data=True)
+        dat = sci.detrend(dat, type="linear", axis=0, overwrite_data=True)
 
     logger = logging.getLogger("syncopy_" + platform.node())
     logger.debug(f"Standardizing data chunk with shape {dat.shape} (prior polyremoval was {polyremoval}).")

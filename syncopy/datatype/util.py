@@ -10,11 +10,10 @@ import numpy as np
 from syncopy import __storage__, __storagelimit__, __sessionid__
 from syncopy.shared.errors import SPYTypeError, SPYValueError
 
-__all__ = ['TrialIndexer']
+__all__ = ["TrialIndexer"]
 
 
 class TrialIndexer:
-
     def __init__(self, data_object, idx_list):
         """
         Class to obtain an indexable trials iterable from
@@ -60,7 +59,6 @@ class TrialIndexer:
 
 
 class TimeIndexer:
-
     def __init__(self, trialdefinition, samplerate, idx_list):
         """
         Class to obtain an indexable time array iterable from
@@ -111,7 +109,7 @@ class TimeIndexer:
         return "{} element iterable".format(self._len)
 
 
-def get_dir_size(start_path = '.', out="byte"):
+def get_dir_size(start_path=".", out="byte"):
     """
     Compute size of all files in directory (and its subdirectories), in bytes or GB.
     """

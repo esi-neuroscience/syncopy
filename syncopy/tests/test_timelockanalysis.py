@@ -24,10 +24,9 @@ class TestTimelockanalysis:
 
     # create simple white noise
     # "real" data gets created for semantic test
-    adata = synthdata.white_noise(nTrials=nTrials, samplerate=fs,
-                                  nSamples=nSamples,
-                                  nChannels=nChannels,
-                                  seed=42)
+    adata = synthdata.white_noise(
+        nTrials=nTrials, samplerate=fs, nSamples=nSamples, nChannels=nChannels, seed=42
+    )
 
     # change trial sizes, original interval is [-1, 1.495] seconds
     trldef = adata.trialdefinition
@@ -37,21 +36,22 @@ class TestTimelockanalysis:
     adata.trialdefinition = trldef
 
     # in samples
-    overlap = (np.min(adata.trialintervals[:, 1]) -\
-        np.max(adata.trialintervals[:, 0])) * fs + 1
+    overlap = (np.min(adata.trialintervals[:, 1]) - np.max(adata.trialintervals[:, 0])) * fs + 1
 
     def test_timelockanalysis(self):
 
         # create bigger dataset for statistics only here
         # moderate phase diffusion, same initial phase/value!
-        adata = synthdata.phase_diffusion(nTrials=300,
-                                          rand_ini=False,
-                                          samplerate=self.fs,
-                                          nSamples=self.nSamples,
-                                          nChannels=self.nChannels,
-                                          freq=40,
-                                          eps=0.01,
-                                          seed=42)
+        adata = synthdata.phase_diffusion(
+            nTrials=300,
+            rand_ini=False,
+            samplerate=self.fs,
+            nSamples=self.nSamples,
+            nChannels=self.nChannels,
+            freq=40,
+            eps=0.01,
+            seed=42,
+        )
 
         # change trial sizes, original interval is [-1, 1.495] seconds
         trldef = adata.trialdefinition
@@ -61,7 +61,7 @@ class TestTimelockanalysis:
         adata.trialdefinition = trldef
 
         cfg = spy.StructDict()
-        cfg.latency = 'maxperiod'  # default
+        cfg.latency = "maxperiod"  # default
         cfg.covariance = True
         cfg.keeptrials = False
 
@@ -81,9 +81,9 @@ class TestTimelockanalysis:
 
         # check that the results are the same when kicking
         # out the offending trial via the same latency selection
-        ad = spy.selectdata(adata, latency='maxperiod')
-        avg = spy.mean(ad, dim='trials')
-        var = spy.var(ad, dim='trials')
+        ad = spy.selectdata(adata, latency="maxperiod")
+        avg = spy.mean(ad, dim="trials")
+        var = spy.var(ad, dim="trials")
 
         assert np.allclose(avg.data, tld.avg)
         assert np.allclose(var.data, tld.var)
@@ -115,10 +115,10 @@ class TestTimelockanalysis:
 
         # plot the Syncopy objects which have the same data as .avg and .var
         fig, ax = avg.singlepanelplot()
-        ax.set_title('Trial mean')
+        ax.set_title("Trial mean")
         fig.tight_layout()
         fig, ax = var.singlepanelplot()
-        ax.set_title('Trial variance')
+        ax.set_title("Trial variance")
         fig.tight_layout()
 
     def test_latency(self):
@@ -129,23 +129,23 @@ class TestTimelockanalysis:
         assert np.any(np.diff(self.adata.sampleinfo, n=2, axis=0) != 0)
 
         # check that now all trial have been cut to the overlap interval
-        tld = spy.timelockanalysis(self.adata, latency='minperiod')
+        tld = spy.timelockanalysis(self.adata, latency="minperiod")
         assert np.all(np.diff(tld.sampleinfo) == self.overlap)
 
         # check that trials got kicked out and all times are smaller 0
-        tld = spy.timelockanalysis(self.adata, latency='prestim')
+        tld = spy.timelockanalysis(self.adata, latency="prestim")
         assert 3 == len(self.adata.trials) - len(tld.trials)
         # only trigger relative negative times ("pre-stimulus")
         assert np.all([tld.time[i] <= 0 for i in range(len(tld.trials))])
 
         # check that trials got kicked out and all times are larger than 0
-        tld = spy.timelockanalysis(self.adata, latency='poststim')
+        tld = spy.timelockanalysis(self.adata, latency="poststim")
         assert 3 == len(self.adata.trials) - len(tld.trials)
         # only trigger relative positive times ("post-stimulus")
         assert np.all([tld.time[i] >= 0 for i in range(len(tld.trials))])
 
         # finally manually set a latency window which excludes only 2 trials
-        tld = spy.timelockanalysis(self.adata, latency=[-.1, 0.5])
+        tld = spy.timelockanalysis(self.adata, latency=[-0.1, 0.5])
         assert 2 == len(self.adata.trials) - len(tld.trials)
 
         # and ultimately check that we have no dangling selections
@@ -160,26 +160,22 @@ class TestTimelockanalysis:
         # -- latency validation --
 
         # not available latency
-        cfg.latency = 'sth'
-        with pytest.raises(SPYValueError,
-                           match="expected one of"):
+        cfg.latency = "sth"
+        with pytest.raises(SPYValueError, match="expected one of"):
             spy.timelockanalysis(self.adata, cfg)
 
         # latency not ordered
         cfg.latency = [0.1, 0]
-        with pytest.raises(SPYValueError,
-                           match="expected start < end"):
+        with pytest.raises(SPYValueError, match="expected start < end"):
             spy.timelockanalysis(self.adata, cfg)
 
         # latency completely outside of data
         cfg.latency = [-999, -99]
-        with pytest.raises(SPYValueError,
-                           match="expected end of latency window"):
+        with pytest.raises(SPYValueError, match="expected end of latency window"):
             spy.timelockanalysis(self.adata, cfg)
 
         cfg.latency = [99, 999]
-        with pytest.raises(SPYValueError,
-                           match="expected start of latency window"):
+        with pytest.raises(SPYValueError, match="expected start of latency window"):
             spy.timelockanalysis(self.adata, cfg)
 
         # here we need to manually wipe the selection due to the
@@ -187,26 +183,21 @@ class TestTimelockanalysis:
         self.adata.selection = None
 
         # -- trial selection with both selection and keyword --
-        with pytest.raises(SPYValueError,
-                           match="expected either `trials != 'all'`"):
-            spy.timelockanalysis(self.adata, trials=0, select={'trials': 8})
-
+        with pytest.raises(SPYValueError, match="expected either `trials != 'all'`"):
+            spy.timelockanalysis(self.adata, trials=0, select={"trials": 8})
 
         # -- remaining parameters --
 
         cfg.latency = None
-        cfg.covariance = 'fd'
-        with pytest.raises(SPYTypeError,
-                           match="expected bool"):
+        cfg.covariance = "fd"
+        with pytest.raises(SPYTypeError, match="expected bool"):
             spy.timelockanalysis(self.adata, cfg)
 
-        with pytest.raises(SPYTypeError,
-                           match="expected bool"):
+        with pytest.raises(SPYTypeError, match="expected bool"):
             spy.timelockanalysis(self.adata, keeptrials=2)
 
-        with pytest.raises(SPYValueError,
-                           match="expected positive integer"):
-            spy.timelockanalysis(self.adata, ddof='2')
+        with pytest.raises(SPYValueError, match="expected positive integer"):
+            spy.timelockanalysis(self.adata, ddof="2")
 
         # here we need to manually wipe the selection due to the
         # exception runs above
@@ -215,7 +206,7 @@ class TestTimelockanalysis:
     def test_parallel_selection(self, testcluster):
 
         cfg = spy.StructDict()
-        cfg.latency = 'minperiod'
+        cfg.latency = "minperiod"
         cfg.parallel = True
 
         client = dd.Client(testcluster)
@@ -226,9 +217,9 @@ class TestTimelockanalysis:
         assert not np.any(np.isnan(tld.data[:]))
 
         # test channel selection
-        cfg.select = {'channel': 0}
+        cfg.select = {"channel": 0}
         tld = spy.timelockanalysis(self.adata, cfg)
-        assert all(['channel2' not in chan for chan in tld.channel])
+        assert all(["channel2" not in chan for chan in tld.channel])
         assert self.adata.selection is None
 
         # trial selection via FT compat parameter
@@ -239,10 +230,10 @@ class TestTimelockanalysis:
         assert self.adata.selection is None
 
         # and via normal selection
-        tld2 = spy.timelockanalysis(self.adata, select={'trials': [5, 6]})
+        tld2 = spy.timelockanalysis(self.adata, select={"trials": [5, 6]})
         assert np.all(tld2.data[()] == tld.data[()])
         client.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     T1 = TestTimelockanalysis()

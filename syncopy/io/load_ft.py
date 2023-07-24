@@ -18,14 +18,10 @@ from syncopy.datatype import AnalogData
 __all__ = ["load_ft_raw"]
 
 # Required fields for the ft_datatype_raw
-req_fields_raw = ('time', 'trial', 'label')
+req_fields_raw = ("time", "trial", "label")
 
 
-def load_ft_raw(filename,
-                list_only=False,
-                select_structures=None,
-                include_fields=None,
-                mem_use=4000):
+def load_ft_raw(filename, list_only=False, select_structures=None, include_fields=None, mem_use=4000):
 
     """
     Imports raw time-series data from Field Trip
@@ -126,15 +122,11 @@ def load_ft_raw(filename,
     io_parser(filename, isfile=True)
 
     if select_structures is not None:
-        sequence_parser(select_structures,
-                        varname='select_structures',
-                        content_type=str)
+        sequence_parser(select_structures, varname="select_structures", content_type=str)
     if include_fields is not None:
-        sequence_parser(include_fields,
-                        varname='include_fields',
-                        content_type=str)
+        sequence_parser(include_fields, varname="include_fields", content_type=str)
 
-    scalar_parser(mem_use, varname='mem_use', ntype="int_like", lims=[1, np.inf])
+    scalar_parser(mem_use, varname="mem_use", ntype="int_like", lims=[1, np.inf])
 
     # -- MAT-File Format --
 
@@ -145,14 +137,13 @@ def load_ft_raw(filename,
     # new hdf container format, use h5py
     if version >= 7.3:
 
-        h5File = h5py.File(filename, 'r')
-        struct_keys = [key for key in h5File.keys() if '#' not in key]
+        h5File = h5py.File(filename, "r")
+        struct_keys = [key for key in h5File.keys() if "#" not in key]
 
         struct_container = h5File
-        struct_reader = lambda struct: _read_hdf_structure(struct,
-                                                           h5File=h5File,
-                                                           mem_use=mem_use,
-                                                           include_fields=include_fields)
+        struct_reader = lambda struct: _read_hdf_structure(
+            struct, h5File=h5File, mem_use=mem_use, include_fields=include_fields
+        )
 
     # old format <2GB, use scipy's MAT reader
     else:
@@ -161,19 +152,16 @@ def load_ft_raw(filename,
             msg = "MAT-File version < 7.3 does not support lazy loading"
             msg += f"\nReading {filename} might take up to 2GB of RAM, you requested only {mem_use / 1000}GB"
             SPYInfo(msg)
-            lgl = '2000 or more MB'
+            lgl = "2000 or more MB"
             actual = f"{mem_use}"
-            raise SPYValueError(lgl, varname='mem_use', actual=actual)
+            raise SPYValueError(lgl, varname="mem_use", actual=actual)
 
-        raw_dict = sio.loadmat(filename,
-                               mat_dtype=True,
-                               simplify_cells=True)
+        raw_dict = sio.loadmat(filename, mat_dtype=True, simplify_cells=True)
 
-        struct_keys = [skey for skey in raw_dict.keys() if '__' not in skey]
+        struct_keys = [skey for skey in raw_dict.keys() if "__" not in skey]
 
         struct_container = raw_dict
-        struct_reader = lambda struct: _read_dict_structure(struct,
-                                                            include_fields=include_fields)
+        struct_reader = lambda struct: _read_dict_structure(struct, include_fields=include_fields)
 
     msg = f"Found {len(struct_keys)} structure(s): {struct_keys} in {filename}"
     SPYInfo(msg)
@@ -182,10 +170,11 @@ def load_ft_raw(filename,
         return struct_keys
 
     if len(struct_keys) == 0:
-        SPYValueError(legal="At least one structure",
-                      varname=filename,
-                      actual="No structure found"
-                      )
+        SPYValueError(
+            legal="At least one structure",
+            varname=filename,
+            actual="No structure found",
+        )
 
     # -- IO Operations --
 
@@ -219,10 +208,7 @@ def load_ft_raw(filename,
     return out_dict
 
 
-def _read_hdf_structure(h5Group,
-                        h5File,
-                        mem_use,
-                        include_fields=None):
+def _read_hdf_structure(h5Group, h5File, mem_use, include_fields=None):
 
     """
     Each Matlab structure contained in
@@ -256,12 +242,12 @@ def _read_hdf_structure(h5Group,
 
     # these are numpy arrays holding hdf5 object references
     # i.e. one per trial, channel, time (per trial)
-    trl_refs = h5Group['trial'][:, 0]
-    time_refs = h5Group['time'][:, 0]
-    chan_refs = h5Group['label'][0, :]
+    trl_refs = h5Group["trial"][:, 0]
+    time_refs = h5Group["time"][:, 0]
+    chan_refs = h5Group["label"][0, :]
 
-    if 'fsample' in h5Group:
-        AData.samplerate = h5Group['fsample'][0, 0]
+    if "fsample" in h5Group:
+        AData.samplerate = h5Group["fsample"][0, 0]
     else:
         AData.samplerate = _infer_fsample(h5File[time_refs[0]])
 
@@ -287,9 +273,9 @@ def _read_hdf_structure(h5Group,
 
     # assumption: single trial fits into RAM
     if trl_size >= 0.4 * mem_use:
-        lgl = f'{2.5 * trl_size} or more MB'
+        lgl = f"{2.5 * trl_size} or more MB"
         actual = f"{mem_use}"
-        raise SPYValueError(lgl, varname='mem_use', actual=actual)
+        raise SPYValueError(lgl, varname="mem_use", actual=actual)
 
     # -- IO process --
 
@@ -297,19 +283,17 @@ def _read_hdf_structure(h5Group,
     # with the default dimord ['time', 'channel']
     # and our default data type np.float32 -> implicit casting!
     with h5py.File(AData.filename, mode="w") as h5FileOut:
-        ADset = h5FileOut.create_dataset("data",
-                                         dtype=np.float32,
-                                         shape=[nTotalSamples, nChannels])
+        ADset = h5FileOut.create_dataset("data", dtype=np.float32, shape=[nTotalSamples, nChannels])
 
         pbar = tqdm(trl_refs, desc=f"{struct_name} - loading {nTrials} trials", disable=None)
 
-        SampleCounter = 0   # trial stacking
+        SampleCounter = 0  # trial stacking
         # one swipe per trial
         for tr in pbar:
             trl_array = h5File[tr]
             # in samples
             trl_samples = trl_array.shape[0]
-            ADset[SampleCounter:SampleCounter + trl_samples, :] = trl_array
+            ADset[SampleCounter : SampleCounter + trl_samples, :] = trl_array
             SampleCounter += trl_samples
         pbar.close()
 
@@ -328,7 +312,7 @@ def _read_hdf_structure(h5Group,
 
     # check if there is a 'trialinfo'
     try:
-        trl_def = np.hstack([trl_def, h5Group['trialinfo']])
+        trl_def = np.hstack([trl_def, h5Group["trialinfo"]])
     except KeyError:
         pass
 
@@ -336,7 +320,7 @@ def _read_hdf_structure(h5Group,
 
     # each channel label is an integer array with shape (X, 1),
     # where `X` is the number of ascii encoded characters
-    channels = [''.join(map(chr, h5File[cr][:, 0])) for cr in chan_refs]
+    channels = ["".join(map(chr, h5File[cr][:, 0])) for cr in chan_refs]
     AData.channel = channels
 
     # -- Additional Fields --
@@ -345,11 +329,11 @@ def _read_hdf_structure(h5Group,
         # additional fields in MAT-File
         afields = [k for k in h5Group.keys() if k not in req_fields_raw]
         msg = f"Found following additional fields: {afields}"
-        SPYInfo(msg, caller='load_ft_raw')
+        SPYInfo(msg, caller="load_ft_raw")
         for field in include_fields:
             if field not in h5Group:
                 msg = f"Could not find additional field {field} in {struct_name}"
-                SPYWarning(msg, caller='load_ft_raw')
+                SPYWarning(msg, caller="load_ft_raw")
                 continue
 
             dset = h5Group[field]
@@ -404,33 +388,30 @@ def _read_dict_structure(structure, include_fields=None):
     Syncopy has nSamples x nChannels
     """
 
-
     # initialize AnalogData
-    if 'fsample' in structure:
-        samplerate = structure['fsample']
+    if "fsample" in structure:
+        samplerate = structure["fsample"]
     else:
-        samplerate = _infer_fsample(structure['time'][0])
+        samplerate = _infer_fsample(structure["time"][0])
 
     AData = AnalogData(samplerate=samplerate)
 
     # compute total hdf5 shape
     # we use fixed stacking along 1st axis
     # but channel x sample ordering in FT
-    nTotalSamples = np.sum([trl.shape[1] for trl in structure['trial']])
-    nChannels = structure['trial'][0].shape[0]
+    nTotalSamples = np.sum([trl.shape[1] for trl in structure["trial"]])
+    nChannels = structure["trial"][0].shape[0]
     sampleinfo = []
 
-    with h5py.File(AData._filename, 'w') as h5file:
+    with h5py.File(AData._filename, "w") as h5file:
 
-        dset = h5file.create_dataset("data",
-                                     dtype=np.float32,
-                                     shape=[nTotalSamples, nChannels])
+        dset = h5file.create_dataset("data", dtype=np.float32, shape=[nTotalSamples, nChannels])
 
         stack_count = 0
-        for trl in structure['trial']:
+        for trl in structure["trial"]:
             trl_size = trl.shape[1]
             # default data type np.float32 -> implicit casting!
-            dset[stack_count:stack_count + trl_size] = trl.T.astype(np.float32)
+            dset[stack_count : stack_count + trl_size] = trl.T.astype(np.float32)
 
             # construct on the fly to cover all the trials
             sampleinfo.append(np.array([stack_count, stack_count + trl_size]))
@@ -444,12 +425,12 @@ def _read_dict_structure(structure, include_fields=None):
     sampleinfo = np.array(sampleinfo)
 
     # get the channel ids
-    channels = structure['label']
+    channels = structure["label"]
     # set the channel ids
     AData.channel = list(channels.astype(str))
 
     # get the offets
-    offsets = np.array([tvec[0] for tvec in structure['time']])
+    offsets = np.array([tvec[0] for tvec in structure["time"]])
     offsets *= AData.samplerate
 
     # build trialdefinition
@@ -457,7 +438,7 @@ def _read_dict_structure(structure, include_fields=None):
 
     # check if there is a 'trialinfo'
     try:
-        trl_def = np.hstack([trl_def, structure['trialinfo']])
+        trl_def = np.hstack([trl_def, structure["trialinfo"]])
     except KeyError:
         pass
 
@@ -470,12 +451,12 @@ def _read_dict_structure(structure, include_fields=None):
         # additional fields in MAT-File
         afields = [k for k in structure.keys() if k not in req_fields_raw]
         msg = f"Found following additional fields: {afields}"
-        SPYInfo(msg, caller='load_ft_raw')
+        SPYInfo(msg, caller="load_ft_raw")
 
         for field in include_fields:
             if field not in structure:
                 msg = f"Could not find additional field {field}"
-                SPYWarning(msg, caller='load_ft_raw')
+                SPYWarning(msg, caller="load_ft_raw")
                 continue
             # we only support fields pointing directly to some data
             # no nested structures!
@@ -498,7 +479,7 @@ def _get_Matlab_version(filename):
     Works for both < 7.3 and newer MAT-files.
     """
 
-    with open(filename, 'rb') as matfile:
+    with open(filename, "rb") as matfile:
         line1 = next(matfile)
         # relevant information
         header = line1[:76].decode()
@@ -509,8 +490,8 @@ def _get_Matlab_version(filename):
     match = pattern.match(header)
 
     if not match:
-        lgl = 'recognizable .mat file'
-        actual = 'can not recognize .mat file'
+        lgl = "recognizable .mat file"
+        actual = "can not recognize .mat file"
         raise SPYValueError(lgl, filename, actual)
 
     version = float(match.group(1))
@@ -533,7 +514,7 @@ def _check_req_fields(req_fields, structure):
         if key not in structure:
             lgl = f"{key} present in MAT structure"
             actual = f"{key} missing"
-            raise SPYValueError(lgl, 'MAT structure', actual)
+            raise SPYValueError(lgl, "MAT structure", actual)
 
 
 def _infer_fsample(time_vector):
@@ -565,7 +546,7 @@ def _parse_MAT_hdf_strings(dataset):
     # (no need to enumerate)?
     str_seq = []
     for i, ascii_arr in enumerate(dataset[...].T):
-        string = ''.join(map(chr, ascii_arr))
+        string = "".join(map(chr, ascii_arr))
         str_seq.append(string)
 
     return np.array(str_seq)

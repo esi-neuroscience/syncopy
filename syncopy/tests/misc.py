@@ -17,6 +17,7 @@ import dask.distributed as dd
 from syncopy.datatype import AnalogData
 from syncopy.shared.filetypes import _data_classname_to_extension, FILE_EXT
 from syncopy import __plt__, __acme__
+
 if __plt__:
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -35,9 +36,13 @@ def is_win_vm():
         return False
 
     # Use the windows management instrumentation command-line to extract machine manufacturer
-    out, err = subprocess.Popen("wmic computersystem get manufacturer",
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True, shell=True).communicate()
+    out, err = subprocess.Popen(
+        "wmic computersystem get manufacturer",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        shell=True,
+    ).communicate()
 
     # If the vendor name contains any "virtual"-flavor, we're probably running
     # in a VM - if the above command triggered an error, abort
@@ -56,17 +61,28 @@ def is_slurm_node():
     """
 
     # Simply test if the srun command is available
-    out, err = subprocess.Popen("srun --version",
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True, shell=True).communicate()
+    out, err = subprocess.Popen(
+        "srun --version",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        shell=True,
+    ).communicate()
     if len(out) > 0:
         return True
     else:
         return False
 
 
-def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=42,
-                             overlapping=False, inmemory=True, dimord="default"):
+def generate_artificial_data(
+    nTrials=2,
+    nChannels=2,
+    equidistant=True,
+    seed=42,
+    overlapping=False,
+    inmemory=True,
+    dimord="default",
+):
     """
     Create :class:`~syncopy.AnalogData` object with synthetic harmonic signal(s)
 
@@ -183,13 +199,13 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=42,
     # NOTE: use `swapaxes` here to ensure two objects created w/same seed really
     # are affected w/identical additive noise patterns, no matter their respective
     # `dimord`.
-    out = AnalogData(samplerate=1/dt, dimord=dimord)
+    out = AnalogData(samplerate=1 / dt, dimord=dimord)
     if inmemory:
         idx[timeAxis] = nTrials
         sig = np.tile(sig, idx)
         shp = [slice(None), slice(None)]
         for iTrial in range(nTrials):
-            shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
+            shp[timeAxis] = slice(iTrial * t.size, (iTrial + 1) * t.size)
             noise = rng.standard_normal((t.size, nChannels)).astype(sig.dtype) * 0.5
             sig[tuple(shp)] += np.swapaxes(noise, timeAxis, 0)
         out.data = sig
@@ -200,36 +216,40 @@ def generate_artificial_data(nTrials=2, nChannels=2, equidistant=True, seed=42,
             dset = h5f.create_dataset("data", shape=tuple(shp), dtype=sig.dtype)
             shp = [slice(None), slice(None)]
             for iTrial in range(nTrials):
-                shp[timeAxis] = slice(iTrial*t.size, (iTrial + 1)*t.size)
+                shp[timeAxis] = slice(iTrial * t.size, (iTrial + 1) * t.size)
                 noise = rng.standard_normal((t.size, nChannels)).astype(sig.dtype) * 0.5
                 dset[tuple(shp)] = sig + np.swapaxes(noise, timeAxis, 0)
                 dset.flush()
         out.data = h5py.File(out.filename, "r+")["data"]
 
     # Define by-trial offsets to generate (non-)equidistant/(non-)overlapping trials
-    trialdefinition = np.zeros((nTrials, 3), dtype='int')
+    trialdefinition = np.zeros((nTrials, 3), dtype="int")
     if equidistant:
         equiOffset = 0
         if overlapping:
             equiOffset = 100
         offsets = np.full((nTrials,), equiOffset, dtype=sig.dtype)
     else:
-        offsets = rng.integers(low=int(0.1*t.size), high=int(0.2*t.size), size=(nTrials,))
+        offsets = rng.integers(low=int(0.1 * t.size), high=int(0.2 * t.size), size=(nTrials,))
 
     # Using generated offsets, construct trialdef array and make sure initial
     # and end-samples are within data bounds (only relevant if overlapping
     # trials are built)
-    shift = (-1)**(not overlapping)
+    shift = (-1) ** (not overlapping)
     for iTrial in range(nTrials):
-        trialdefinition[iTrial, :] = np.array([iTrial*t.size - shift*offsets[iTrial],
-                                               (iTrial + 1)*t.size + shift*offsets[iTrial],
-                                               -1000])
+        trialdefinition[iTrial, :] = np.array(
+            [
+                iTrial * t.size - shift * offsets[iTrial],
+                (iTrial + 1) * t.size + shift * offsets[iTrial],
+                -1000,
+            ]
+        )
     if equidistant:
         trialdefinition[0, :2] += equiOffset
         trialdefinition[-1, :2] -= equiOffset
     else:
         trialdefinition[0, 0] = 0
-        trialdefinition[-1, 1] = nTrials*t.size
+        trialdefinition[-1, 1] = nTrials * t.size
     out.definetrial(trialdefinition)
 
     return out
@@ -301,8 +321,10 @@ def flush_local_cluster(testcluster, timeout=10):
         time.sleep(1.0)
         client = dd.Client(testcluster)
         waiting = 0
-        while len([w["memory_limit"] for w in testcluster.scheduler_info["workers"].values()]) == 0 \
-            and waiting < timeout:
-                time.sleep(1.0)
-                waiting += 1
+        while (
+            len([w["memory_limit"] for w in testcluster.scheduler_info["workers"].values()]) == 0
+            and waiting < timeout
+        ):
+            time.sleep(1.0)
+            waiting += 1
     return

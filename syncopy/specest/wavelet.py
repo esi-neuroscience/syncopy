@@ -40,7 +40,9 @@ def wavelet(data_arr, samplerate, scales, wavelet):
     """
 
     logger = logging.getLogger("syncopy_" + platform.node())
-    logger.debug(f"Running wavelet transform on data with shape {data_arr.shape} and samplerate {samplerate}.")
+    logger.debug(
+        f"Running wavelet transform on data with shape {data_arr.shape} and samplerate {samplerate}."
+    )
 
     spec = cwt(data_arr, wavelet=wavelet, widths=scales, dt=1 / samplerate, axis=0)
 

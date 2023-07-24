@@ -23,6 +23,7 @@ class SPYError(Exception):
     """
     Base class for SynCoPy errors
     """
+
     pass
 
 
@@ -47,9 +48,11 @@ class SPYTypeError(SPYError):
 
     def __str__(self):
         msg = "Wrong type{vn:s}{ex:s}{fd:s}"
-        return msg.format(vn=" of `" + self.varname + "`:" if len(self.varname) else ":",
-                          ex=" expected " + self.expected if len(self.expected) else "",
-                          fd=" found " + self.found)
+        return msg.format(
+            vn=" of `" + self.varname + "`:" if len(self.varname) else ":",
+            ex=" expected " + self.expected if len(self.expected) else "",
+            fd=" found " + self.found,
+        )
 
 
 class SPYValueError(SPYError):
@@ -73,9 +76,11 @@ class SPYValueError(SPYError):
 
     def __str__(self):
         msg = "Invalid value{vn:s}{fd:s} expected {ex:s}"
-        return msg.format(vn=" of `" + self.varname + "`:" if len(self.varname) else ":",
-                          fd=" '" + self.actual + "';" if len(self.actual) else "",
-                          ex=self.legal)
+        return msg.format(
+            vn=" of `" + self.varname + "`:" if len(self.varname) else ":",
+            fd=" '" + self.actual + "';" if len(self.actual) else "",
+            ex=self.legal,
+        )
 
 
 class SPYIOError(SPYError):
@@ -97,10 +102,15 @@ class SPYIOError(SPYError):
 
     def __str__(self):
         msg = "Cannot {op:s} {fs_loc:s}{ex:s}"
-        return msg.format(op="access" if self.exists is None else "write" if self.exists else "read",
-                          fs_loc=self.fs_loc,
-                          ex=": object already exists" if self.exists is True \
-                          else ": object does not exist" if self.exists is False else "")
+        return msg.format(
+            op="access" if self.exists is None else "write" if self.exists else "read",
+            fs_loc=self.fs_loc,
+            ex=": object already exists"
+            if self.exists is True
+            else ": object does not exist"
+            if self.exists is False
+            else "",
+        )
 
 
 class SPYParallelError(SPYError):
@@ -143,13 +153,13 @@ def SPYExceptionHandler(*excargs, **exckwargs):
         etype, evalue, etb = excargs
     else:
         etype, evalue, etb = sys.exc_info()
-        try:                            # careful: if iPython is used to launch a script, ``get_ipython`` is not defined
+        try:  # careful: if iPython is used to launch a script, ``get_ipython`` is not defined
             ipy = get_ipython()
             isipy = True
             cols = ipy.InteractiveTB.Colors
             cols.filename = cols.filenameEm
             cols.bold = ansiBold
-            sys.last_traceback = etb    # smartify ``sys``
+            sys.last_traceback = etb  # smartify ``sys``
         except NameError:
             isipy = False
 
@@ -161,8 +171,9 @@ def SPYExceptionHandler(*excargs, **exckwargs):
         return
 
     # Starty by putting together first line of error message
-    emsg = "{}\nSyNCoPy encountered an error in{} \n\n".format(cols.topline if isipy else "",
-                                                               cols.Normal if isipy else "")
+    emsg = "{}\nSyNCoPy encountered an error in{} \n\n".format(
+        cols.topline if isipy else "", cols.Normal if isipy else ""
+    )
 
     # If we're dealing with a `SyntaxError`, show it and getta outta here
     if issubclass(etype, SyntaxError):
@@ -173,24 +184,22 @@ def SPYExceptionHandler(*excargs, **exckwargs):
             if "File" in eline:
                 eline = eline.split("File ")[1]
                 fname, lineno = eline.split(", line ")
-                emsg += "{}{}{}".format(cols.filename if isipy else "",
-                                        fname,
-                                        cols.Normal if isipy else "")
-                emsg += ", line {}{}{}".format(cols.lineno if isipy else "",
-                                               lineno,
-                                               cols.Normal if isipy else "")
+                emsg += "{}{}{}".format(cols.filename if isipy else "", fname, cols.Normal if isipy else "")
+                emsg += ", line {}{}{}".format(
+                    cols.lineno if isipy else "", lineno, cols.Normal if isipy else ""
+                )
             elif "SyntaxError" in eline:
                 smsg = eline.split("SyntaxError: ")[1]
-                emsg += "{}{}SyntaxError{}: {}{}{}".format(cols.excName if isipy else "",
-                                                           cols.bold if isipy else "",
-                                                           cols.Normal if isipy else "",
-                                                           cols.bold if isipy else "",
-                                                           smsg,
-                                                           cols.Normal if isipy else "")
+                emsg += "{}{}SyntaxError{}: {}{}{}".format(
+                    cols.excName if isipy else "",
+                    cols.bold if isipy else "",
+                    cols.Normal if isipy else "",
+                    cols.bold if isipy else "",
+                    smsg,
+                    cols.Normal if isipy else "",
+                )
             else:
-                emsg += "{}{}{}".format(cols.line if isipy else "",
-                                        eline,
-                                        cols.Normal if isipy else "")
+                emsg += "{}{}{}".format(cols.line if isipy else "", eline, cols.Normal if isipy else "")
 
         # Show generated message and leave (or kick-off debugging in Jupyer/iPython if %pdb is on)
         logger = get_parallel_logger()
@@ -201,25 +210,24 @@ def SPYExceptionHandler(*excargs, **exckwargs):
         return
 
     # Build an ordered(!) dictionary that encodes separators for traceback components
-    sep = OrderedDict({"filename": ", line ",
-                       "lineno": " in ",
-                       "name": "\n\t",
-                       "line": "\n"})
+    sep = OrderedDict({"filename": ", line ", "lineno": " in ", "name": "\n\t", "line": "\n"})
 
     # Find "root" of traceback tree (and remove outer-most frames)
     keepgoing = True
     while keepgoing:
         frame = traceback.extract_tb(etb)[0]
         etb = etb.tb_next
-        if frame.filename.find("site-packages") < 0 or \
-           (frame.filename.find("site-packages") >= 0 and \
-            frame.filename.find("syncopy") >= 0):
+        if frame.filename.find("site-packages") < 0 or (
+            frame.filename.find("site-packages") >= 0 and frame.filename.find("syncopy") >= 0
+        ):
             tb_entry = ""
             for attr in sep.keys():
-                tb_entry += "{}{}{}{}".format(getattr(cols, attr) if isipy else "",
-                                              getattr(frame, attr),
-                                              cols.Normal if isipy else "",
-                                              sep.get(attr))
+                tb_entry += "{}{}{}{}".format(
+                    getattr(cols, attr) if isipy else "",
+                    getattr(frame, attr),
+                    cols.Normal if isipy else "",
+                    sep.get(attr),
+                )
             emsg += tb_entry
             keepgoing = False
 
@@ -230,30 +238,34 @@ def SPYExceptionHandler(*excargs, **exckwargs):
         exc_msg = exc_fmt[0]
         idx = exc_msg.rfind(etype.__name__)
         if idx >= 0:
-            exc_msg = exc_msg[idx + len(etype.__name__):]
-        exc_name = "{}{}{}{}".format(cols.excName if isipy else "",
-                                     cols.bold if isipy else "",
-                                     etype.__name__,
-                                     cols.Normal if isipy else "")
+            exc_msg = exc_msg[idx + len(etype.__name__) :]
+        exc_name = "{}{}{}{}".format(
+            cols.excName if isipy else "",
+            cols.bold if isipy else "",
+            etype.__name__,
+            cols.Normal if isipy else "",
+        )
     else:
         exc_msg = "".join(exc_fmt)
         exc_name = ""
 
     # Now go through traceback and put together a list of strings for printing
     if __tbcount__ and etb is not None:
-        emsg += "\n" + "-"*80 + "\nAbbreviated traceback:\n\n"
+        emsg += "\n" + "-" * 80 + "\nAbbreviated traceback:\n\n"
         tb_count = 0
         tb_list = []
         for frame in traceback.extract_tb(etb):
-            if frame.filename.find("site-packages") < 0 or \
-               (frame.filename.find("site-packages") >= 0 and \
-                frame.filename.find("syncopy") >= 0):
+            if frame.filename.find("site-packages") < 0 or (
+                frame.filename.find("site-packages") >= 0 and frame.filename.find("syncopy") >= 0
+            ):
                 tb_entry = ""
                 for attr in sep.keys():
-                    tb_entry += "{}{}{}{}".format("", # placeholder for color if wanted
-                                                  getattr(frame, attr),
-                                                  "", # placeholder for color if wanted
-                                                  sep.get(attr))
+                    tb_entry += "{}{}{}{}".format(
+                        "",  # placeholder for color if wanted
+                        getattr(frame, attr),
+                        "",  # placeholder for color if wanted
+                        sep.get(attr),
+                    )
                 tb_list.append(tb_entry)
                 tb_count += 1
                 if tb_count == __tbcount__:
@@ -262,16 +274,19 @@ def SPYExceptionHandler(*excargs, **exckwargs):
 
     # Finally, another info message
     if etb is not None:
-        emsg += "\nUse `import traceback; import sys; traceback.print_tb(sys.last_traceback)` " + \
-                "for full error traceback.\n"
+        emsg += (
+            "\nUse `import traceback; import sys; traceback.print_tb(sys.last_traceback)` "
+            + "for full error traceback.\n"
+        )
 
     # Glue actual Exception name + message to output string
-    emsg += "{}{}{}{}{}".format("\n" if isipy else "",
-                                exc_name,
-                                cols.bold if isipy else "",
-                                exc_msg,
-                                cols.Normal if isipy else "",)
-
+    emsg += "{}{}{}{}{}".format(
+        "\n" if isipy else "",
+        exc_name,
+        cols.bold if isipy else "",
+        exc_msg,
+        cols.Normal if isipy else "",
+    )
 
     # Show generated message and get outta here
     logger = get_parallel_logger()
@@ -321,11 +336,15 @@ def SPYWarning(msg, caller=None):
         caller = sys._getframe().f_back.f_code.co_name
     PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} WARNING: {msg:s}{coloroff:s}"
     logger = get_logger()
-    logger.warning(PrintMsg.format(coloron=warnCol,
-                          bold=boldEm,
-                          caller=_get_caller(caller),
-                          msg=msg,
-                          coloroff=normCol))
+    logger.warning(
+        PrintMsg.format(
+            coloron=warnCol,
+            bold=boldEm,
+            caller=_get_caller(caller),
+            msg=msg,
+            coloroff=normCol,
+        )
+    )
 
 
 def SPYParallelLog(msg, loglevel="INFO", caller=None):
@@ -345,8 +364,8 @@ def SPYParallelLog(msg, loglevel="INFO", caller=None):
     PrintMsg = "{caller:s} {msg:s}"
     logger = get_parallel_logger()
     logfunc = getattr(logger, loglevel.lower())
-    logfunc(PrintMsg.format(caller=_get_caller(caller),
-                          msg=msg))
+    logfunc(PrintMsg.format(caller=_get_caller(caller), msg=msg))
+
 
 def _get_caller(caller):
     try:
@@ -373,8 +392,8 @@ def SPYLog(msg, loglevel="INFO", caller=None):
     PrintMsg = "{caller:s} {msg:s}"
     logger = get_logger()
     logfunc = getattr(logger, loglevel.lower())
-    logfunc(PrintMsg.format(caller=_get_caller(caller),
-                          msg=msg))
+    logfunc(PrintMsg.format(caller=_get_caller(caller), msg=msg))
+
 
 def log(msg, level="IMPORTANT", par=False, caller=None):
     """
@@ -426,7 +445,7 @@ def SPYInfo(msg, caller=None, tag="INFO"):
     # https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
     try:
         cols = get_ipython().InteractiveTB.Colors
-        infoCol = cols.Normal # infos are fine with just bold text
+        infoCol = cols.Normal  # infos are fine with just bold text
         normCol = cols.Normal
         boldEm = ansiBold
     except NameError:
@@ -439,12 +458,17 @@ def SPYInfo(msg, caller=None, tag="INFO"):
         caller = sys._getframe().f_back.f_code.co_name
     PrintMsg = "{coloron:s}{bold:s}Syncopy{caller:s} {tag}: {msg:s}{coloroff:s}"
     logger = get_logger()
-    logger.info(PrintMsg.format(coloron=infoCol,
-                          bold=boldEm,
-                          caller=_get_caller(caller),
-                          tag=tag,
-                          msg=msg,
-                          coloroff=normCol))
+    logger.info(
+        PrintMsg.format(
+            coloron=infoCol,
+            bold=boldEm,
+            caller=_get_caller(caller),
+            tag=tag,
+            msg=msg,
+            coloroff=normCol,
+        )
+    )
+
 
 def SPYDebug(msg, caller=None):
     """

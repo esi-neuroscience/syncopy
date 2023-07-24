@@ -19,7 +19,8 @@ import syncopy
 
 # Decorator to decide whether or not to run dask-related tests
 skip_in_ghactions = pytest.mark.skipif(
-    "GITHUB_ACTIONS" in os.environ.keys(), reason="Do not execute by GitHub Actions")
+    "GITHUB_ACTIONS" in os.environ.keys(), reason="Do not execute by GitHub Actions"
+)
 
 
 # check if folder creation in `__storage__` works as expected
@@ -53,9 +54,9 @@ def test_cleanup():
     # if that is not the case we have to move there
 
     cdir = os.getcwd()
-    while 'syncopy' in cdir:
+    while "syncopy" in cdir:
         head, tail = os.path.split(cdir)
-        if not 'syncopy' in head:
+        if not "syncopy" in head:
             root_dir = os.path.join(head, tail)
             os.chdir(root_dir)
             break
@@ -67,13 +68,14 @@ def test_cleanup():
     tmpDir = tempfile.mkdtemp()
 
     os.environ["SPYTMPDIR"] = tmpDir
-    commandStr = \
-        "import os; " +\
-        "import time; " +\
-        "import numpy as np; " +\
-        "import syncopy as spy; " +\
-        "dummy = spy.AnalogData(data=np.ones((10,10)), samplerate=1); " +\
-        "time.sleep(100)"
+    commandStr = (
+        "import os; "
+        + "import time; "
+        + "import numpy as np; "
+        + "import syncopy as spy; "
+        + "dummy = spy.AnalogData(data=np.ones((10,10)), samplerate=1); "
+        + "time.sleep(100)"
+    )
     process = subprocess.Popen([sys.executable, "-c", commandStr])
     time.sleep(12)
     process.kill()
@@ -84,17 +86,21 @@ def test_cleanup():
 
     # launch 2nd external instance with same $SPYTMPDIR, create 2nd `AnalogData`
     # object, run `cleanup` and keep instance alive in background (for max. 100s)
-    commandStr = \
-        "import time; " +\
-        "import syncopy as spy; " +\
-        "import numpy as np; " +\
-        "dummy = spy.AnalogData(data=np.ones((10,10)), samplerate=1); " +\
-        "time.sleep(5)" +\
-        "spy.cleanup(older_than=0, interactive=False, only_current_session=True); " +\
-        "time.sleep(100)"
-    process2 = subprocess.Popen([sys.executable, "-c", commandStr],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True)
+    commandStr = (
+        "import time; "
+        + "import syncopy as spy; "
+        + "import numpy as np; "
+        + "dummy = spy.AnalogData(data=np.ones((10,10)), samplerate=1); "
+        + "time.sleep(5)"
+        + "spy.cleanup(older_than=0, interactive=False, only_current_session=True); "
+        + "time.sleep(100)"
+    )
+    process2 = subprocess.Popen(
+        [sys.executable, "-c", commandStr],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
     time.sleep(12)
 
     num_garbage_after = len(glob(os.path.join(tmpDir, "*.analog")))

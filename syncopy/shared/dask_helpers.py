@@ -18,9 +18,7 @@ def check_slurm_available():
     """
 
     # Check if SLURM's `sinfo` can be accessed
-    proc = subprocess.Popen("sinfo",
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            text=True, shell=True)
+    proc = subprocess.Popen("sinfo", stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
     _, err = proc.communicate()
     # Any non-zero return-code means SLURM is not available
     # so we disable ACME
@@ -42,19 +40,21 @@ def check_workers_available(client, n_workers=1, timeout=120):
     totalWorkers = len(client.cluster.requested)
 
     # dictionary of workers
-    workers = client.cluster.scheduler_info['workers']
+    workers = client.cluster.scheduler_info["workers"]
 
     # some small initial wait
-    sleep(.25)
+    sleep(0.25)
 
     if len(workers) < n_workers:
-        logger.important(f"waiting for at least {n_workers}/{totalWorkers} workers being available, timeout after {timeout} seconds..")
+        logger.important(
+            f"waiting for at least {n_workers}/{totalWorkers} workers being available, timeout after {timeout} seconds.."
+        )
     client.wait_for_workers(n_workers, timeout=timeout)
 
-    sleep(.25)
+    sleep(0.25)
 
     # report what we have
     logger.important(f"{len(workers)}/{totalWorkers} workers available, starting computation..")
 
     # wait a little more to get consistent client print out
-    sleep(.25)
+    sleep(0.25)

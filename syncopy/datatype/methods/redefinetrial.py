@@ -19,9 +19,16 @@ __all__ = ["redefinetrial"]
 
 
 @unwrap_cfg
-def redefinetrial(data_obj, trials=None, minlength=None,
-                  offset=None, toilim=None,
-                  begsample=None, endsample=None, trl=None):
+def redefinetrial(
+    data_obj,
+    trials=None,
+    minlength=None,
+    offset=None,
+    toilim=None,
+    begsample=None,
+    endsample=None,
+    trl=None,
+):
     """
     This function allows you to adjust the time axis of your data, i.e. to
     change from stimulus-locked to response-locked. Furthermore, it allows
@@ -80,7 +87,7 @@ def redefinetrial(data_obj, trials=None, minlength=None,
 
     # -- sort out mutually exclusive parameters --
 
-    vals = [new_cfg[par] for par in ['minlength', 'toilim', 'begsample', 'trl']]
+    vals = [new_cfg[par] for par in ["minlength", "toilim", "begsample", "trl"]]
     if vals.count(None) < 3:
         msg = "either `minlength` or `begsample`/`endsample` or `trl` or `toilim`"
         raise SPYError("Incompatible input arguments, " + msg)
@@ -107,7 +114,7 @@ def redefinetrial(data_obj, trials=None, minlength=None,
 
     elif minlength is not None:
 
-        scalar_parser(minlength, varname='minlength', lims=[0, np.inf])
+        scalar_parser(minlength, varname="minlength", lims=[0, np.inf])
 
         min_samples = int(minlength * data_obj.samplerate)
         trl_sel = []
@@ -116,12 +123,17 @@ def redefinetrial(data_obj, trials=None, minlength=None,
             if nSamples >= min_samples:
                 trl_sel.append(trl_idx)
 
-        spy.log(f"discarding {len(data_obj.trials) - len(trl_sel)} trials", level='INFO',
-                caller='redefinetrial')
+        spy.log(
+            f"discarding {len(data_obj.trials) - len(trl_sel)} trials",
+            level="INFO",
+            caller="redefinetrial",
+        )
 
         if len(trl_sel) == 0:
-            spy.log("No trial fits the desired `minlength`, returning empty object!",
-                    caller='redefinetrial')
+            spy.log(
+                "No trial fits the desired `minlength`, returning empty object!",
+                caller="redefinetrial",
+            )
             return data_obj.__class__()
 
         ret_obj = spy.selectdata(ret_obj, trials=trl_sel)
@@ -131,11 +143,10 @@ def redefinetrial(data_obj, trials=None, minlength=None,
 
     # -- OR manipulate sampleinfo --
 
-    if new_cfg['trl'] is not None:
-        vals = [new_cfg[par] for par in ['begsample', 'endsample', 'offset']]
+    if new_cfg["trl"] is not None:
+        vals = [new_cfg[par] for par in ["begsample", "endsample", "offset"]]
         if vals.count(None) < 3:
-            msg = ("either complete trialdefinition `trl` or  "
-                   "`begsample`/`endsample` and `offset`")
+            msg = "either complete trialdefinition `trl` or  " "`begsample`/`endsample` and `offset`"
             raise SPYError("Incompatible input arguments, " + msg)
 
         # accepts also lists
@@ -148,7 +159,7 @@ def redefinetrial(data_obj, trials=None, minlength=None,
         if trl.ndim != 2:
             lgl = "2-dimensional array"
             act = f"{trl.ndim} array"
-            raise SPYValueError(lgl, 'trl', act)
+            raise SPYValueError(lgl, "trl", act)
 
         new_trldef = trl
 
@@ -156,44 +167,45 @@ def redefinetrial(data_obj, trials=None, minlength=None,
         # is rather dangerous, but possible..
 
     elif begsample is not None or endsample is not None:
-        vals = [new_cfg[par] for par in ['begsample', 'endsample']]
+        vals = [new_cfg[par] for par in ["begsample", "endsample"]]
         if vals.count(None) != 0:
             lgl = "both `begsample` and `endsample`"
             act = f"got [{begsample}, {endsample}]"
-            raise SPYValueError(lgl, 'begsample/endsample', act)
+            raise SPYValueError(lgl, "begsample/endsample", act)
 
         try:
             begsample = np.array(begsample, dtype=int)
         except ValueError:
-            raise SPYTypeError(begsample, 'begsample', "integer number or array")
+            raise SPYTypeError(begsample, "begsample", "integer number or array")
 
         try:
             endsample = np.array(endsample, dtype=int)
         except ValueError:
-            raise SPYTypeError(endsample, 'endsample', "scalar or array")
+            raise SPYTypeError(endsample, "endsample", "scalar or array")
 
         if np.any(begsample < 0):
             lgl = "integers >= 0"
             act = "relative `begsample` < 0"
-            raise SPYValueError(lgl, 'begsample', act)
+            raise SPYValueError(lgl, "begsample", act)
 
         if begsample.size != 1 and begsample.size != len(new_trldef):
-            raise SPYValueError(f"scalar or array of length {len(new_trldef)}", "begsample/endsample",
-                                "wrong sized `begsample`")
+            raise SPYValueError(
+                f"scalar or array of length {len(new_trldef)}",
+                "begsample/endsample",
+                "wrong sized `begsample`",
+            )
 
         if begsample.size != endsample.size:
-            raise SPYValueError("same sizes for `begsample/endsample`", '',
-                                "different sizes")
+            raise SPYValueError("same sizes for `begsample/endsample`", "", "different sizes")
 
         if np.any(new_trldef[:, 0] + endsample > scount):
             lgl = f"integers < {int(scount - new_trldef[:, 0].max())}"
             act = "out of range"
-            raise SPYValueError(lgl, 'endsample', act)
+            raise SPYValueError(lgl, "endsample", act)
 
         # this also catches negative endsample
         if np.any(endsample - begsample < 0):
-            raise SPYValueError("endsample > begsample", "begsample/endsample",
-                                "endsample < begsample")
+            raise SPYValueError("endsample > begsample", "begsample/endsample", "endsample < begsample")
 
         # construct new trialdefinition
         new_trldef[:, 1] = new_trldef[:, 0] + endsample
@@ -208,19 +220,26 @@ def redefinetrial(data_obj, trials=None, minlength=None,
         if len(offset) != len(new_trldef):
             lgl = f"array of length {len(new_trldef)}"
             act = f"array of length {len(offset)}"
-            raise SPYValueError(lgl, 'offset', act)
+            raise SPYValueError(lgl, "offset", act)
         new_trldef[:, 2] = offset
     elif offset is None:
         pass
     else:
-        raise SPYTypeError(offset, 'offset', "scalar, array or None")
+        raise SPYTypeError(offset, "offset", "scalar, array or None")
 
     # -- apply (new) trialdefinition --
 
     array_parser(new_trldef, varname="trl", dims=2)
 
-    array_parser(new_trldef[:, :2], varname="trl", dims=(None, 2),
-                 hasnan=False, hasinf=False, ntype="int_like", lims=[0, scount])
+    array_parser(
+        new_trldef[:, :2],
+        varname="trl",
+        dims=(None, 2),
+        hasnan=False,
+        hasinf=False,
+        ntype="int_like",
+        lims=[0, scount],
+    )
 
     # apply new trialdefinition and be done with it
     spy.definetrial(ret_obj, trialdefinition=new_trldef)
@@ -230,6 +249,6 @@ def redefinetrial(data_obj, trials=None, minlength=None,
     ret_obj.cfg.update(data_obj.cfg)
 
     # Attach frontend parameters for replay.
-    ret_obj.cfg.update({'redefinetrial': new_cfg})
+    ret_obj.cfg.update({"redefinetrial": new_cfg})
 
     return ret_obj

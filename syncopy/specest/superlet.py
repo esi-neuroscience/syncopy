@@ -87,42 +87,31 @@ def superlet(
     # adaptive SLT
     if adaptive:
 
-        logger.debug(f"Running fractional adaptive superlet transform with order_min={order_min}, order_max={order_max} and c_1={c_1} on data with shape {data_arr.shape}.")
+        logger.debug(
+            f"Running fractional adaptive superlet transform with order_min={order_min}, order_max={order_max} and c_1={c_1} on data with shape {data_arr.shape}."
+        )
 
-        gmean_spec = FASLT(data_arr,
-                           samplerate,
-                           scales,
-                           order_max,
-                           order_min,
-                           c_1)
+        gmean_spec = FASLT(data_arr, samplerate, scales, order_max, order_min, c_1)
 
     # multiplicative SLT
     else:
 
-        logger.debug(f"Running multiplicative superlet transform with order_min={order_min}, order_max={order_max} and c_1={c_1} on data with shape {data_arr.shape}.")
+        logger.debug(
+            f"Running multiplicative superlet transform with order_min={order_min}, order_max={order_max} and c_1={c_1} on data with shape {data_arr.shape}."
+        )
 
-        gmean_spec = multiplicativeSLT(data_arr,
-                                       samplerate,
-                                       scales,
-                                       order_max,
-                                       order_min,
-                                       c_1)
+        gmean_spec = multiplicativeSLT(data_arr, samplerate, scales, order_max, order_min, c_1)
 
     return gmean_spec
 
 
-def multiplicativeSLT(data_arr,
-                      samplerate,
-                      scales,
-                      order_max,
-                      order_min=1,
-                      c_1=3):
+def multiplicativeSLT(data_arr, samplerate, scales, order_max, order_min=1, c_1=3):
 
     dt = 1 / samplerate
     # create the complete multiplicative set spanning
     # order_min - order_max
     cycles = c_1 * np.arange(order_min, order_max + 1)
-    order_num = order_max + 1 - order_min # number of different orders
+    order_num = order_max + 1 - order_min  # number of different orders
     SL = [MorletSL(c) for c in cycles]
 
     # lowest order
@@ -137,21 +126,16 @@ def multiplicativeSLT(data_arr,
     return gmean_spec
 
 
-def FASLT(data_arr,
-          samplerate,
-          scales,
-          order_max,
-          order_min=1,
-          c_1=3):
+def FASLT(data_arr, samplerate, scales, order_max, order_min=1, c_1=3):
 
-    ''' Fractional adaptive SL transform
+    """Fractional adaptive SL transform
 
     For non-integer orders fractional SLTs are
     calculated in the interval [order, order+1) via:
 
     R(o_f) = R_1 * R_2 * ... * R_i * R_i+1 ** alpha
     with o_f = o_i + alpha
-    '''
+    """
 
     dt = 1 / samplerate
     # frequencies of interest
@@ -200,14 +184,13 @@ def FASLT(data_arr,
         # in the interval [order, order+1)
         scale_span = slice(last_jump, jump + 1)
         gmean_spec[scale_span, :] *= np.power(
-            next_spec[:jump - last_jump + 1].T,
-            alphas[scale_span] * exponents[scale_span]).T
+            next_spec[: jump - last_jump + 1].T,
+            alphas[scale_span] * exponents[scale_span],
+        ).T
 
         # multiply non-fractional next_spec for
         # all remaining scales/frequencies
-        gmean_spec[jump + 1 :] *= np.power(
-            next_spec[jump - last_jump + 1:].T,
-            exponents[jump + 1 :]).T
+        gmean_spec[jump + 1 :] *= np.power(next_spec[jump - last_jump + 1 :].T, exponents[jump + 1 :]).T
 
         # go to the next [order, order+1) interval
         last_jump = jump + 1
@@ -215,16 +198,11 @@ def FASLT(data_arr,
     return gmean_spec
 
 
-def adaptiveSLT(data_arr,
-                samplerate,
-                scales,
-                order_max,
-                order_min=1,
-                c_1=3):
+def adaptiveSLT(data_arr, samplerate, scales, order_max, order_min=1, c_1=3):
 
-    '''This function is not used atm, it implements
+    """This function is not used atm, it implements
     the non-fractional adaptive SLT. Kept here for
-    reference/comparisons if ever needed'''
+    reference/comparisons if ever needed"""
 
     dt = 1 / samplerate
     # frequencies of interest
@@ -277,7 +255,7 @@ def adaptiveSLT(data_arr,
 class MorletSL:
     def __init__(self, c_i=3, k_sd=5):
 
-        """ The Morlet formulation according to
+        """The Morlet formulation according to
         Moca et al. shifts the admissability criterion from
         the central frequency to the number of cycles c_i
         within the Gaussian envelope which has a constant
@@ -377,7 +355,7 @@ def cwtSL(data, wavelet, scales, dt):
 
         t = _get_superlet_support(scale, dt, wavelet.c_i)
         # sample wavelet and normalise
-        norm = dt ** 0.5 / (4 * np.pi)
+        norm = dt**0.5 / (4 * np.pi)
         wavelet_data = norm * wavelet(t, scale)  # this is an 1d array for sure!
 
         # np.convolve only works if support is capped

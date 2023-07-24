@@ -20,7 +20,11 @@ from syncopy.io import save, load
 from syncopy.datatype.methods.selectdata import selectdata
 from syncopy.shared.errors import SPYValueError, SPYTypeError
 from syncopy.shared.tools import StructDict
-from syncopy.tests.misc import flush_local_cluster, generate_artificial_data, construct_spy_filename
+from syncopy.tests.misc import (
+    flush_local_cluster,
+    generate_artificial_data,
+    construct_spy_filename,
+)
 from syncopy.tests import helpers
 
 
@@ -28,29 +32,36 @@ from syncopy.tests import helpers
 skip_legacy = pytest.mark.skipif(True, reason="code not used atm")
 
 # Collect all supported binary arithmetic operators
-arithmetics = [lambda x, y: x + y,
-               lambda x, y: x - y,
-               lambda x, y: x * y,
-               lambda x, y: x / y,
-               lambda x, y: x ** y]
+arithmetics = [
+    lambda x, y: x + y,
+    lambda x, y: x - y,
+    lambda x, y: x * y,
+    lambda x, y: x / y,
+    lambda x, y: x**y,
+]
 
 # Module-wide set of testing selections
 trialSelections = [
     "all",  # enforce below selections in all trials of `dummy`
-    [3, 1, 2]  # minimally unordered
+    [3, 1, 2],  # minimally unordered
 ]
 chanSelections = [
-    ["channel03", "channel01", "channel01", "channel02"],  # string selection w/repetition + unordered
-    [4, 2, 2, 5, 5],   # repetition + unordered
+    [
+        "channel03",
+        "channel01",
+        "channel01",
+        "channel02",
+    ],  # string selection w/repetition + unordered
+    [4, 2, 2, 5, 5],  # repetition + unordered
     range(5, 8),  # narrow range
     "channel02",  # str selection
-    1  # scalar selection
+    1,  # scalar selection
 ]
 latencySelections = [
-    'all',
-    'minperiod',
+    "all",
+    "minperiod",
     [0.5, 1.5],  # regular range - 'maxperiod'
-    [1., 1.5],
+    [1.0, 1.5],
 ]
 frequencySelections = [
     [2, 11],  # regular range
@@ -58,7 +69,12 @@ frequencySelections = [
     # [1.0, np.inf]  # unbounded from above, dropped support
 ]
 taperSelections = [
-    ["TestTaper_03", "TestTaper_01", "TestTaper_01", "TestTaper_02"],  # string selection w/repetition + unordered
+    [
+        "TestTaper_03",
+        "TestTaper_01",
+        "TestTaper_01",
+        "TestTaper_02",
+    ],  # string selection w/repetition + unordered
     "TestTaper_03",  # singe str
     0,  # scalar selection
     [0, 1, 1, 2, 3],  # preserve repetition, don't convert to slice
@@ -155,15 +171,13 @@ def _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation):
         cleanSelection = False
     if cleanSelection:
         for tk, trl in enumerate(result.trials):
-            assert np.array_equal(trl, operation(selected.trials[tk],
-                                                 selected.trials[tk]))
+            assert np.array_equal(trl, operation(selected.trials[tk], selected.trials[tk]))
         selected = ymmud.selectdata(**kwdict)
         ymmud.selectdata(inplace=True, **kwdict)
         ymmud2.selectdata(inplace=True, **kwdict)
         result = operation(ymmud, ymmud2)
         for tk, trl in enumerate(result.trials):
-            assert np.array_equal(trl, operation(selected.trials[tk],
-                                                 selected.trials[tk]))
+            assert np.array_equal(trl, operation(selected.trials[tk], selected.trials[tk]))
 
     # Very important: clear manually set selections for next iteration
     dummy.selection = None
@@ -172,16 +186,20 @@ def _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation):
     ymmud2.selection = None
 
 
-class TestAnalogData():
+class TestAnalogData:
 
     # Allocate test-dataset
     nc = 10
     ns = 30
     data = np.arange(1, nc * ns + 1, dtype="float").reshape(ns, nc)
-    trl = np.vstack([np.arange(0, ns, 5),
-                     np.arange(5, ns + 5, 5),
-                     np.ones((int(ns / 5), )),
-                     np.ones((int(ns / 5), )) * np.pi]).T
+    trl = np.vstack(
+        [
+            np.arange(0, ns, 5),
+            np.arange(5, ns + 5, 5),
+            np.ones((int(ns / 5),)),
+            np.ones((int(ns / 5),)) * np.pi,
+        ]
+    ).T
     samplerate = 2.0
 
     def test_constructor(self):
@@ -243,7 +261,7 @@ class TestAnalogData():
 
         # if we change the dimord/stacking dim, this is fine
         gen1 = (np.ones((2, i + 1)) for i in range(nTrials))
-        dummy3 = AnalogData(data=gen1, dimord=['channel', 'time'])
+        dummy3 = AnalogData(data=gen1, dimord=["channel", "time"])
         assert len(dummy3.trials) == nTrials
 
         # -- test with list of syncopy objects --
@@ -267,7 +285,7 @@ class TestAnalogData():
         dummy4.samplerate = 1
         # channel labels are not the same
         with pytest.raises(SPYValueError, match="different attribute"):
-            dummy4.channel = ['c1', 'c2']
+            dummy4.channel = ["c1", "c2"]
             _ = AnalogData([dummy, dummy4])
 
         # mismatching shape
@@ -280,8 +298,8 @@ class TestAnalogData():
             _ = AnalogData([dummy, dummy3])
 
         # test channel property propagation
-        dummy.channel = ['c1', 'c2']
-        dummy2.channel = ['c1', 'c2']
+        dummy.channel = ["c1", "c2"]
+        dummy2.channel = ["c1", "c2"]
 
         concat2 = AnalogData([dummy, dummy2])
         assert np.all(concat2.channel == dummy.channel)
@@ -290,14 +308,13 @@ class TestAnalogData():
         # test ``_get_trial`` with NumPy array: regular order
         dummy = AnalogData(data=self.data, trialdefinition=self.trl)
         for trlno, start in enumerate(range(0, self.ns, 5)):
-            trl_ref = self.data[start:start + 5, :]
+            trl_ref = self.data[start : start + 5, :]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
         # test ``_get_trial`` with NumPy array: swapped dimensions
-        dummy = AnalogData(self.data.T, trialdefinition=self.trl,
-                           dimord=["channel", "time"])
+        dummy = AnalogData(self.data.T, trialdefinition=self.trl, dimord=["channel", "time"])
         for trlno, start in enumerate(range(0, self.ns, 5)):
-            trl_ref = self.data.T[:, start:start + 5]
+            trl_ref = self.data.T[:, start : start + 5]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
         del dummy
@@ -307,7 +324,14 @@ class TestAnalogData():
             fname = os.path.join(tdir, "dummy")
 
             # basic but most important: ensure object integrity is preserved
-            checkAttr = ["channel", "data", "dimord", "sampleinfo", "samplerate", "trialinfo"]
+            checkAttr = [
+                "channel",
+                "data",
+                "dimord",
+                "sampleinfo",
+                "samplerate",
+                "trialinfo",
+            ]
             dummy = AnalogData(data=self.data, samplerate=1000)
             dummy.save(fname)
             filename = construct_spy_filename(fname, dummy)
@@ -339,8 +363,7 @@ class TestAnalogData():
             del dummy, dummy2  # avoid PermissionError in Windows
 
             # swap dimensions and ensure `dimord` is preserved
-            dummy = AnalogData(data=self.data,
-                               dimord=["channel", "time"], samplerate=1000)
+            dummy = AnalogData(data=self.data, dimord=["channel", "time"], samplerate=1000)
             dummy.save(fname + "_dimswap")
             filename = construct_spy_filename(fname + "_dimswap", dummy)
             dummy2 = load(filename)
@@ -357,20 +380,20 @@ class TestAnalogData():
     def test_ang_arithmetic(self):
 
         # Create testing objects and corresponding arrays to perform arithmetics with
-        dummy = AnalogData(data=self.data,
-                           trialdefinition=self.trl,
-                           samplerate=self.samplerate)
-        ymmud = AnalogData(data=self.data.T,
-                           trialdefinition=self.trl,
-                           samplerate=self.samplerate,
-                           dimord=AnalogData._defaultDimord[::-1])
-        dummy2 = AnalogData(data=self.data,
-                            trialdefinition=self.trl,
-                            samplerate=self.samplerate)
-        ymmud2 = AnalogData(data=self.data.T,
-                            trialdefinition=self.trl,
-                            samplerate=self.samplerate,
-                            dimord=AnalogData._defaultDimord[::-1])
+        dummy = AnalogData(data=self.data, trialdefinition=self.trl, samplerate=self.samplerate)
+        ymmud = AnalogData(
+            data=self.data.T,
+            trialdefinition=self.trl,
+            samplerate=self.samplerate,
+            dimord=AnalogData._defaultDimord[::-1],
+        )
+        dummy2 = AnalogData(data=self.data, trialdefinition=self.trl, samplerate=self.samplerate)
+        ymmud2 = AnalogData(
+            data=self.data.T,
+            trialdefinition=self.trl,
+            samplerate=self.samplerate,
+            dimord=AnalogData._defaultDimord[::-1],
+        )
 
         # Perform basic arithmetic with +, -, *, / and ** (pow)
         for operation in arithmetics:
@@ -389,10 +412,9 @@ class TestAnalogData():
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
-        result = (dummy + dummy2) / dummy ** 3
+        result = (dummy + dummy2) / dummy**3
         for tk, trl in enumerate(result.trials):
-            assert np.array_equal(trl,
-                                  (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
+            assert np.array_equal(trl, (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
 
     def test_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
@@ -404,7 +426,7 @@ class TestAnalogData():
         client.close()
 
 
-class TestSpectralData():
+class TestSpectralData:
 
     # Allocate test-dataset
     nc = 10
@@ -412,10 +434,14 @@ class TestSpectralData():
     nt = 5
     nf = 15
     data = np.arange(1, nc * ns * nt * nf + 1, dtype="float").reshape(ns, nt, nf, nc)
-    trl = np.vstack([np.arange(0, ns, 5),
-                     np.arange(5, ns + 5, 5),
-                     np.ones((int(ns / 5), )),
-                     np.ones((int(ns / 5), )) * np.pi]).T
+    trl = np.vstack(
+        [
+            np.arange(0, ns, 5),
+            np.arange(5, ns + 5, 5),
+            np.ones((int(ns / 5),)),
+            np.ones((int(ns / 5),)) * np.pi,
+        ]
+    ).T
     data2 = np.moveaxis(data, 0, -1)
     samplerate = 2.0
 
@@ -466,14 +492,17 @@ class TestSpectralData():
         # test ``_get_trial`` with NumPy array: regular order
         dummy = SpectralData(self.data, trialdefinition=self.trl)
         for trlno, start in enumerate(range(0, self.ns, 5)):
-            trl_ref = self.data[start:start + 5, ...]
+            trl_ref = self.data[start : start + 5, ...]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
         # test ``_get_trial`` with NumPy array: swapped dimensions
-        dummy = SpectralData(self.data2, trialdefinition=self.trl,
-                             dimord=["taper", "channel", "freq", "time"])
+        dummy = SpectralData(
+            self.data2,
+            trialdefinition=self.trl,
+            dimord=["taper", "channel", "freq", "time"],
+        )
         for trlno, start in enumerate(range(0, self.ns, 5)):
-            trl_ref = self.data2[..., start:start + 5]
+            trl_ref = self.data2[..., start : start + 5]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
         del dummy
@@ -483,8 +512,16 @@ class TestSpectralData():
             fname = os.path.join(tdir, "dummy")
 
             # basic but most important: ensure object integrity is preserved
-            checkAttr = ["channel", "data", "dimord", "freq", "sampleinfo",
-                         "samplerate", "taper", "trialinfo"]
+            checkAttr = [
+                "channel",
+                "data",
+                "dimord",
+                "freq",
+                "sampleinfo",
+                "samplerate",
+                "taper",
+                "trialinfo",
+            ]
             dummy = SpectralData(self.data, samplerate=1000)
             dummy.save(fname)
             filename = construct_spy_filename(fname, dummy)
@@ -512,8 +549,7 @@ class TestSpectralData():
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
 
             # swap dimensions and ensure `dimord` is preserved
-            dummy = SpectralData(self.data, dimord=["time", "channel", "taper", "freq"],
-                                 samplerate=1000)
+            dummy = SpectralData(self.data, dimord=["time", "channel", "taper", "freq"], samplerate=1000)
             dummy.save(fname + "_dimswap")
             filename = construct_spy_filename(fname + "_dimswap", dummy)
             dummy2 = load(filename)
@@ -529,28 +565,38 @@ class TestSpectralData():
     def test_sd_arithmetic(self):
 
         # Create testing objects and corresponding arrays to perform arithmetics with
-        dummy = SpectralData(data=self.data,
-                             trialdefinition=self.trl,
-                             samplerate=self.samplerate,
-                             taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)])
-        dummyC = SpectralData(data=np.complex64(self.data),
-                              trialdefinition=self.trl,
-                              samplerate=self.samplerate,
-                              taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)])
-        ymmud = SpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
-                             trialdefinition=self.trl,
-                             samplerate=self.samplerate,
-                             taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
-                             dimord=SpectralData._defaultDimord[::-1])
-        dummy2 = SpectralData(data=self.data,
-                              trialdefinition=self.trl,
-                              samplerate=self.samplerate,
-                              taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)])
-        ymmud2 = SpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
-                              trialdefinition=self.trl,
-                              samplerate=self.samplerate,
-                              taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
-                              dimord=SpectralData._defaultDimord[::-1])
+        dummy = SpectralData(
+            data=self.data,
+            trialdefinition=self.trl,
+            samplerate=self.samplerate,
+            taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
+        )
+        dummyC = SpectralData(
+            data=np.complex64(self.data),
+            trialdefinition=self.trl,
+            samplerate=self.samplerate,
+            taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
+        )
+        ymmud = SpectralData(
+            data=np.transpose(self.data, [3, 2, 1, 0]),
+            trialdefinition=self.trl,
+            samplerate=self.samplerate,
+            taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
+            dimord=SpectralData._defaultDimord[::-1],
+        )
+        dummy2 = SpectralData(
+            data=self.data,
+            trialdefinition=self.trl,
+            samplerate=self.samplerate,
+            taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
+        )
+        ymmud2 = SpectralData(
+            data=np.transpose(self.data, [3, 2, 1, 0]),
+            trialdefinition=self.trl,
+            samplerate=self.samplerate,
+            taper=["TestTaper_0{}".format(k) for k in range(1, self.nt + 1)],
+            dimord=SpectralData._defaultDimord[::-1],
+        )
 
         # Perform basic arithmetic with +, -, *, / and ** (pow)
         for operation in arithmetics:
@@ -562,7 +608,6 @@ class TestSpectralData():
 
             _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation)
 
-
             kwdict = {}
             kwdict["trials"] = trialSelections[1]
             kwdict["channel"] = chanSelections[3]
@@ -572,10 +617,9 @@ class TestSpectralData():
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
-        result = (dummy + dummy2) / dummy ** 3
+        result = (dummy + dummy2) / dummy**3
         for tk, trl in enumerate(result.trials):
-            assert np.array_equal(trl,
-                                  (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
+            assert np.array_equal(trl, (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
 
     def test_sd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
@@ -587,7 +631,7 @@ class TestSpectralData():
         client.close()
 
 
-class TestCrossSpectralData():
+class TestCrossSpectralData:
 
     # Allocate test-dataset
     nci = 10
@@ -597,10 +641,14 @@ class TestCrossSpectralData():
     ns = nt * nl
     nf = 15
     data = np.arange(1, nci * ncj * ns * nf + 1, dtype="float").reshape(ns, nf, nci, ncj)
-    trl = np.vstack([np.arange(0, ns, nl),
-                     np.arange(nl, ns + nl, nl),
-                     np.ones((int(ns / nl), )),
-                     np.ones((int(ns / nl), )) * np.pi]).T
+    trl = np.vstack(
+        [
+            np.arange(0, ns, nl),
+            np.arange(nl, ns + nl, nl),
+            np.ones((int(ns / nl),)),
+            np.ones((int(ns / nl),)) * np.pi,
+        ]
+    ).T
     data2 = np.moveaxis(data, 0, -1)
     samplerate = 2.0
 
@@ -608,7 +656,14 @@ class TestCrossSpectralData():
         dummy = CrossSpectralData()
         assert len(dummy.cfg) == 0
         assert dummy.dimord is None
-        for attr in ["channel_i", "channel_j", "data", "freq", "sampleinfo", "trialinfo"]:
+        for attr in [
+            "channel_i",
+            "channel_j",
+            "data",
+            "freq",
+            "sampleinfo",
+            "trialinfo",
+        ]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
             CrossSpectralData({})
@@ -658,14 +713,14 @@ class TestCrossSpectralData():
         dummy = CrossSpectralData(self.data)
         dummy.trialdefinition = self.trl
         for trlno, start in enumerate(range(0, self.ns, self.nl)):
-            trl_ref = self.data[start:start + self.nl, ...]
+            trl_ref = self.data[start : start + self.nl, ...]
             assert np.array_equal(dummy.trials[trlno], trl_ref)
 
         # test ``_get_trial`` with NumPy array: swapped dimensions
         dummy = CrossSpectralData(self.data2, dimord=["freq", "channel_i", "channel_j", "time"])
         dummy.trialdefinition = self.trl
         for trlno, start in enumerate(range(0, self.ns, self.nl)):
-            trl_ref = self.data2[..., start:start + self.nl]
+            trl_ref = self.data2[..., start : start + self.nl]
             assert np.array_equal(dummy.trials[trlno], trl_ref)
 
         del dummy
@@ -675,8 +730,16 @@ class TestCrossSpectralData():
             fname = os.path.join(tdir, "dummy")
 
             # basic but most important: ensure object integrity is preserved
-            checkAttr = ["channel_i", "channel_i", "data", "dimord", "freq", "sampleinfo",
-                         "samplerate", "trialinfo"]
+            checkAttr = [
+                "channel_i",
+                "channel_i",
+                "data",
+                "dimord",
+                "freq",
+                "sampleinfo",
+                "samplerate",
+                "trialinfo",
+            ]
             dummy = CrossSpectralData(self.data, samplerate=1000)
             dummy.save(fname)
             filename = construct_spy_filename(fname, dummy)
@@ -702,8 +765,11 @@ class TestCrossSpectralData():
             assert np.array_equal(dummy.trialinfo, dummy2.trialinfo)
 
             # swap dimensions and ensure `dimord` is preserved
-            dummy = CrossSpectralData(self.data, dimord=["freq", "channel_j", "channel_i", "time"],
-                                      samplerate=1000)
+            dummy = CrossSpectralData(
+                self.data,
+                dimord=["freq", "channel_j", "channel_i", "time"],
+                samplerate=1000,
+            )
             dummy.save(fname + "_dimswap")
             filename = construct_spy_filename(fname + "_dimswap", dummy)
             dummy2 = load(filename)
@@ -720,22 +786,23 @@ class TestCrossSpectralData():
     def test_csd_arithmetic(self):
 
         # Create testing objects and corresponding arrays to perform arithmetics with
-        dummy = CrossSpectralData(data=self.data,
-                                  samplerate=self.samplerate)
+        dummy = CrossSpectralData(data=self.data, samplerate=self.samplerate)
         dummy.trialdefinition = self.trl
-        dummyC = CrossSpectralData(data=np.complex64(self.data),
-                                   samplerate=self.samplerate)
+        dummyC = CrossSpectralData(data=np.complex64(self.data), samplerate=self.samplerate)
         dummyC.trialdefinition = self.trl
-        ymmud = CrossSpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
-                                  samplerate=self.samplerate,
-                                  dimord=CrossSpectralData._defaultDimord[::-1])
+        ymmud = CrossSpectralData(
+            data=np.transpose(self.data, [3, 2, 1, 0]),
+            samplerate=self.samplerate,
+            dimord=CrossSpectralData._defaultDimord[::-1],
+        )
         ymmud.trialdefinition = self.trl
-        dummy2 = CrossSpectralData(data=self.data,
-                                   samplerate=self.samplerate)
+        dummy2 = CrossSpectralData(data=self.data, samplerate=self.samplerate)
         dummy2.trialdefinition = self.trl
-        ymmud2 = CrossSpectralData(data=np.transpose(self.data, [3, 2, 1, 0]),
-                                   samplerate=self.samplerate,
-                                   dimord=CrossSpectralData._defaultDimord[::-1])
+        ymmud2 = CrossSpectralData(
+            data=np.transpose(self.data, [3, 2, 1, 0]),
+            samplerate=self.samplerate,
+            dimord=CrossSpectralData._defaultDimord[::-1],
+        )
         ymmud2.trialdefinition = self.trl
 
         # Perform basic arithmetic with +, -, *, / and ** (pow)
@@ -744,7 +811,9 @@ class TestCrossSpectralData():
             # First, ensure `dimord` is respected
             with pytest.raises(SPYValueError) as spyval:
                 operation(dummy, ymmud)
-                assert "expected Syncopy 'time' x 'freq' x 'channel_i' x 'channel_j' data object" in str(spyval.value)
+                assert "expected Syncopy 'time' x 'freq' x 'channel_i' x 'channel_j' data object" in str(
+                    spyval.value
+                )
 
             _base_op_tests(dummy, ymmud, dummy2, ymmud2, dummyC, operation)
 
@@ -758,10 +827,9 @@ class TestCrossSpectralData():
             _selection_op_tests(dummy, ymmud, dummy2, ymmud2, kwdict, operation)
 
         # Finally, perform a representative chained operation to ensure chaining works
-        result = (dummy + dummy2) / dummy ** 3
+        result = (dummy + dummy2) / dummy**3
         for tk, trl in enumerate(result.trials):
-            assert np.array_equal(trl,
-                                  (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
+            assert np.array_equal(trl, (dummy.trials[tk] + dummy2.trials[tk]) / dummy.trials[tk] ** 3)
 
     def test_csd_parallel(self, testcluster):
         # repeat selected test w/parallel processing engine
@@ -780,9 +848,9 @@ class TestTimeLockData:
         """Test instantiation, and that expected properties/datasets specific to this data type exist."""
         tld = TimeLockData()
 
-        assert hasattr(tld, '_avg')
-        assert hasattr(tld, '_var')
-        assert hasattr(tld, '_cov')
+        assert hasattr(tld, "_avg")
+        assert hasattr(tld, "_var")
+        assert hasattr(tld, "_cov")
         assert tld.avg is None
         assert tld.var is None
         assert tld.cov is None
@@ -812,7 +880,7 @@ class TestTimeLockData:
         assert np.array_equal(avg_data3, tld2.avg)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     T1 = TestAnalogData()
     T2 = TestSpectralData()

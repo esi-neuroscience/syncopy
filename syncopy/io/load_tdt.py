@@ -21,8 +21,7 @@ import syncopy as spy
 # --- The user exposed function ---
 
 
-def load_tdt(data_path, start_code=None, end_code=None,
-             subtract_median=False):
+def load_tdt(data_path, start_code=None, end_code=None, subtract_median=False):
     """
     Imports TDT time series data and meta-information
     into a single :class:`~syncopy.AnalogData` object.
@@ -91,8 +90,8 @@ def load_tdt(data_path, start_code=None, end_code=None,
         pass
     # both are given
     else:
-        scalar_parser(start_code, "start_code", ntype='int_like')
-        scalar_parser(end_code, "end_code", ntype='int_like')
+        scalar_parser(start_code, "start_code", ntype="int_like")
+        scalar_parser(end_code, "end_code", ntype="int_like")
 
     # initialize tdt info loader class
     TDT_Load_Info = ESI_TDTinfo(data_path)
@@ -102,13 +101,11 @@ def load_tdt(data_path, start_code=None, end_code=None,
     # nicely sorted by channel names
     file_paths = _get_source_paths(data_path, ".sev")
 
-    tdt_data_handler = ESI_TDTdata(
-        data_path, subtract_median=subtract_median, channels=None
-    )
+    tdt_data_handler = ESI_TDTdata(data_path, subtract_median=subtract_median, channels=None)
 
     adata = tdt_data_handler.data_aranging(file_paths, tdt_info)
     # we have to open for reading again
-    adata.data = h5py.File(adata.filename, "r")['data']
+    adata.data = h5py.File(adata.filename, "r")["data"]
 
     # Write log-entry
     msg = f"loaded TDT data from {len(file_paths)} files\n"
@@ -144,7 +141,14 @@ class ESI_TDTinfo:
         self.INVALID_MASK = int("FFFF0000", 16)
         self.STARTBLOCK = int("0001", 16)
         self.STOPBLOCK = int("0002", 16)
-        self.ALLOWED_FORMATS = [np.float32, np.int32, np.int16, np.int8, np.float64, np.int64]
+        self.ALLOWED_FORMATS = [
+            np.float32,
+            np.int32,
+            np.int16,
+            np.int8,
+            np.float64,
+            np.int64,
+        ]
         self.ALLOWED_EVTYPES = ["all", "epocs", "snips", "streams", "scalars"]
 
     def code_to_type(self, code):
@@ -364,9 +368,8 @@ class ESI_TDTinfo:
                     if not hasattr(header.stores[var_name], "ts"):
                         header.stores[var_name].ts = []
                     vvv = (
-                        np.reshape(
-                            heads[[[4], [5]], valid_ind].T,
-                            (-1, 1)).T.view(np.float64) - header.start_time
+                        np.reshape(heads[[[4], [5]], valid_ind].T, (-1, 1)).T.view(np.float64)
+                        - header.start_time
                     )
                     # round timestamps to the nearest sample
                     vvv = self.time2sample(vvv, to_time=True)
@@ -384,15 +387,15 @@ class ESI_TDTinfo:
                     loc = epocs.name.index(store_code["name"])
                     # round timestamps to the nearest sample
                     vvv = (
-                        np.reshape(
-                            heads[[[4], [5]], valid_ind].T,
-                            (-1, 1)).T.view(np.float64) - header.start_time
+                        np.reshape(heads[[[4], [5]], valid_ind].T, (-1, 1)).T.view(np.float64)
+                        - header.start_time
                     )
                     # round timestamps to the nearest sample
                     vvv = self.time2sample(vvv, to_time=True)
                     epocs.ts[loc] = np.append(epocs.ts[loc], vvv)
                     epocs.data[loc] = np.append(
-                        epocs.data[loc], np.reshape(heads[[[6], [7]], valid_ind].T, (-1, 1)).T.view(np.float64)
+                        epocs.data[loc],
+                        np.reshape(heads[[[6], [7]], valid_ind].T, (-1, 1)).T.view(np.float64),
                     )
             last_ts = heads[[4, 5], -1].view(np.float64) - header.start_time
             last_ts = last_ts[0]
@@ -467,7 +470,9 @@ class ESI_TDTinfo:
                 if np.max(header.stores[var_name].chan) == 1:
                     header.stores[var_name].chan = [1]
 
-        valid_time_range = np.array([[self.t1], [self.t2]]) if self.t2 > 0 else np.array([[self.t1], [np.inf]])
+        valid_time_range = (
+            np.array([[self.t1], [self.t2]]) if self.t2 > 0 else np.array([[self.t1], [np.inf]])
+        )
         ranges = None
         if hasattr(ranges, "__len__"):
             valid_time_range = ranges
@@ -533,7 +538,10 @@ class ESI_TDTinfo:
                                 temp = filter_ind[jj]
                                 if temp[0] - nchan > -1:
                                     filter_ind[jj] = np.concatenate(
-                                        [-np.arange(nchan, 0, -1) + temp[0], filter_ind[jj]]
+                                        [
+                                            -np.arange(nchan, 0, -1) + temp[0],
+                                            filter_ind[jj],
+                                        ]
                                     )
                                 temp = data[current_type_str][var_name].ts[filter_ind[jj]]
                                 data[current_type_str][var_name].start_time[jj] = temp[0]
@@ -618,7 +626,9 @@ class ESI_TDTinfo:
                     filter_ind.append(np.where(ind1 & ind2)[0])
                 filter_ind = np.concatenate(filter_ind)
                 if len(filter_ind) > 0:
-                    data[current_type_str][var_name].onset = data[current_type_str][var_name].onset[filter_ind]
+                    data[current_type_str][var_name].onset = data[current_type_str][var_name].onset[
+                        filter_ind
+                    ]
                     data[current_type_str][var_name].data = data[current_type_str][var_name].data[filter_ind]
                     data[current_type_str][var_name].offset = data[current_type_str][var_name].offset[
                         filter_ind
@@ -665,7 +675,8 @@ class ESI_TDTinfo:
                         SPYWarning(
                             "Truncating store {0} to {1} values (from {2})".format(
                                 current_name, min_length, max_length
-                            ))
+                            )
+                        )
                         ind = [ind[xx][:min_length] for xx in range(nchan)]
                     if not self.nodata:
                         data[current_type_str][current_name].data = (
@@ -726,12 +737,18 @@ class ESI_TDTdata:
         return hash.hexdigest()
 
     def data_aranging(self, Files, DataInfo_loaded):
-        AData = spy.AnalogData(dimord=['time', 'channel'])
+        AData = spy.AnalogData(dimord=["time", "channel"])
         hdf_out_path = AData.filename
-        LenOfData = self.read_data(Files[0]).shape[0]  # Lenght of the data is always set to the length of the first channel
+        LenOfData = self.read_data(Files[0]).shape[
+            0
+        ]  # Lenght of the data is always set to the length of the first channel
         with h5py.File(hdf_out_path, "w") as combined_data_file:
             idxStartStop = [
-                np.clip(np.array((jj, jj + self.chan_in_chunks)), a_min=None, a_max=len(Files))
+                np.clip(
+                    np.array((jj, jj + self.chan_in_chunks)),
+                    a_min=None,
+                    a_max=len(Files),
+                )
                 for jj in range(0, len(Files), self.chan_in_chunks)
             ]
             print(
@@ -787,6 +804,7 @@ class ESI_TDTdata:
 
 # --- Helpers ---
 
+
 def _mk_trialdef(adata, start_code, end_code):
     """
     Create a basic trialdefinition from the trial
@@ -794,8 +812,8 @@ def _mk_trialdef(adata, start_code, end_code):
     """
 
     # trigger codes and samples
-    trg_codes = np.array(adata.info['Trigger_code'], dtype=int)
-    trg_sample = np.array(adata.info['Trigger_sample'], dtype=int)
+    trg_codes = np.array(adata.info["Trigger_code"], dtype=int)
+    trg_sample = np.array(adata.info["Trigger_sample"], dtype=int)
 
     # boolean indexing
     trl_starts = trg_sample[trg_codes == start_code]
@@ -850,7 +868,7 @@ def _get_source_paths(directory, ext=".sev"):
 
 def _natural_sort(file_names):
     """Sort a list of strings using numbers
-        Ch1 will be followed by Ch2 and not Ch11.
+    Ch1 will be followed by Ch2 and not Ch11.
     """
 
     def convert(text):

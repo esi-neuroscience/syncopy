@@ -30,11 +30,9 @@ class TestDownsampling:
     fNy = fs / 2
 
     # -- use flat white noise as test data --
-    adata = synthdata.white_noise(nTrials=nTrials,
-                                  nChannels=nChannels,
-                                  nSamples=nSamples,
-                                  samplerate=fs,
-                                  seed=42)
+    adata = synthdata.white_noise(
+        nTrials=nTrials, nChannels=nChannels, nSamples=nSamples, samplerate=fs, seed=42
+    )
 
     # original spectrum
     spec = freqanalysis(adata, tapsmofrq=1, keeptrials=False)
@@ -42,7 +40,7 @@ class TestDownsampling:
     pow_orig = spec.show(channel=0)[5:].mean()
 
     # for toi tests, -1s offset
-    time_span = [-.8, 4.2]
+    time_span = [-0.8, 4.2]
 
     def test_downsampling(self, **kwargs):
 
@@ -55,8 +53,8 @@ class TestDownsampling:
 
         # write default parameters dict
         if def_test:
-            kwargs = {'resamplefs': self.fs // 2}
-        ds = resampledata(self.adata, method='downsample', **kwargs)
+            kwargs = {"resamplefs": self.fs // 2}
+        ds = resampledata(self.adata, method="downsample", **kwargs)
         lenTrials = np.diff(ds.sampleinfo).squeeze()
         # check for equal trials
         assert np.unique(lenTrials).size == 1
@@ -70,11 +68,11 @@ class TestDownsampling:
 
             # without anti-aliasing we get double the power per freq. bin
             # as we removed half of the frequencies
-            assert np.allclose(2 * self.pow_orig, pow_ds, rtol=.5e-1)
+            assert np.allclose(2 * self.pow_orig, pow_ds, rtol=0.5e-1)
 
             f, ax = mk_spec_ax()
-            ax.plot(spec_ds.freq, spec_ds.show(channel=0), label='downsampled')
-            ax.plot(self.spec.freq, self.spec.show(channel=0), label='original')
+            ax.plot(spec_ds.freq, spec_ds.show(channel=0), label="downsampled")
+            ax.plot(self.spec.freq, self.spec.show(channel=0), label="original")
             ax.legend()
 
         else:
@@ -83,18 +81,17 @@ class TestDownsampling:
     def test_aa_filter(self):
 
         # filter with new Nyquist
-        kwargs = {'resamplefs': self.fs // 2,
-                  'lpfreq': self.fs // 4}
+        kwargs = {"resamplefs": self.fs // 2, "lpfreq": self.fs // 4}
 
         spec_ds = self.test_downsampling(**kwargs)
         # all channels are equal, trim off 0-frequency dip
         pow_ds = spec_ds.show(channel=0)[5:].mean()
         # now with the anti-alias filter the powers should be equal
-        np.allclose(self.pow_orig, pow_ds, rtol=.5e-1)
+        np.allclose(self.pow_orig, pow_ds, rtol=0.5e-1)
 
         f, ax = mk_spec_ax()
-        ax.plot(spec_ds.freq, spec_ds.show(channel=0), label='downsampled')
-        ax.plot(self.spec.freq, self.spec.show(channel=0), label='original')
+        ax.plot(spec_ds.freq, spec_ds.show(channel=0), label="downsampled")
+        ax.plot(self.spec.freq, self.spec.show(channel=0), label="original")
         ax.legend()
 
     def test_ds_exceptions(self):
@@ -116,11 +113,13 @@ class TestDownsampling:
 
     def test_ds_selections(self):
 
-        sel_dicts = helpers.mk_selection_dicts(nTrials=50,
-                                               nChannels=2,
-                                               toi_min=self.time_span[0],
-                                               toi_max=self.time_span[1],
-                                               min_len=3.5)
+        sel_dicts = helpers.mk_selection_dicts(
+            nTrials=50,
+            nChannels=2,
+            toi_min=self.time_span[0],
+            toi_max=self.time_span[1],
+            min_len=3.5,
+        )
         for sd in sel_dicts:
             spec_ds = self.test_downsampling(select=sd, resamplefs=self.fs // 2)
             pow_ds = spec_ds.show(channel=0).mean()
@@ -145,14 +144,17 @@ class TestDownsampling:
         pow_ds = spec_ds.show(channel=0).mean()
 
         # with aa filter power does not change
-        assert np.allclose(self.pow_orig, pow_ds, rtol=.5e-1)
+        assert np.allclose(self.pow_orig, pow_ds, rtol=0.5e-1)
 
     def test_ds_parallel(self, testcluster):
 
         ppl.ioff()
         client = dd.Client(testcluster)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+        all_tests = [
+            attr
+            for attr in self.__dir__()
+            if (inspect.ismethod(getattr(self, attr)) and "parallel" not in attr)
+        ]
 
         for test_name in all_tests:
             test_method = getattr(self, test_name)
@@ -170,11 +172,9 @@ class TestResampling:
     fNy = fs / 2
 
     # -- use flat white noise as test data --
-    adata = synthdata.white_noise(nTrials=nTrials,
-                                  nChannels=nChannels,
-                                  nSamples=nSamples,
-                                  samplerate=fs,
-                                  seed=42)
+    adata = synthdata.white_noise(
+        nTrials=nTrials, nChannels=nChannels, nSamples=nSamples, samplerate=fs, seed=42
+    )
 
     # original spectrum
     spec = freqanalysis(adata, tapsmofrq=1, keeptrials=False)
@@ -182,7 +182,7 @@ class TestResampling:
     pow_orig = spec.show(channel=0).mean()
 
     # for toi tests, -1s offset
-    time_span = [-.8, 4.2]
+    time_span = [-0.8, 4.2]
 
     def test_resampling(self, **kwargs):
 
@@ -196,9 +196,9 @@ class TestResampling:
         # write default parameters dict
         if def_test:
             # polyphase method: firws acts on the upsampled data!
-            kwargs = {'resamplefs': self.fs * 0.43, 'order': 5000}
+            kwargs = {"resamplefs": self.fs * 0.43, "order": 5000}
 
-        rs = resampledata(self.adata, method='resample', **kwargs)
+        rs = resampledata(self.adata, method="resample", **kwargs)
         lenTrials = np.diff(rs.sampleinfo).squeeze()
         # check for equal trials
         assert np.unique(lenTrials).size == 1
@@ -207,18 +207,17 @@ class TestResampling:
 
         # all channels are equal,
         # avoid the nose with 3Hz away from the cut-off
-        pow_rs = spec_rs.show(channel=0,
-                              frequency=[0, kwargs['resamplefs'] / 2 - 3]).mean()
+        pow_rs = spec_rs.show(channel=0, frequency=[0, kwargs["resamplefs"] / 2 - 3]).mean()
 
         if def_test:
             # here we have aa filtering built in,
             # so the power should be unchanged after resampling
-            assert np.allclose(self.pow_orig, pow_rs, rtol=.5e-1)
+            assert np.allclose(self.pow_orig, pow_rs, rtol=0.5e-1)
 
             f, ax = mk_spec_ax()
-            ax.plot(spec_rs.freq, spec_rs.show(channel=0), label='resampled')
-            ax.plot(self.spec.freq, self.spec.show(channel=0), label='original')
-            ax.plot([rs.samplerate / 2, rs.samplerate / 2], [0.001, 0.0025], 'k--', lw=0.5)
+            ax.plot(spec_rs.freq, spec_rs.show(channel=0), label="resampled")
+            ax.plot(self.spec.freq, self.spec.show(channel=0), label="original")
+            ax.plot([rs.samplerate / 2, rs.samplerate / 2], [0.001, 0.0025], "k--", lw=0.5)
             ax.legend()
 
             return
@@ -228,16 +227,18 @@ class TestResampling:
     def test_rs_exceptions(self):
 
         # test wrong method
-        with pytest.raises(SPYValueError, match='Invalid value of `method`'):
-            resampledata(self.adata, method='nothing-real', resamplefs=self.fs // 2)
+        with pytest.raises(SPYValueError, match="Invalid value of `method`"):
+            resampledata(self.adata, method="nothing-real", resamplefs=self.fs // 2)
 
     def test_rs_selections(self):
         np.random.seed(42)
-        sel_dicts = helpers.mk_selection_dicts(nTrials=20,
-                                               nChannels=2,
-                                               toi_min=self.time_span[0],
-                                               toi_max=self.time_span[1],
-                                               min_len=3.5)
+        sel_dicts = helpers.mk_selection_dicts(
+            nTrials=20,
+            nChannels=2,
+            toi_min=self.time_span[0],
+            toi_max=self.time_span[1],
+            min_len=3.5,
+        )
         for sd in sel_dicts:
             print(sd)
             spec_rs = self.test_resampling(select=sd, resamplefs=self.fs / 2.1)
@@ -252,8 +253,11 @@ class TestResampling:
 
         ppl.ioff()
         client = dd.Client(testcluster)
-        all_tests = [attr for attr in self.__dir__()
-                     if (inspect.ismethod(getattr(self, attr)) and 'parallel' not in attr)]
+        all_tests = [
+            attr
+            for attr in self.__dir__()
+            if (inspect.ismethod(getattr(self, attr)) and "parallel" not in attr)
+        ]
 
         for test_name in all_tests:
             test_method = getattr(self, test_name)
@@ -265,11 +269,11 @@ class TestResampling:
 def mk_spec_ax():
 
     fig, ax = ppl.subplots()
-    ax.set_xlabel('frequency (Hz)')
-    ax.set_ylabel('power (a.u.)')
+    ax.set_xlabel("frequency (Hz)")
+    ax.set_ylabel("power (a.u.)")
     return fig, ax
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     T1 = TestDownsampling()
     T2 = TestResampling()

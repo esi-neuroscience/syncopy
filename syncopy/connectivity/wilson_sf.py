@@ -60,7 +60,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-6, direct_inversion=True):
     Ident = np.eye(*CSD.shape[1:])
 
     # attach negative frequencies
-    CSD = np.r_[CSD, CSD[nFreq - 2:0:-1].conj()]
+    CSD = np.r_[CSD, CSD[nFreq - 2 : 0 : -1].conj()]
 
     # nChannel x nChannel
     psi0 = _psi0_initial(CSD)
@@ -68,7 +68,7 @@ def wilson_sf(CSD, nIter=100, rtol=1e-6, direct_inversion=True):
     # initial choice of psi, constant for all z(~f)
     psi = np.tile(psi0, (nFreq, 1, 1))
     # attach negative frequencies
-    psi = np.r_[psi, psi[nFreq - 2:0:-1].conj()]
+    psi = np.r_[psi, psi[nFreq - 2 : 0 : -1].conj()]
 
     g = np.zeros(CSD.shape, dtype=np.complex64)
     converged = False
@@ -84,19 +84,18 @@ def wilson_sf(CSD, nIter=100, rtol=1e-6, direct_inversion=True):
 
             # equivalent using cholesky decomposition
             g = psi_inv @ U
-            g = (g @ g.conj().transpose(0, 2, 1))
+            g = g @ g.conj().transpose(0, 2, 1)
 
         else:
             for i in range(g.shape[0]):
                 C = np.linalg.lstsq(psi[i], CSD[i], rcond=None)[0]
-                g[i] = np.linalg.lstsq(
-                    psi[i], C.conj().T, rcond=None)[0].conj().T
+                g[i] = np.linalg.lstsq(psi[i], C.conj().T, rcond=None)[0].conj().T
 
         gplus, gplus_0 = _plusOperator(g + Ident)
 
         # the 'any' matrix
         S = np.triu(gplus_0)
-        S = S - S.conj().T   # S + S* = 0
+        S = S - S.conj().T  # S + S* = 0
 
         # the next step psi_{tau+1}
         psi = psi @ (gplus + S)
@@ -178,7 +177,7 @@ def _plusOperator(g):
     beta[nLag, ...] = 0.5 * beta[nLag, ...]
 
     # Zero out negative lags
-    beta[nLag + 1:, ...] = 0
+    beta[nLag + 1 :, ...] = 0
 
     gp = np.fft.fft(beta, axis=0)
 
@@ -239,7 +238,7 @@ def regularize_csd(CSD, cond_max=1e3, eps_max=1e-3, nSteps=15):
 
     CondNum = np.linalg.cond(CSD).max()
     iniCondNum = CondNum
-    
+
     # nothing to be done
     if CondNum < cond_max:
         return CSD, 0, iniCondNum

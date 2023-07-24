@@ -7,7 +7,7 @@ import scipy.optimize
 import scipy.special
 from scipy.special import factorial
 
-__all__ = ['Morlet', 'Paul', 'DOG', 'Ricker', 'Marr', 'Mexican_hat']
+__all__ = ["Morlet", "Paul", "DOG", "Ricker", "Marr", "Mexican_hat"]
 
 
 class Morlet(object):
@@ -79,16 +79,16 @@ class Morlet(object):
         output = np.exp(1j * w * x)
 
         if complete:
-            output -= np.exp(-0.5 * (w ** 2))
+            output -= np.exp(-0.5 * (w**2))
 
-        output *= np.exp(-0.5 * (x ** 2)) * np.pi ** (-0.25)
+        output *= np.exp(-0.5 * (x**2)) * np.pi ** (-0.25)
 
         return output
 
     # Fourier wavelengths
     def fourier_period(self, s):
         """Equivalent Fourier period of Morlet"""
-        return 4 * np.pi * s / (self.w0 + (2 + self.w0 ** 2) ** .5)
+        return 4 * np.pi * s / (self.w0 + (2 + self.w0**2) ** 0.5)
 
     def scale_from_period(self, period):
         """
@@ -98,7 +98,7 @@ class Morlet(object):
         # Solve 4 * np.pi * scale / (w0 + (2 + w0 ** 2) ** .5)
         #  for s to obtain this formula
         coeff = np.sqrt(self.w0 * self.w0 + 2)
-        return (period * (coeff + self.w0)) / (4. * np.pi)
+        return (period * (coeff + self.w0)) / (4.0 * np.pi)
 
     # Frequency representation
     def frequency(self, w, s=1.0):
@@ -123,7 +123,7 @@ class Morlet(object):
         Hw = np.array(w)
         Hw[w <= 0] = 0
         Hw[w > 0] = 1
-        return np.pi ** -.25 * Hw * np.exp((-(x - self.w0) ** 2) / 2)
+        return np.pi**-0.25 * Hw * np.exp((-((x - self.w0) ** 2)) / 2)
 
     def coi(self, s):
         """The e folding time for the autocorrelation of wavelet
@@ -134,13 +134,12 @@ class Morlet(object):
 
             |Y_0(T)|^2 / |Y_0(0)|^2 = 1 / e^2
         """
-        return 2 ** .5 * s
+        return 2**0.5 * s
 
 
 class Paul(object):
     def __init__(self, m=4):
-        """Initialise a Paul wavelet function of order `m`.
-        """
+        """Initialise a Paul wavelet function of order `m`."""
         self.m = m
 
     def __call__(self, *args, **kwargs):
@@ -172,8 +171,7 @@ class Paul(object):
         m = self.m
         x = t / s
 
-        const = (2 ** m * 1j ** m * factorial(m)) \
-            / (np.pi * factorial(2 * m)) ** .5
+        const = (2**m * 1j**m * factorial(m)) / (np.pi * factorial(2 * m)) ** 0.5
         functional_form = (1 - 1j * x) ** -(m + 1)
 
         output = const * functional_form
@@ -191,7 +189,7 @@ class Paul(object):
         Returns the scale
         """
         # Solve 4 * np.pi * scale / (2 * m + 1) for s
-        return period * (2 * self.m + 1) / (4 * np.pi)        
+        return period * (2 * self.m + 1) / (4 * np.pi)
 
     # Frequency representation
     def frequency(self, w, s=1.0):
@@ -218,7 +216,7 @@ class Paul(object):
         Hw = 0.5 * (np.sign(x) + 1)
 
         # prefactor
-        const = 2 ** m / (m * factorial(2 * m - 1)) ** .5
+        const = 2**m / (m * factorial(2 * m - 1)) ** 0.5
 
         functional_form = Hw * (x) ** m * np.exp(-x)
 
@@ -235,7 +233,7 @@ class Paul(object):
 
             |Y_0(T)|^2 / |Y_0(0)|^2 = 1 / e^2
         """
-        return s / 2 ** .5
+        return s / 2**0.5
 
 
 class DOG(object):
@@ -308,14 +306,14 @@ class DOG(object):
         He_n = scipy.special.hermitenorm(m)
         gamma = scipy.special.gamma
 
-        const = (-1) ** (m + 1) / gamma(m + 0.5) ** .5
-        function = He_n(x) * np.exp(-x ** 2 / 2)
+        const = (-1) ** (m + 1) / gamma(m + 0.5) ** 0.5
+        function = He_n(x) * np.exp(-(x**2) / 2)
 
         return const * function
 
     def fourier_period(self, s):
         """Equivalent Fourier period of derivative of Gaussian"""
-        return 2 * np.pi * s / (self.m + 0.5) ** .5
+        return 2 * np.pi * s / (self.m + 0.5) ** 0.5
 
     def scale_from_period(self, period):
         """
@@ -346,8 +344,8 @@ class DOG(object):
         m = self.m
         x = s * w
         gamma = scipy.special.gamma
-        const = -1j ** m / gamma(m + 0.5) ** .5
-        function = x ** m * np.exp(-x ** 2 / 2)
+        const = -(1j**m) / gamma(m + 0.5) ** 0.5
+        function = x**m * np.exp(-(x**2) / 2)
         return const * function
 
     def coi(self, s):
@@ -359,7 +357,7 @@ class DOG(object):
 
             |Y_0(T)|^2 / |Y_0(0)|^2 = 1 / e^2
         """
-        return 2 ** .5 * s
+        return 2**0.5 * s
 
 
 class Ricker(DOG):

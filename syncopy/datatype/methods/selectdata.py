@@ -12,7 +12,11 @@ import syncopy as spy
 from syncopy.shared.tools import get_frontend_cfg, get_defaults
 from syncopy.shared.parsers import data_parser
 from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYInfo, log
-from syncopy.shared.kwarg_decorators import unwrap_cfg, process_io, detect_parallel_client
+from syncopy.shared.kwarg_decorators import (
+    unwrap_cfg,
+    process_io,
+    detect_parallel_client,
+)
 from syncopy.shared.computational_routine import ComputationalRoutine
 from syncopy.shared.latency import get_analysis_window, create_trial_selection
 
@@ -21,19 +25,21 @@ __all__ = ["selectdata"]
 
 @unwrap_cfg
 @detect_parallel_client
-def selectdata(data,
-               trials=None,
-               channel=None,
-               channel_i=None,
-               channel_j=None,
-               latency=None,
-               frequency=None,
-               taper=None,
-               unit=None,
-               eventid=None,
-               inplace=False,
-               clear=False,
-               **kwargs):
+def selectdata(
+    data,
+    trials=None,
+    channel=None,
+    channel_i=None,
+    channel_j=None,
+    latency=None,
+    frequency=None,
+    taper=None,
+    unit=None,
+    eventid=None,
+    inplace=False,
+    clear=False,
+    **kwargs,
+):
     """
     Create a new Syncopy object from a selection
 
@@ -256,7 +262,7 @@ def selectdata(data,
     # there is no `@unwrap_select` decorator in place here,
     # a `select` dictionary must therefore be directly passed via ** unpacking:
     # select = {'channel': [0]}; spy.selectdata(data, **select)
-    if 'select' in kwargs:
+    if "select" in kwargs:
         lgl = "unpacked selection keywords directly, try `**select`"
         act = "`select` as explicit parameter"
         raise SPYValueError(legal=lgl, varname="selection kwargs", actual=act)
@@ -268,15 +274,17 @@ def selectdata(data,
         out = data.__class__(dimord=data.dimord)
 
     # First collect all available keyword values into a dict
-    selectDict = {"trials": trials,
-                  "channel": channel,
-                  "channel_i": channel_i,
-                  "channel_j": channel_j,
-                  "latency": latency,
-                  "frequency": frequency,
-                  "taper": taper,
-                  "unit": unit,
-                  "eventid": eventid}
+    selectDict = {
+        "trials": trials,
+        "channel": channel,
+        "channel_i": channel_i,
+        "channel_j": channel_j,
+        "latency": latency,
+        "frequency": frequency,
+        "taper": taper,
+        "unit": unit,
+        "eventid": eventid,
+    }
 
     # relevant selection keywords for the type of `data`
     expected = list(data._selectionKeyWords)
@@ -285,11 +293,12 @@ def selectdata(data,
     if len(kwargs) > 0:
         kwargs.pop("parallel", None)
         if any([key not in expected for key in kwargs]):
-            lgl = f"the following keywords for {data.__class__.__name__}: '" +\
-                "'".join(opt + "', " for opt in expected)[:-2]
+            lgl = (
+                f"the following keywords for {data.__class__.__name__}: '"
+                + "'".join(opt + "', " for opt in expected)[:-2]
+            )
             lgl += " and 'inplace', 'clear', 'parallel'"
-            act = "dict with keys '" +\
-                  "'".join(key + "', " for key in kwargs.keys())[:-2]
+            act = "dict with keys '" + "'".join(key + "', " for key in kwargs.keys())[:-2]
             raise SPYValueError(legal=lgl, varname="selection kwargs", actual=act)
 
     # get out if unsuitable selection keywords given, e.g. 'frequency' for AnalogData
@@ -297,7 +306,7 @@ def selectdata(data,
         if key not in expected and value is not None:
             lgl = f"one of {data.__class__._selectionKeyWords}"
             act = f"no `{key}` selection available for {data.__class__.__name__}"
-            raise SPYValueError(lgl, 'selection arguments', act)
+            raise SPYValueError(lgl, "selection arguments", act)
 
     # now just keep going with the selection keys relevant for that particular data type
     selectDict = {key: selectDict[key] for key in data._selectionKeyWords}
@@ -317,7 +326,7 @@ def selectdata(data,
     # first do a selection without latency as a possible subselection
     # of trials needs to be applied before the latency digesting functions
     # can be called (if the user by himself throws out non-fitting trials)
-    selectDict.pop('latency')
+    selectDict.pop("latency")
 
     # Pass provided selections on to `Selector` class which performs error checking
     # this is an in-place selection!
@@ -327,7 +336,7 @@ def selectdata(data,
     # -- sort out trials if latency is set --
 
     if latency is not None:
-        if not isinstance(latency, str) or latency != 'all':
+        if not isinstance(latency, str) or latency != "all":
             # sanity check done here, converts str arguments
             # ('maxperiod' and so on) into time window [start, end] of analysis
             window = get_analysis_window(data, latency)
@@ -341,13 +350,13 @@ def selectdata(data,
                 SPYInfo(msg)
 
             # update inplace selection
-            selectDict['latency'] = window
+            selectDict["latency"] = window
             data.selection = selectDict
 
     # If an in-place selection was requested we're done.
     if inplace:
         # attach frontend parameters for replay
-        data.cfg.update({'selectdata': new_cfg})
+        data.cfg.update({"selectdata": new_cfg})
         return
 
     # Inform the user what's about to happen
@@ -355,8 +364,10 @@ def selectdata(data,
     if selectionSize > 1000:
         selectionSize /= 1024
         sUnit = "GB"
-        msg = "Copying {dsize:3.2f} {dunit:s} of data based on selection " +\
-            "to create new {objkind:s} object on disk"
+        msg = (
+            "Copying {dsize:3.2f} {dunit:s} of data based on selection "
+            + "to create new {objkind:s} object on disk"
+        )
         SPYInfo(msg.format(dsize=selectionSize, dunit=sUnit, objkind=data.__class__.__name__))
 
     # Create inventory of all available selectors and actually provided values
@@ -368,13 +379,15 @@ def selectdata(data,
     # Fire up `ComputationalRoutine`-subclass to do the actual selecting/copying
     selectMethod = DataSelection()
     selectMethod.initialize(data, out._stackingDim, chan_per_worker=kwargs.get("chan_per_worker"))
-    selectMethod.compute(data, out, parallel=kwargs.get("parallel"),
-                         log_dict=log_dct)
+    selectMethod.compute(data, out, parallel=kwargs.get("parallel"), log_dict=log_dct)
 
     # Handle selection of waveform for SpikeData objects
     if type(data) == spy.SpikeData and data.waveform is not None:
         if inplace:
-            spy.log("Inplace selection of SpikeData with waveform not supported for the waveform.", level="WARNING")
+            spy.log(
+                "Inplace selection of SpikeData with waveform not supported for the waveform.",
+                level="WARNING",
+            )
         else:
             fauxTrials = [data._preview_trial(trlno) for trlno in data.selection.trial_ids]
             spikes_by_trial = [f.idx[0] for f in fauxTrials]
@@ -385,12 +398,16 @@ def selectdata(data,
             hdf5_file_out = out._get_backing_hdf5_file_handle()
 
             # Copy the waveform dataset into the new file, trial by trial to prevent memory issues.
-            ds = hdf5_file_out.create_dataset('waveform', shape=(len(spike_idx), *data.waveform.shape[1:]), dtype=data.waveform.dtype)
+            ds = hdf5_file_out.create_dataset(
+                "waveform",
+                shape=(len(spike_idx), *data.waveform.shape[1:]),
+                dtype=data.waveform.dtype,
+            )
             cur_new_idx = 0
             for tidx, old_trial_indices in enumerate(spikes_by_trial):
                 num_spikes_this_trial = len(old_trial_indices)
-                new_indices = np.s_[cur_new_idx:cur_new_idx + num_spikes_this_trial]
-                ds[new_indices, :, :] = hdf5_file_in['/waveform'][old_trial_indices, :, :]
+                new_indices = np.s_[cur_new_idx : cur_new_idx + num_spikes_this_trial]
+                ds[new_indices, :, :] = hdf5_file_in["/waveform"][old_trial_indices, :, :]
                 cur_new_idx = new_indices.stop
 
             out.waveform = ds
@@ -400,7 +417,7 @@ def selectdata(data,
 
     # attach cfg
     out.cfg.update(data.cfg)
-    out.cfg.update({'selectdata': new_cfg})
+    out.cfg.update({"selectdata": new_cfg})
 
     # return newly created output object
     return out

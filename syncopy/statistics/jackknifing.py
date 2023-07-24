@@ -51,12 +51,10 @@ def trial_avg_replicates(trl_ensemble):
     # each of the loo averages fills one single trial
     # slot of the `replicates` dataset, hence it has the same shape
     # as the input
-    replicates = trl_ensemble.__class__(samplerate=trl_ensemble.samplerate,
-                                        dimord=trl_ensemble.dimord)
+    replicates = trl_ensemble.__class__(samplerate=trl_ensemble.samplerate, dimord=trl_ensemble.dimord)
 
-    with h5py.File(replicates._filename, mode='w') as h5file:
-        dset = h5file.create_dataset('data', shape=trl_ensemble.data.shape,
-                                     dtype=trl_ensemble.data.dtype)
+    with h5py.File(replicates._filename, mode="w") as h5file:
+        dset = h5file.create_dataset("data", shape=trl_ensemble.data.shape, dtype=trl_ensemble.data.dtype)
         replicates.data = dset
 
     # we still need to write into it
@@ -66,7 +64,7 @@ def trial_avg_replicates(trl_ensemble):
 
     # first calculate the standard trial average
     # this will also catch non-equal trials in the input
-    trl_avg = spy.mean(trl_ensemble, dim='trials')
+    trl_avg = spy.mean(trl_ensemble, dim="trials")
 
     # all loo replicates have the same shape as
     # the original single trial results, so the stepping
@@ -86,7 +84,7 @@ def trial_avg_replicates(trl_ensemble):
         loo_avg /= nTrials - 1
 
         # stack along stacking dim
-        stack_idx[stack_dim] = np.s_[loo_idx * stack_step:(loo_idx + 1) * stack_step]
+        stack_idx[stack_dim] = np.s_[loo_idx * stack_step : (loo_idx + 1) * stack_step]
         replicates.data[tuple(stack_idx)] = loo_avg
 
     # attach properties like channel labels etc.
@@ -94,9 +92,13 @@ def trial_avg_replicates(trl_ensemble):
 
     # create proper trialdefinition
     # FIXME: not clear how to handle offsets (3rd column), set to 0 for now
-    trl_def = np.column_stack([np.arange(len(all_trials)) * stack_step,
-                               np.arange(len(all_trials)) * stack_step + stack_step,
-                               np.zeros(len(all_trials))])
+    trl_def = np.column_stack(
+        [
+            np.arange(len(all_trials)) * stack_step,
+            np.arange(len(all_trials)) * stack_step + stack_step,
+            np.zeros(len(all_trials)),
+        ]
+    )
     replicates.trialdefinition = trl_def
 
     # revert selection state of the input
@@ -136,24 +138,25 @@ def bias_var(direct_estimate, replicates):
     if len(direct_estimate.trials) != 1:
         lgl = "original trial statistic with one remaining trial"
         act = f"{len(direct_estimate.trials)} trials"
-        raise SPYValueError(lgl, 'direct_estimate', act)
+        raise SPYValueError(lgl, "direct_estimate", act)
 
     if len(replicates.trials) <= 1:
         lgl = "jackknife replicates with at least 2 trials"
         act = f"{len(replicates.trials)} trials"
-        raise SPYValueError(lgl, 'replicates', act)
+        raise SPYValueError(lgl, "replicates", act)
 
     # 1st average the replicates which
     # gives the single trial jackknife estimate
-    jack_avg = spy.mean(replicates, dim='trials')
+    jack_avg = spy.mean(replicates, dim="trials")
 
     # compute the bias, shapes should match as both
     # quantities come from the same data and
     # got computed by the same CR
     if jack_avg.data.shape != direct_estimate.data.shape:
-        msg = ("Got mismatching shapes for jackknife bias computation:\n"
-               f"jack: {jack_avg.data.shape}, original estimate: {direct_estimate.data.shape}"
-               )
+        msg = (
+            "Got mismatching shapes for jackknife bias computation:\n"
+            f"jack: {jack_avg.data.shape}, original estimate: {direct_estimate.data.shape}"
+        )
         raise SPYError(msg)
 
     nTrials = len(replicates.trials)
@@ -167,13 +170,12 @@ def bias_var(direct_estimate, replicates):
     var = np.zeros(direct_estimate.data.shape, dtype=np.float32)
     for loo in replicates.trials:
         # need abs for complex variance
-        var += (np.abs(jack_avg.trials[0] - loo))**2
+        var += (np.abs(jack_avg.trials[0] - loo)) ** 2
     # normalize
-    var *= (nTrials - 1)
+    var *= nTrials - 1
 
     # create the syncopy data object for the variance
-    variance = direct_estimate.__class__(samplerate=direct_estimate.samplerate,
-                                         dimord=direct_estimate.dimord)
+    variance = direct_estimate.__class__(samplerate=direct_estimate.samplerate, dimord=direct_estimate.dimord)
 
     # bind to syncopy object -> creates the hdf5 dataset
     variance.data = var

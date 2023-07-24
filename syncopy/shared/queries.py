@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # Auxiliary functions for querying things/people
-# 
+#
 
 __all__ = []
 
@@ -12,7 +12,7 @@ def user_yesno(msg, default=None):
     """
 
     # Parse optional `default` answer
-    valid = {"yes": True, "y": True, "ye":True, "no":False, "n":False}
+    valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
     if default is None:
         suffix = " [y/n] "
     elif default == "yes":
@@ -44,7 +44,7 @@ def user_input(msg, valid, default=None):
     # default reply (if provided)
     suffix = "" + " " * (not msg.endswith(" "))
     if default is not None:
-        default = default.replace("[", "").replace("]","")
+        default = default.replace("[", "").replace("]", "")
         assert default in valid
         suffix = "[Default: '{}'] ".format(default)
 
@@ -56,7 +56,4 @@ def user_input(msg, valid, default=None):
         elif choice in valid:
             return choice
         else:
-            print("Please respond with '" + \
-                  "or '".join(opt + "' " for opt in valid) + "\n")
-
-
+            print("Please respond with '" + "or '".join(opt + "' " for opt in valid) + "\n")

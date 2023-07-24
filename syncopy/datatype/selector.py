@@ -96,7 +96,7 @@ class Selector:
 
     For objects that have a `time` property, a suitable new `trialdefinition`
     array (accessible via the identically named `Selector` class property)
-    is automatically constructed based on the provided selection. 
+    is automatically constructed based on the provided selection.
 
     By default, each selection property tries to convert a user-provided
     selection to a contiguous slice-indexer so that simple NumPy array
@@ -136,9 +136,7 @@ class Selector:
             if select == "all":
                 select = {}
             else:
-                raise SPYValueError(
-                    legal="'all' or `None` or dict", varname="select", actual=select
-                )
+                raise SPYValueError(legal="'all' or `None` or dict", varname="select", actual=select)
         if not isinstance(select, dict):
             raise SPYTypeError(select, "select", expected="dict")
 
@@ -151,9 +149,7 @@ class Selector:
                 "dict with one or all of the following keys: '"
                 + "'".join(opt + "', " for opt in supported)[:-2]
             )
-            act = (
-                "dict with keys '" + "'".join(key + "', " for key in select.keys())[:-2]
-            )
+            act = "dict with keys '" + "'".join(key + "', " for key in select.keys())[:-2]
             raise SPYValueError(legal=lgl, varname="select", actual=act)
 
         # Save class of input object for posterity
@@ -190,9 +186,7 @@ class Selector:
             setattr(self, "_{}".format(prop), None)
         self._useFancy = False  # flag indicating whether fancy indexing is necessary
         self._samplerate = None  # for objects supporting time-selections
-        self._timeShuffle = (
-            False  # flag indicating whether time-points are repeated/unordered
-        )
+        self._timeShuffle = False  # flag indicating whether time-points are repeated/unordered
 
         # We first need to know which trials are of interest here (assuming
         # that any valid input object *must* have a `trials_ids` attribute)
@@ -231,9 +225,7 @@ class Selector:
             if trials == "all":
                 trials = None
             else:
-                raise SPYValueError(
-                    legal="'all' or `None` or list/array", varname=vname, actual=trials
-                )
+                raise SPYValueError(legal="'all' or `None` or list/array", varname=vname, actual=trials)
         if trials is not None:
             if np.issubdtype(type(trials), np.number):
                 trials = [trials]
@@ -279,7 +271,7 @@ class Selector:
             return None
 
     def create_get_trial(self, data):
-        """ Closure to allow emulation of BaseData._get_trial"""
+        """Closure to allow emulation of BaseData._get_trial"""
 
         # trl_id has to be part of selection for coherence
         def _get_trial(trl_id):
@@ -306,7 +298,7 @@ class Selector:
 
                     # DiscreteData selections inherently re-order the sample dim. idx
                     # so these we sort, all others we need ordered
-                    if 'discrete_data' in str(data.__class__):
+                    if "discrete_data" in str(data.__class__):
                         # sorts in place!
                         dim_idx.sort()
                     elif np.any(np.diff(dim_idx) < 0):
@@ -332,9 +324,7 @@ class Selector:
         if self._dataClass == "CrossSpectralData":
             if chanSpec is not None:
                 lgl = "`channel_i` and/or `channel_j` selectors for `CrossSpectralData`"
-                raise SPYValueError(
-                    legal=lgl, varname="select: channel", actual=data.__class__.__name__
-                )
+                raise SPYValueError(legal=lgl, varname="select: channel", actual=data.__class__.__name__)
             else:
                 return
         self._selection_setter(data, select, "channel")
@@ -376,9 +366,7 @@ class Selector:
         hasTime = hasattr(data, "time") or hasattr(data, "trialtime")
         if timeSpec is not None and hasTime is False:
             lgl = "Syncopy data object with time-dimension"
-            raise SPYValueError(
-                legal=lgl, varname=vname, actual=data.__class__.__name__
-            )
+            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
 
         # If `data` has a `time` property, fill up `self.time`
         if hasTime:
@@ -395,36 +383,28 @@ class Selector:
             if timeSpec is not None:
                 if np.issubdtype(type(timeSpec), np.number):
                     timeSpec = [timeSpec]
-                    array_parser(
-                        timeSpec, varname=vname, hasinf=checkInf, hasnan=False, dims=1
-                    )
+                    array_parser(timeSpec, varname=vname, hasinf=checkInf, hasnan=False, dims=1)
                 # can only be 2-sequence [start, end]
                 else:
                     if len(timeSpec) != 2:
                         lgl = "`select: latency` selection with two components"
-                        act = "`select: latency` with {} components".format(
-                            len(timeSpec)
-                        )
+                        act = "`select: latency` with {} components".format(len(timeSpec))
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
                     if timeSpec[0] >= timeSpec[1]:
-                        lgl = (
-                            "`select: latency` selection with `latency[0]` < `latency[1]`"
-                        )
-                        act = "selection range from {} to {}".format(
-                            timeSpec[0], timeSpec[1]
-                        )
+                        lgl = "`select: latency` selection with `latency[0]` < `latency[1]`"
+                        act = "selection range from {} to {}".format(timeSpec[0], timeSpec[1])
                         raise SPYValueError(legal=lgl, varname=vname, actual=act)
 
             # Assign timing selection and copy over samplerate from source object
             if any(["DiscreteData" in str(base) for base in data.__class__.__mro__]):
                 # special case DiscreteData: here we need an assignable property
                 # for `_make_consistent` so we unpack the Indexer right away
-                self._time = list(SelectionTimeIndexer(data, toilim=select.get("latency"),
-                                                       idx_list=self.trial_ids))
+                self._time = list(
+                    SelectionTimeIndexer(data, toilim=select.get("latency"), idx_list=self.trial_ids)
+                )
 
             else:
-                self._time = SelectionTimeIndexer(data, toilim=select.get("latency"),
-                                                  idx_list=self.trial_ids)
+                self._time = SelectionTimeIndexer(data, toilim=select.get("latency"), idx_list=self.trial_ids)
             self._samplerate = data.samplerate
 
         else:
@@ -487,7 +467,7 @@ class Selector:
 
     @property
     def trialintervals(self):
-        """nTrials x 2 :class:`numpy.ndarray` of [start, end] times in seconds """
+        """nTrials x 2 :class:`numpy.ndarray` of [start, end] times in seconds"""
         if self._trialdefinition is not None and self._samplerate is not None:
             # trial lengths in samples
             start_end = self.sampleinfo - self.sampleinfo[:, 0][:, None]
@@ -512,9 +492,7 @@ class Selector:
         hasFreq = hasattr(data, "freq")
         if freqSpec is not None and hasFreq is False:
             lgl = "Syncopy data object with freq-dimension"
-            raise SPYValueError(
-                legal=lgl, varname="frequency", actual=data.__class__.__name__
-            )
+            raise SPYValueError(legal=lgl, varname="frequency", actual=data.__class__.__name__)
 
         # If `data` has a `freq` property, fill up `self.freq`
         if hasFreq:
@@ -557,13 +535,9 @@ class Selector:
                         dims=(2,),
                     )
                     if freqSpec[0] >= freqSpec[1]:
-                        lgl = (
-                            "`select: frequency` selection with `frequency[0]` < `frequency[1]`"
-                        )
-                        act = "selection range from {} to {}".format(
-                            freqSpec[0], freqSpec[1]
-                        )
-                        raise SPYValueError(legal=lgl, varname='frequency', actual=act)
+                        lgl = "`select: frequency` selection with `frequency[0]` < `frequency[1]`"
+                        act = "selection range from {} to {}".format(freqSpec[0], freqSpec[1])
+                        raise SPYValueError(legal=lgl, varname="frequency", actual=act)
 
                     self._freq = data._get_freq(foi=None, foilim=freqSpec)
 
@@ -640,9 +614,7 @@ class Selector:
         vname = "select: {}".format(selectkey)
         if selection is not None and target is None:
             lgl = "Syncopy data object with {}".format(selectkey)
-            raise SPYValueError(
-                legal=lgl, varname=vname, actual=data.__class__.__name__
-            )
+            raise SPYValueError(legal=lgl, varname=vname, actual=data.__class__.__name__)
 
         if target is not None:
 
@@ -686,15 +658,11 @@ class Selector:
                     act = "selection range from {} to {}".format(selLims[0], selLims[1])
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
                 # check slice/range boundaries: take care of things like `slice(-10, -3)`
-                if np.isfinite(selLims[0]) and (
-                    selLims[0] < -slcLims[1] or selLims[0] >= slcLims[1]
-                ):
+                if np.isfinite(selLims[0]) and (selLims[0] < -slcLims[1] or selLims[0] >= slcLims[1]):
                     lgl = "selection range with min >= {}".format(slcLims[0])
                     act = "selection range starting at {}".format(selLims[0])
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
-                if np.isfinite(selLims[1]) and (
-                    selLims[1] > slcLims[1] or selLims[1] < -slcLims[1]
-                ):
+                if np.isfinite(selLims[1]) and (selLims[1] > slcLims[1] or selLims[1] < -slcLims[1]):
                     lgl = "selection range with max <= {}".format(slcLims[1])
                     act = "selection range ending at {}".format(selLims[1])
                     raise SPYValueError(legal=lgl, varname=vname, actual=act)
@@ -711,7 +679,11 @@ class Selector:
                             selection = list(target[selection])
                         else:
                             selection = list(selection)
-                        setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trial_ids, selection))
+                        setattr(
+                            self,
+                            selector,
+                            getattr(data, "_get_" + selectkey)(self.trial_ids, selection),
+                        )
 
                 else:
                     if selection.start is selection.stop is None:
@@ -721,9 +693,7 @@ class Selector:
                             step = 1
                         else:
                             step = selection.step
-                        setattr(
-                            self, selector, slice(selection.start, selection.stop, step)
-                        )
+                        setattr(self, selector, slice(selection.start, selection.stop, step))
 
             # Selection is either a valid list/array or bust
             else:
@@ -753,7 +723,11 @@ class Selector:
                     idxList += list(np.where(targetArr == sel)[0])
 
                 if selectkey in ["unit", "eventid"]:
-                    setattr(self, selector, getattr(data, "_get_" + selectkey)(self.trial_ids, idxList))
+                    setattr(
+                        self,
+                        selector,
+                        getattr(data, "_get_" + selectkey)(self.trial_ids, idxList),
+                    )
                 else:
                     # if possible, convert range-arrays (`[0, 1, 2, 3]`) to slices for better performance
                     if len(idxList) > 1:
@@ -858,9 +832,7 @@ class Selector:
                 if len(combinedSelect) > 1:
                     selSteps = np.diff(combinedSelect)
                     if selSteps.min() == selSteps.max() == 1:
-                        combinedSelect = slice(
-                            combinedSelect[0], combinedSelect[-1] + 1, 1
-                        )
+                        combinedSelect = slice(combinedSelect[0], combinedSelect[-1] + 1, 1)
 
                 # Update selector properties
                 for selection in actualSelections:
@@ -874,9 +846,7 @@ class Selector:
                 if len(chanSelection) > 1:
                     selSteps = np.diff(chanSelection)
                     if selSteps.min() == selSteps.max() == 1:
-                        chanSelection = slice(
-                            chanSelection[0], chanSelection[-1] + 1, 1
-                        )
+                        chanSelection = slice(chanSelection[0], chanSelection[-1] + 1, 1)
                 self._channel = chanSelection
 
             # Finally, prepare new `trialdefinition` array
@@ -919,7 +889,7 @@ class Selector:
         # Get list of print-worthy attributes
         ppattrs = [attr for attr in self.__dir__() if not attr.startswith("_")]
         # legacy, we have proper `Selector.trials` now
-        ppattrs.remove('trial_ids')
+        ppattrs.remove("trial_ids")
         ppattrs.sort()
 
         # Construct dict of pretty-printable property info
@@ -930,9 +900,7 @@ class Selector:
                 val = next(iter(val))
             if isinstance(val, slice):
                 if val.start is val.stop is None:
-                    ppdict[attr] = "all {}{}, ".format(
-                        attr, "s" if not attr.endswith("s") else ""
-                    )
+                    ppdict[attr] = "all {}{}, ".format(attr, "s" if not attr.endswith("s") else "")
                 elif val.start is None or val.stop is None:
                     ppdict[attr] = "{}-range, ".format(attr)
                 else:
@@ -959,7 +927,6 @@ class Selector:
 
 
 class SelectionTimeIndexer:
-
     def __init__(self, data_object, toilim, idx_list):
         """
         Class to obtain an indexable iterable of time slices
@@ -999,12 +966,12 @@ class SelectionTimeIndexer:
         # continuous data
         elif not self.is_discrete:
             _, selTime = best_match(self.data_object.time[trialno], self.toilim, span=True)
-            return np.s_[selTime[0]:selTime[-1] + 1:1]
+            return np.s_[selTime[0] : selTime[-1] + 1 : 1]
         # discrete data
         else:
             trlTime = self.trialtime[self.data_object._trialslice[trialno]]
             _, selTime = best_match(trlTime, self.toilim, span=True)
-            return np.s_[selTime[0]:selTime[-1] + 1:1]
+            return np.s_[selTime[0] : selTime[-1] + 1 : 1]
 
     def __getitem__(self, trialno):
         # single trial access via index operator []

@@ -4,14 +4,16 @@ import platform
 from scipy.stats import iqr
 
 
-def psth(trl_dat,
-         trl_start,
-         onset,
-         trl_end,
-         chan_unit_combs=None,
-         tbins=None,
-         output='rate',
-         samplerate=1000):
+def psth(
+    trl_dat,
+    trl_start,
+    onset,
+    trl_end,
+    chan_unit_combs=None,
+    tbins=None,
+    output="rate",
+    samplerate=1000,
+):
 
     """
     Peristimulus time histogram
@@ -65,7 +67,9 @@ def psth(trl_dat,
     units = trl_dat[:, 2]
 
     logger = logging.getLogger("syncopy_" + platform.node())
-    logger.debug(f"Computing peristimulus time histogram (PSTH) on data with {samples.size} samples, {channels.size} channels, {units.size} units and samplerate {samplerate}.")
+    logger.debug(
+        f"Computing peristimulus time histogram (PSTH) on data with {samples.size} samples, {channels.size} channels, {units.size} units and samplerate {samplerate}."
+    )
 
     # get relative spike times for all events in trial
     times = _calc_time(samples, trl_start, onset, samplerate)
@@ -106,19 +110,17 @@ def psth(trl_dat,
     map_unit_hist = {u: [np.any(map_cu(c, u)) for c in chan_vec] for u in unique_units}
 
     # configure output
-    if output in ['rate', 'spikecount']:
+    if output in ["rate", "spikecount"]:
         density = False
-    elif output == 'proportion':
+    elif output == "proportion":
         density = True
 
     for i, iunit in enumerate(unique_units):
-        unit_idx = (units == iunit)
+        unit_idx = units == iunit
 
         if np.sum(unit_idx):
             # over all channels, so this counts different units actually
-            unit_counts = np.histogram2d(times[unit_idx],
-                                         channels[unit_idx],
-                                         bins=bins, density=density)[0]
+            unit_counts = np.histogram2d(times[unit_idx], channels[unit_idx], bins=bins, density=density)[0]
 
             # get indices to inject the results
             # at the right position
@@ -153,13 +155,13 @@ def psth(trl_dat,
         counts[max_idx:] = np.nan
 
     # normalize to counts per second
-    if output == 'rate':
+    if output == "rate":
         tbin_width = np.diff(tbins)[0]
         counts *= 1 / tbin_width
 
     # normalize only along time axis for 1d time-histograms
     # `density=True` normalized the full 2d-histogram
-    elif output == 'proportion':
+    elif output == "proportion":
         norm = np.nansum(counts, axis=0)[None, :]
         # deal with potential 0's
         norm[norm == 0] = 1
@@ -197,6 +199,7 @@ def get_chan_unit_combs(trials):
 
 
 # --- Bin selection rules ---
+
 
 def sqrt_rule(nSamples):
 

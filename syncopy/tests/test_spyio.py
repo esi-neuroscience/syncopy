@@ -17,25 +17,22 @@ from glob import glob
 from syncopy.datatype import AnalogData
 from syncopy.io import save, load, load_ft_raw, load_tdt
 from syncopy.shared.filetypes import FILE_EXT
-from syncopy.shared.errors import (
-    SPYValueError,
-    SPYIOError,
-    SPYError,
-    SPYTypeError
-)
+from syncopy.shared.errors import SPYValueError, SPYIOError, SPYError, SPYTypeError
 import syncopy.datatype as swd
 from syncopy.tests.misc import generate_artificial_data
 from syncopy import __pynwb__
 
-skip_no_pynwb = pytest.mark.skipif(not __pynwb__, reason=f"This test requires the 'pynwb' package to be installed.")
+skip_no_pynwb = pytest.mark.skipif(
+    not __pynwb__, reason=f"This test requires the 'pynwb' package to be installed."
+)
 
 
 # Decorator to detect if test data dir is available
-on_esi = os.path.isdir('/cs/slurm/syncopy')
+on_esi = os.path.isdir("/cs/slurm/syncopy")
 skip_no_esi = pytest.mark.skipif(not on_esi, reason="ESI fs not available")
 
 
-class TestSpyIO():
+class TestSpyIO:
 
     # Allocate test-datasets for AnalogData, SpectralData, SpikeData and EventData objects
     nc = 10
@@ -48,10 +45,14 @@ class TestSpyIO():
 
     # Generate 2D array simulating an AnalogData array
     data["AnalogData"] = np.arange(1, nc * ns + 1).reshape(ns, nc)
-    trl["AnalogData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.arange(5, ns + 5, 5),
-                                   np.ones((int(ns / 5), )),
-                                   np.ones((int(ns / 5), )) * np.pi]).T
+    trl["AnalogData"] = np.vstack(
+        [
+            np.arange(0, ns, 5),
+            np.arange(5, ns + 5, 5),
+            np.ones((int(ns / 5),)),
+            np.ones((int(ns / 5),)) * np.pi,
+        ]
+    ).T
 
     # Generate a 4D array simulating a SpectralData array
     data["SpectralData"] = np.arange(1, nc * ns * nt * nf + 1).reshape(ns, nt, nc, nf)
@@ -63,19 +64,28 @@ class TestSpyIO():
 
     # Use a fixed random number generator seed to simulate a 2D SpikeData array
     seed = np.random.RandomState(13)
-    data["SpikeData"] = np.vstack([seed.choice(ns, size=nd),
-                                   seed.choice(nc, size=nd),
-                                   seed.choice(int(nc / 2), size=nd)]).T.astype(int)
+    data["SpikeData"] = np.vstack(
+        [
+            seed.choice(ns, size=nd),
+            seed.choice(nc, size=nd),
+            seed.choice(int(nc / 2), size=nd),
+        ]
+    ).T.astype(int)
     trl["SpikeData"] = trl["AnalogData"]
 
     # Generate bogus trigger timings
-    data["EventData"] = np.vstack([np.arange(0, ns, 5),
-                                   np.zeros((int(ns / 5), ))]).T.astype(int)
+    data["EventData"] = np.vstack([np.arange(0, ns, 5), np.zeros((int(ns / 5),))]).T.astype(int)
     data["EventData"][1::2, 1] = 1
     trl["EventData"] = trl["AnalogData"]
 
     # Define data classes to be used in tests below
-    classes = ["AnalogData", "SpectralData", "CrossSpectralData", "SpikeData", "EventData"]
+    classes = [
+        "AnalogData",
+        "SpectralData",
+        "CrossSpectralData",
+        "SpikeData",
+        "EventData",
+    ]
 
     # Test correct handling of object log
     def test_logging(self):
@@ -183,7 +193,12 @@ class TestSpyIO():
                 assert len(glob(os.path.join(tdir, container, "test_container_sometag*"))) == 2
 
                 # explicit overwrite
-                save(dummy, container=os.path.join(tdir, container), tag=tag, overwrite=True)
+                save(
+                    dummy,
+                    container=os.path.join(tdir, container),
+                    tag=tag,
+                    overwrite=True,
+                )
                 assert len(glob(os.path.join(tdir, container, "test_container_sometag*"))) == 2
 
                 # implicit overwrite
@@ -232,8 +247,10 @@ class TestSpyIO():
                 del dummy2
 
                 # load single file via dataclass
-                dummy2 = load(os.path.join(tdir, container),
-                              dataclass=dummy._classname_to_extension())
+                dummy2 = load(
+                    os.path.join(tdir, container),
+                    dataclass=dummy._classname_to_extension(),
+                )
 
                 # save and load single file via tag
                 container2 = "another_single_container_" + dummy._classname_to_extension()[1:]
@@ -248,13 +265,15 @@ class TestSpyIO():
                     load(os.path.join(tdir, container2), tag="invalid")
 
                 # dataclass mismatch in single-file container
-                wrong_ext = getattr(swd, list(set(self.classes).difference([dclass]))[0])()._classname_to_extension()
+                wrong_ext = getattr(
+                    swd, list(set(self.classes).difference([dclass]))[0]
+                )()._classname_to_extension()
                 with pytest.raises(SPYIOError):
                     load(os.path.join(tdir, container), dataclass=wrong_ext)
 
                 # invalid dataclass specification
                 with pytest.raises(SPYValueError):
-                    load(os.path.join(tdir, container), dataclass='.invalid')
+                    load(os.path.join(tdir, container), dataclass=".invalid")
 
     # Test saving multiple objects to the same container
     def test_multi_saveload(self):
@@ -278,8 +297,10 @@ class TestSpyIO():
                     ext_list = []
                     for attr in self.classes[1:]:
                         ext_list.append(getattr(swd, attr)()._classname_to_extension())
-                    fname = os.path.join(os.path.join(tdir, container + FILE_EXT["dir"]),
-                                         container + dummy._classname_to_extension())
+                    fname = os.path.join(
+                        os.path.join(tdir, container + FILE_EXT["dir"]),
+                        container + dummy._classname_to_extension(),
+                    )
                     with pytest.raises(SPYValueError):
                         load(fname, dataclass=ext_list)
 
@@ -294,8 +315,9 @@ class TestSpyIO():
                 all_ext.append(getattr(swd, attr)()._classname_to_extension())
             fnameList = []
             for ext in all_ext:
-                fnameList.append(os.path.join(os.path.join(tdir, container + FILE_EXT["dir"]),
-                                              container + ext))
+                fnameList.append(
+                    os.path.join(os.path.join(tdir, container + FILE_EXT["dir"]), container + ext)
+                )
             for name, obj in objDict.items():
                 assert obj.filename in fnameList
                 fname = fnameList.pop(fnameList.index(obj.filename))
@@ -305,8 +327,9 @@ class TestSpyIO():
 
             # load single file from joint container via dataclass
             dummy = load(os.path.join(tdir, container), dataclass="analog")
-            assert dummy.filename == os.path.join(os.path.join(tdir, container + FILE_EXT["dir"]),
-                                                  container + ".analog")
+            assert dummy.filename == os.path.join(
+                os.path.join(tdir, container + FILE_EXT["dir"]), container + ".analog"
+            )
             dummy.save(tag="2ndanalog")
             del dummy
 
@@ -319,18 +342,27 @@ class TestSpyIO():
             dummy = load(os.path.join(tdir, container), dataclass="analog", tag="3rdanalog")
 
             # load single file from joint container using multiple dataclasses and single tag
-            dummy2 = load(os.path.join(tdir, container), dataclass=["analog", "spectral"],
-                          tag="3rdanalog")
+            dummy2 = load(
+                os.path.join(tdir, container),
+                dataclass=["analog", "spectral"],
+                tag="3rdanalog",
+            )
             assert dummy2.filename == dummy.filename
 
             # load single file from joint container using single dataclass and multiple tags
-            dummy3 = load(os.path.join(tdir, container), dataclass="analog",
-                          tag=["3rdanalog", "invalid"])
+            dummy3 = load(
+                os.path.join(tdir, container),
+                dataclass="analog",
+                tag=["3rdanalog", "invalid"],
+            )
             assert dummy3.filename == dummy.filename
 
             # load single file from joint container using multiple dataclasses and tags
-            dummy4 = load(os.path.join(tdir, container), dataclass=["analog", "spectral"],
-                          tag=["3rdanalog", "invalid"])
+            dummy4 = load(
+                os.path.join(tdir, container),
+                dataclass=["analog", "spectral"],
+                tag=["3rdanalog", "invalid"],
+            )
             assert dummy4.filename == dummy.filename
             del dummy, dummy2, dummy3, dummy4
 
@@ -372,13 +404,15 @@ class TestSpyIO():
                 basename = container + "." + ext
                 assert basename in objDict.keys()
                 fname = objDict[basename].filename
-                assert fname == os.path.join(os.path.join(tdir, container + FILE_EXT["dir"]),
-                                             basename)
+                assert fname == os.path.join(os.path.join(tdir, container + FILE_EXT["dir"]), basename)
             del objDict
 
             # load multiple files from joint container via multiple dataclasses and single tag
-            objDict = load(os.path.join(tdir, container), tag="analog",
-                           dataclass=["analog", "analog"])
+            objDict = load(
+                os.path.join(tdir, container),
+                tag="analog",
+                dataclass=["analog", "analog"],
+            )
             wanted = ["2nd", "3rd"]
             for name, obj in objDict.items():
                 assert isinstance(obj, AnalogData)
@@ -388,8 +422,7 @@ class TestSpyIO():
             del objDict
 
             # load multiple files from joint container via single dataclass and multiple tags
-            objDict = load(os.path.join(tdir, container), tag=["2nd", "3rd"],
-                           dataclass="analog")
+            objDict = load(os.path.join(tdir, container), tag=["2nd", "3rd"], dataclass="analog")
             wanted = ["2nd", "3rd"]
             for name, obj in objDict.items():
                 assert isinstance(obj, AnalogData)
@@ -399,8 +432,11 @@ class TestSpyIO():
             del objDict
 
             # load multiple files from joint container via multiple dataclasses and tags
-            objDict = load(os.path.join(tdir, container), tag=["2nd", "3rd"],
-                           dataclass=["analog", "analog"])
+            objDict = load(
+                os.path.join(tdir, container),
+                tag=["2nd", "3rd"],
+                dataclass=["analog", "analog"],
+            )
             wanted = ["2nd", "3rd"]
             for name, obj in objDict.items():
                 assert isinstance(obj, AnalogData)
@@ -415,31 +451,51 @@ class TestSpyIO():
             with pytest.raises(SPYIOError):
                 load(os.path.join(tdir, container), dataclass="spike", tag="2nd")
             with pytest.raises(SPYIOError):
-                load(os.path.join(tdir, container), dataclass=["analog", "spike"],
-                     tag="invalid")
+                load(
+                    os.path.join(tdir, container),
+                    dataclass=["analog", "spike"],
+                    tag="invalid",
+                )
             with pytest.raises(SPYIOError):
-                load(os.path.join(tdir, container), dataclass=["spike", "invalid"],
-                     tag="2nd")
+                load(
+                    os.path.join(tdir, container),
+                    dataclass=["spike", "invalid"],
+                    tag="2nd",
+                )
             with pytest.raises(SPYIOError):
-                load(os.path.join(tdir, container), dataclass="analog",
-                     tag=["invalid", "stillinvalid"])
+                load(
+                    os.path.join(tdir, container),
+                    dataclass="analog",
+                    tag=["invalid", "stillinvalid"],
+                )
             with pytest.raises(SPYIOError):
-                load(os.path.join(tdir, container), dataclass="spike",
-                     tag=["2nd", "3rd"])
+                load(os.path.join(tdir, container), dataclass="spike", tag=["2nd", "3rd"])
             with pytest.raises(SPYIOError):
-                load(os.path.join(tdir, container), dataclass=["spike", "event"],
-                     tag=["2nd", "3rd"])
+                load(
+                    os.path.join(tdir, container),
+                    dataclass=["spike", "event"],
+                    tag=["2nd", "3rd"],
+                )
             with pytest.raises(SPYIOError):
-                load(os.path.join(tdir, container), dataclass=["analog", "analog"],
-                     tag=["invalid", "stillinvalid"])
+                load(
+                    os.path.join(tdir, container),
+                    dataclass=["analog", "analog"],
+                    tag=["invalid", "stillinvalid"],
+                )
             with pytest.raises(SPYIOError):
-                load(os.path.join(tdir, container), dataclass=["spike", "event"],
-                     tag=["invalid", "stillinvalid"])
+                load(
+                    os.path.join(tdir, container),
+                    dataclass=["spike", "event"],
+                    tag=["invalid", "stillinvalid"],
+                )
             with pytest.raises(SPYValueError):
                 load(os.path.join(tdir, container), dataclass="invalid", tag="2nd")
             with pytest.raises(SPYValueError):
-                load(os.path.join(tdir, container), dataclass=["invalid", "stillinvalid"],
-                     tag="2nd")
+                load(
+                    os.path.join(tdir, container),
+                    dataclass=["invalid", "stillinvalid"],
+                    tag="2nd",
+                )
 
 
 @skip_no_esi
@@ -447,17 +503,17 @@ class TestFTImporter:
 
     """At the moment only ft_datatype_raw is supported"""
 
-    mat_file_dir = '/cs/slurm/syncopy/MAT-Files'
+    mat_file_dir = "/cs/slurm/syncopy/MAT-Files"
 
     def test_read_hdf(self):
         """Test MAT-File v73 reader, uses h5py"""
 
-        mat_name = 'matdata-v73.mat'
+        mat_name = "matdata-v73.mat"
         fname = os.path.join(self.mat_file_dir, mat_name)
 
         dct = load_ft_raw(fname)
-        assert 'Data_K' in dct
-        AData = dct['Data_K']
+        assert "Data_K" in dct
+        AData = dct["Data_K"]
 
         assert isinstance(AData, AnalogData)
         assert len(AData.trials) == 393
@@ -465,56 +521,56 @@ class TestFTImporter:
 
         # list only structure names
         slist = load_ft_raw(fname, list_only=True)
-        assert 'Data_K' in slist
-        assert 'Data_KB' in slist
+        assert "Data_K" in slist
+        assert "Data_KB" in slist
 
         # additional fields of Matlab structures
         # get attached to .info dict
         # hdf reader does NOT support nested fields
-        dct = load_ft_raw(fname, include_fields=('chV1',))
-        AData2 = dct['Data_K']
-        assert 'chV1' in AData2.info
-        assert len(AData2.info['chV1']) == 30
-        assert isinstance(AData2.info['chV1'][0], str)
+        dct = load_ft_raw(fname, include_fields=("chV1",))
+        AData2 = dct["Data_K"]
+        assert "chV1" in AData2.info
+        assert len(AData2.info["chV1"]) == 30
+        assert isinstance(AData2.info["chV1"][0], str)
 
         # test loading a subset of structures
-        dct = load_ft_raw(fname, select_structures=('Data_KB',))
-        assert 'Data_KB' in dct
-        assert 'Data_K' not in dct
+        dct = load_ft_raw(fname, select_structures=("Data_KB",))
+        assert "Data_KB" in dct
+        assert "Data_K" not in dct
 
         # test str sequence parsing
         try:
-            dct = load_ft_raw(fname, select_structures=(3, 'sth'))
+            dct = load_ft_raw(fname, select_structures=(3, "sth"))
         except SPYTypeError as err:
-            assert 'expected str found int' in str(err)
+            assert "expected str found int" in str(err)
 
         try:
-            dct = load_ft_raw(fname, include_fields=(3, 'sth'))
+            dct = load_ft_raw(fname, include_fields=(3, "sth"))
         except SPYTypeError as err:
-            assert 'expected str found int' in str(err)
+            assert "expected str found int" in str(err)
 
     def test_read_dict(self):
         """Test MAT-File v7 reader, based on scipy.io.loadmat"""
 
-        mat_name = 'matdataK-v7.mat'
+        mat_name = "matdataK-v7.mat"
         fname = os.path.join(self.mat_file_dir, mat_name)
 
         dct = load_ft_raw(fname)
-        assert 'Data_K' in dct
-        AData = dct['Data_K']
+        assert "Data_K" in dct
+        AData = dct["Data_K"]
 
         assert isinstance(AData, AnalogData)
         assert len(AData.trials) == 393
         assert len(AData.channel) == 218
 
         slist = load_ft_raw(fname, list_only=True)
-        assert 'Data_K' in slist
+        assert "Data_K" in slist
 
         # additional fields of Matlab structures
         # get attached to .info dict
         # here nested structures are also now forbidden
-        dct = load_ft_raw(fname, include_fields=('ch',))
-        AData2 = dct['Data_K']
+        dct = load_ft_raw(fname, include_fields=("ch",))
+        AData2 = dct["Data_K"]
         # sadly here it is actually nested
         assert len(AData2.info) == 0
 
@@ -522,7 +578,7 @@ class TestFTImporter:
 @skip_no_esi
 class TestTDTImporter:
 
-    tdt_dir = '/cs/slurm/syncopy/Tdt_reader/session-25'
+    tdt_dir = "/cs/slurm/syncopy/Tdt_reader/session-25"
     start_code, end_code = 23000, 30020
 
     def test_load_tdt(self):
@@ -533,7 +589,7 @@ class TestTDTImporter:
         # check meta info parsing
         assert len(AData.info.keys()) == 13
         # that is apparently fixed
-        assert AData.dimord == ['time', 'channel']
+        assert AData.dimord == ["time", "channel"]
         assert len(AData.channel) == 9
 
         # it's only one big trial here
@@ -552,24 +608,23 @@ class TestTDTImporter:
 
     def test_exceptions(self):
 
-        with pytest.raises(SPYIOError, match='Cannot read'):
-            load_tdt('non/existing/path')
+        with pytest.raises(SPYIOError, match="Cannot read"):
+            load_tdt("non/existing/path")
 
-        with pytest.raises(SPYValueError, match='Invalid value of `start_code`'):
+        with pytest.raises(SPYValueError, match="Invalid value of `start_code`"):
             load_tdt(self.tdt_dir, start_code=None, end_code=self.end_code)
 
-        with pytest.raises(SPYValueError, match='Invalid value of `end_code`'):
+        with pytest.raises(SPYValueError, match="Invalid value of `end_code`"):
             load_tdt(self.tdt_dir, start_code=self.start_code, end_code=None)
 
-        with pytest.raises(SPYValueError, match='Invalid value of `start_code`'):
+        with pytest.raises(SPYValueError, match="Invalid value of `start_code`"):
             load_tdt(self.tdt_dir, start_code=999999, end_code=self.end_code)
 
-        with pytest.raises(SPYValueError, match='Invalid value of `end_code`'):
+        with pytest.raises(SPYValueError, match="Invalid value of `end_code`"):
             load_tdt(self.tdt_dir, start_code=self.start_code, end_code=999999)
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     T0 = TestSpyIO()
     T1 = TestFTImporter()
     T2 = TestTDTImporter()
