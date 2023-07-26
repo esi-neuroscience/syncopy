@@ -251,27 +251,11 @@ class TestSumStatistics:
         )
 
         # test also taper averaging
-        spec = spy.freqanalysis(adata, foilim=[0, 100], output="fourier", tapsmofrq=0.5, keeptapers=True)
+        spec = spy.freqanalysis(adata, foilim=[0, 100], output="fourier", tapsmofrq=1, keeptapers=True)
 
         # -- calculate itc --
         itc = spy.itc(spec)
         tf_itc = spy.itc(tf_spec)
-
-        assert isinstance(tf_itc, spy.SpectralData)
-
-        assert np.all(np.imag(itc.data[()]) == 0)
-        assert itc.data[()].max() <= 1
-        assert itc.data[()].min() >= 0
-
-        # high itc around the in phase 60Hz
-        assert np.all(itc.show(frequency=60) > 0.6)
-        # low (time averaged) itc around the drifters
-        assert np.all(itc.show(frequency=30) < 0.25)
-
-        assert np.all(np.imag(tf_itc.data[()]) == 0)
-        assert tf_itc.data[()].max() <= 1
-        assert tf_itc.data[()].min() >= 0
-        assert np.allclose(tf_itc.time[0], tf_spec.time[0])
 
         if do_plot:
 
@@ -298,6 +282,23 @@ class TestSumStatistics:
                 ax.plot(tf_itc.time[0], itc_profile, label=f"{frq}Hz")
             ax.legend()
             ax.set_title("time dependent ITC")
+
+        assert isinstance(tf_itc, spy.SpectralData)
+
+        assert np.all(np.imag(itc.data[()]) == 0)
+        assert itc.data[()].max() <= 1
+        assert itc.data[()].min() >= 0
+
+        # high itc around the in phase 60Hz
+        assert np.all(itc.show(frequency=60) > 0.6)
+        # low (time averaged) itc around the drifters
+        assert np.all(itc.show(frequency=30) < 0.25)
+
+        assert np.all(np.imag(tf_itc.data[()]) == 0)
+        assert tf_itc.data[()].max() <= 1
+        assert tf_itc.data[()].min() >= 0
+        assert np.allclose(tf_itc.time[0], tf_spec.time[0])
+
 
 
 class TestJackknife:
