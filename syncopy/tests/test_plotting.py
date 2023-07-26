@@ -136,7 +136,7 @@ class TestSpectralPlotting:
 
     nTrials = 10
     nChannels = 4
-    nSamples = 300
+    nSamples = 500
     AdjMat = np.zeros((nChannels, nChannels))
     adata = synthdata.ar2_network(nTrials=nTrials, AdjMat=AdjMat, nSamples=nSamples)
 
@@ -151,9 +151,9 @@ class TestSpectralPlotting:
     # all trials are equal
     toi_min, toi_max = adata.time[0][0], adata.time[0][-1]
 
-    spec_fft = spy.freqanalysis(adata, tapsmofrq=1)
+    spec_fft = spy.freqanalysis(adata, tapsmofrq=2)
     spec_fft_imag = spy.freqanalysis(adata, output="imag")
-    spec_fft_mtm = spy.freqanalysis(adata, tapsmofrq=1, keeptapers=True)
+    spec_fft_mtm = spy.freqanalysis(adata, tapsmofrq=3, keeptapers=True)
     spec_fft_complex = spy.freqanalysis(adata, output="fourier")
 
     spec_wlet = spy.freqanalysis(adata, method="wavelet", foi=np.arange(0, 400, step=4))
