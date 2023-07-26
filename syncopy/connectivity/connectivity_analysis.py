@@ -645,6 +645,13 @@ def cross_spectra(
         foi = freqs
 
     # sanitize taper selection and retrieve dpss settings
+
+    if data.selection is None:
+        sinfo = data.sampleinfo
+    else:
+        sinfo = data.selection.trialdefinition[:, :2]
+    lenTrials = np.diff(sinfo).squeeze()
+
     taper, taper_opt = process_taper(
         taper,
         taper_opt,
@@ -653,7 +660,7 @@ def cross_spectra(
         keeptapers=False,  # ST_CSD's always average tapers
         foimax=foi.max(),
         samplerate=data.samplerate,
-        nSamples=nSamples,
+        nSamples=lenTrials.mean(),
         output="pow",
     )  # ST_CSD's always have this unit/norm
 
