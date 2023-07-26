@@ -5,19 +5,27 @@ channels:
 dependencies:
   # this is to comply with acme 2022.11
   - python >= 3.10, < 3.11
-  - dask[distributed]
+  - dask
+  - distributed
   - dask-jobqueue
-  - h5py >=3.7
-  - numpy >= 1.10
-  - scipy >= 1.5
-  - matplotlib >= 3.5
-  - tqdm >= 4.31
+  - h5py
+  - numpy
+  - scipy
+  - matplotlib
+  - tqdm
   - natsort
   - pip
   - psutil
-  - tqdm >= 4.31
+  - tqdm
   - fooof >= 1.0
-  - bokeh >= 3.1.1
+  - bokeh
+  - ipdb
+  - memory_profiler
+  - pylint
+  - python-graphviz
+  - pytest-cov
+  - ruamel.yaml
+  - setuptools_scm
   - pip:
     # Optional dependencies, used for full tests
     - pynwb
