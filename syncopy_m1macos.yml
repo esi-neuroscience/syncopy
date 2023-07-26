@@ -3,7 +3,6 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  # this is to comply with acme 2022.11
   - python >= 3.10, < 3.11
   - dask
   - distributed
@@ -26,6 +25,3 @@ dependencies:
   - pytest-cov
   - ruamel.yaml
   - setuptools_scm
-  - pip:
-    # Optional dependencies, used for full tests
-    - pynwb

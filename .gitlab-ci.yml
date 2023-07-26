@@ -99,7 +99,7 @@ m1macos:
     - conda env update --name syncopy --file syncopy_m1macos.yml --prune
     - conda activate syncopy
     #- conda install -c conda-forge importlib_resources iniconfig tblib sortedcontainers dask-jobqueue
-    - conda install pynwb=2.3.2 -c conda-forge
+    - conda install pynwb=2.4.0 -c conda-forge
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
