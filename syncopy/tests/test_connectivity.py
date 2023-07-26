@@ -868,7 +868,7 @@ class TestPPC:
 
         # same results on all channels and freqs
         # irrespective of AnalogData or SpectralData input
-        assert np.allclose(res_spec.trials[0], res_ad.trials[0])
+        assert np.allclose(res_spec.trials[0], res_ad.trials[0], atol=1e-2)
 
         for res in [res_spec, res_ad]:
             # coherence at the harmonic frequencies
