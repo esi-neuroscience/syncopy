@@ -772,7 +772,7 @@ class TestPPC:
 
     # spectral analysis
     cfg = spy.StructDict()
-    cfg.tapsmofrq = 1.5
+    cfg.tapsmofrq = 2.
     cfg.foilim = [5, 60]
 
     spec = spy.freqanalysis(data, cfg, output="fourier", keeptapers=True)

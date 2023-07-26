@@ -627,7 +627,7 @@ def freqanalysis(
             keeptapers,
             foimax=foi.max(),
             samplerate=data.samplerate,
-            nSamples=minSampleNum,
+            nSamples=lenTrials.mean(),   # best we can do here
             output=output,
         )
 

@@ -312,7 +312,7 @@ def process_taper(
 
         # --- minimal smoothing bandwidth ---
         # --- such that Kmax/nTaper is at least 1
-        minBw = 2 * samplerate / nSamples
+        minBw = samplerate / nSamples
         # -----------------------------------
 
         # --- maximal smoothing bandwidth ---

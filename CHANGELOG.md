@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Fix SpikeData string rep, #511
+- corrected slepian/dpss default taper settings, #559
 
 
 ## [2023.05]
