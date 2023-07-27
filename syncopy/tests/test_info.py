@@ -17,12 +17,16 @@ from syncopy.shared.errors import SPYTypeError
 class TestInfo:
 
     # serializable dict
-    ok_dict = {'sth': 4, 'important': [1, 2],
-               'to': {'v1': 2}, 'remember': 'need more coffe'}
+    ok_dict = {
+        "sth": 4,
+        "important": [1, 2],
+        "to": {"v1": 2},
+        "remember": "need more coffe",
+    }
     # non-serializable dict
-    ns_dict = {'sth': 4, 'not_serializable': {'v1': range(2)}}
+    ns_dict = {"sth": 4, "not_serializable": {"v1": range(2)}}
     # dict with non-serializable keys
-    ns_dict2 = {range(2) : 'small_range', range(1000) : 'large_range'}
+    ns_dict2 = {range(2): "small_range", range(1000): "large_range"}
 
     # test setter
     def test_property(self):
@@ -50,7 +54,7 @@ class TestInfo:
 
         # test we're catching non-serializable dictionary entries
         with pytest.raises(SPYTypeError, match="expected serializable data type"):
-            adata.info['new-var'] = np.arange(3)
+            adata.info["new-var"] = np.arange(3)
         with pytest.raises(SPYTypeError, match="expected serializable data type"):
             adata.info = self.ns_dict
 
@@ -60,15 +64,15 @@ class TestInfo:
 
         # this interestingly still does NOT work (numbers are np.float64):
         with pytest.raises(SPYTypeError, match="expected serializable data type"):
-            adata.info['new-var'] = list(np.arange(3))
+            adata.info["new-var"] = list(np.arange(3))
 
         # even this.. numbers are still np.int64
         with pytest.raises(SPYTypeError, match="expected serializable data type"):
-            adata.info['new-var'] = list(np.arange(3, dtype=int))
+            adata.info["new-var"] = list(np.arange(3, dtype=int))
 
         # this then works, hope is that users don't abuse it
-        adata.info['new-var'] = list(np.arange(3, dtype=float))
-        assert np.allclose(adata.info['new-var'], np.arange(3))
+        adata.info["new-var"] = list(np.arange(3, dtype=float))
+        assert np.allclose(adata.info["new-var"], np.arange(3))
 
     # test aux. info dict saving and loading
     def test_io(self):
@@ -86,5 +90,5 @@ class TestInfo:
             assert dummy2.info == self.ok_dict
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     T1 = TestInfo()

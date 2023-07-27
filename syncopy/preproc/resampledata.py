@@ -28,12 +28,7 @@ availableMethods = ("downsample", "resample")
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def resampledata(data,
-                 resamplefs=1.,
-                 method="resample",
-                 lpfreq=None,
-                 order=None,
-                 **kwargs):
+def resampledata(data, resamplefs=1.0, method="resample", lpfreq=None, order=None, **kwargs):
     """
     Performs resampling or downsampling of :class:`~syncopy.AnalogData` objects,
     representing uniformly sampled time series data.
@@ -101,9 +96,7 @@ def resampledata(data,
 
     # Make sure our one mandatory input object can be processed
     try:
-        data_parser(
-            data, varname="data", dataclass="AnalogData", writable=None, empty=False
-        )
+        data_parser(data, varname="data", dataclass="AnalogData", writable=None, empty=False)
     except Exception as exc:
         raise exc
     timeAxis = data.dimord.index("time")
@@ -132,9 +125,10 @@ def resampledata(data,
     if order is not None:
         scalar_parser(order, varname="order", lims=[0, np.inf], ntype="int_like")
         if order < 100:
-            msg = ("You have chosen an anti-alias filter of very low "
-                   f"`order={order}`, expect a slow roll-off!"
-                   )
+            msg = (
+                "You have chosen an anti-alias filter of very low "
+                f"`order={order}`, expect a slow roll-off!"
+            )
             SPYWarning(msg)
 
     # set default
@@ -150,46 +144,46 @@ def resampledata(data,
     if method == "downsample":
 
         if data.samplerate % resamplefs != 0:
-            lgl = (
-                "integer division of the original sampling rate "
-                "for `method='downsample'`"
-            )
+            lgl = "integer division of the original sampling rate " "for `method='downsample'`"
             raise SPYValueError(lgl, varname="resamplefs", actual=resamplefs)
 
         # explicit low-pass filtering on the fly
         if lpfreq is not None:
             AntiAliasFilter = SincFiltering(
                 samplerate=data.samplerate,
-                filter_type='lp',
+                filter_type="lp",
                 freq=lpfreq,
                 order=order,
-                direction='twopass',
+                direction="twopass",
                 timeAxis=timeAxis,
             )
             # keyword dict for logging
-            aa_log_dict = {"filter_type": 'lp',
-                           "lpfreq": lpfreq,
-                           "order": order,
-                           "direction": 'twopass'}
+            aa_log_dict = {
+                "filter_type": "lp",
+                "lpfreq": lpfreq,
+                "order": order,
+                "direction": "twopass",
+            }
 
         else:
             AntiAliasFilter = None
 
-        resampleMethod = Downsample(
-            samplerate=data.samplerate, new_samplerate=resamplefs, timeAxis=timeAxis
-        )
+        resampleMethod = Downsample(samplerate=data.samplerate, new_samplerate=resamplefs, timeAxis=timeAxis)
         # keyword dict for logging
-        log_dict = {"method": method,
-                    "resamplefs": resamplefs,
-                    "origfs": data.samplerate}
+        log_dict = {
+            "method": method,
+            "resamplefs": resamplefs,
+            "origfs": data.samplerate,
+        }
 
     # -- resampling --
     elif method == "resample":
 
         if data.samplerate % resamplefs == 0:
-            msg = ("New sampling rate is integeger division of the "
-                   "original sampling rate, consider using `method='downsample'`"
-                   )
+            msg = (
+                "New sampling rate is integeger division of the "
+                "original sampling rate, consider using `method='downsample'`"
+            )
             SPYWarning(msg)
 
         # has anti-alias filtering included
@@ -199,14 +193,16 @@ def resampledata(data,
             new_samplerate=resamplefs,
             lpfreq=lpfreq,
             order=order,
-            timeAxis=timeAxis
+            timeAxis=timeAxis,
         )
         # keyword dict for logging
-        log_dict = {"method": method,
-                    "resamplefs": resamplefs,
-                    "origfs": data.samplerate,
-                    "lpfreq": lpfreq,
-                    "order": order}
+        log_dict = {
+            "method": method,
+            "resamplefs": resamplefs,
+            "origfs": data.samplerate,
+            "lpfreq": lpfreq,
+            "order": order,
+        }
 
     # ------------------------------------
     # Call the chosen ComputationalRoutine
@@ -214,19 +210,16 @@ def resampledata(data,
 
     resampled = AnalogData(dimord=data.dimord)
 
-    if method == 'downsample' and AntiAliasFilter is not None:
+    if method == "downsample" and AntiAliasFilter is not None:
         filtered = AnalogData(dimord=data.dimord)
         AntiAliasFilter.initialize(
             data,
             filtered._stackingDim,
             chan_per_worker=kwargs.get("chan_per_worker"),
-            keeptrials=True
+            keeptrials=True,
         )
 
-        AntiAliasFilter.compute(data,
-                                filtered,
-                                parallel=kwargs.get("parallel"),
-                                log_dict=aa_log_dict)
+        AntiAliasFilter.compute(data, filtered, parallel=kwargs.get("parallel"), log_dict=aa_log_dict)
         target = filtered
     else:
         target = data  # just rebinds the name
@@ -237,10 +230,8 @@ def resampledata(data,
         chan_per_worker=kwargs.get("chan_per_worker"),
         keeptrials=True,
     )
-    resampleMethod.compute(
-        target, resampled, parallel=kwargs.get("parallel"), log_dict=log_dict
-    )
+    resampleMethod.compute(target, resampled, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
     resampled.cfg.update(data.cfg)
-    resampled.cfg.update({'resampledata': new_cfg})
+    resampled.cfg.update({"resampledata": new_cfg})
     return resampled

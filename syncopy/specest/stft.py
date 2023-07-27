@@ -13,15 +13,17 @@ import platform
 from ._norm_spec import _norm_spec
 
 
-def stft(dat,
-         fs=1.,
-         window=None,
-         nperseg=256,
-         noverlap=None,
-         boundary='zeros',
-         detrend=False,
-         padded=True,
-         axis=0):
+def stft(
+    dat,
+    fs=1.0,
+    window=None,
+    nperseg=256,
+    noverlap=None,
+    boundary="zeros",
+    detrend=False,
+    padded=True,
+    axis=0,
+):
 
     """
     Implements the short-time (or windowed) Fourier transform
@@ -110,7 +112,7 @@ def stft(dat,
     if padded:
         # Pad to integer number of windowed segments
         # I.e make x.shape[-1] = nperseg + (nseg-1)*nstep, with integer nseg
-        nadd = (-(dat.shape[-1]-nperseg) % nstep) % nperseg
+        nadd = (-(dat.shape[-1] - nperseg) % nstep) % nperseg
         zeros_shape = list(dat.shape[:-1]) + [nadd]
         dat = np.concatenate((dat, np.zeros(zeros_shape)), axis=-1)
 
@@ -122,8 +124,7 @@ def stft(dat,
         step = nperseg - noverlap
         shape = dat.shape[:-1] + ((dat.shape[-1] - noverlap) // step, nperseg)
         strides = dat.strides[:-1] + (step * dat.strides[-1], dat.strides[-1])
-        dat = np.lib.stride_tricks.as_strided(dat, shape=shape,
-                                              strides=strides)
+        dat = np.lib.stride_tricks.as_strided(dat, shape=shape, strides=strides)
     # dat now has shape (nChannels, nSamples, nperseg)
 
     # detrend each segment separately
@@ -136,10 +137,11 @@ def stft(dat,
 
     logger = logging.getLogger("syncopy_" + platform.node())
     pad_status = "with padding" if padded else "without padding"
-    logger.debug(f"Running short time Fourier transform {pad_status}, detrend={detrend} and overlap of {noverlap}.")
+    logger.debug(
+        f"Running short time Fourier transform {pad_status}, detrend={detrend} and overlap of {noverlap}."
+    )
 
-    times = np.arange(nperseg / 2, dat.shape[-1] - nperseg / 2 + 1,
-                      nperseg - noverlap) / fs
+    times = np.arange(nperseg / 2, dat.shape[-1] - nperseg / 2 + 1, nperseg - noverlap) / fs
     if boundary is not None:
         times -= (nperseg / 2) / fs
 

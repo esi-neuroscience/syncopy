@@ -9,8 +9,10 @@
 # 3rd party imports
 import itertools
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from syncopy.shared.errors import SPYValueError, SPYTypeError
+from os.path import expanduser
 
 # fix random generators
 test_seed = 42
@@ -22,28 +24,28 @@ def run_padding_test(method_call, pad_length):
     a single keyword argument `pad`
     """
 
-    pad_options = [pad_length, 'nextpow2', 'maxperlen']
+    pad_options = [pad_length, "nextpow2", "maxperlen"]
     for pad in pad_options:
         method_call(pad=pad)
 
     # test invalid pads
     try:
-        method_call(pad=-0.1) # trials should be longer than 0.1 seconds
+        method_call(pad=-0.1)  # trials should be longer than 0.1 seconds
     except SPYValueError as err:
-        assert 'pad' in str(err)
-        assert 'expected value to be greater' in str(err)
+        assert "pad" in str(err)
+        assert "expected value to be greater" in str(err)
 
     try:
-        method_call(pad='IamNoPad')
+        method_call(pad="IamNoPad")
     except SPYValueError as err:
-        assert 'Invalid value of `pad`' in str(err)
-        assert 'nextpow2' in str(err)
+        assert "Invalid value of `pad`" in str(err)
+        assert "nextpow2" in str(err)
 
     try:
         method_call(pad=np.array([1000]))
     except SPYValueError as err:
-        assert 'Invalid value of `pad`' in str(err)
-        assert 'nextpow2' in str(err)
+        assert "Invalid value of `pad`" in str(err)
+        assert "nextpow2" in str(err)
 
 
 def run_polyremoval_test(method_call):
@@ -60,18 +62,18 @@ def run_polyremoval_test(method_call):
     try:
         method_call(polyremoval=2)
     except SPYValueError as err:
-        assert 'polyremoval' in str(err)
-        assert 'expected value to be greater' in str(err)
+        assert "polyremoval" in str(err)
+        assert "expected value to be greater" in str(err)
 
     try:
-        method_call(polyremoval='IamNoPad')
+        method_call(polyremoval="IamNoPad")
     except SPYTypeError as err:
-        assert 'Wrong type of `polyremoval`' in str(err)
+        assert "Wrong type of `polyremoval`" in str(err)
 
     try:
         method_call(polyremoval=np.array([1000]))
     except SPYTypeError as err:
-        assert 'Wrong type of `polyremoval`' in str(err)
+        assert "Wrong type of `polyremoval`" in str(err)
 
 
 def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
@@ -99,16 +101,12 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
     for _ in range(1):
 
         sizeTr = np.random.randint(10, nTrials + 1)
-        trials.append(list(np.random.choice(
-            nTrials, size=sizeTr
-        )
-        ))
+        trials.append(list(np.random.choice(nTrials, size=sizeTr)))
 
         sizeCh = np.random.randint(2, nChannels + 1)
-        channels.append(['channel' + str(i + 1)
-                         for i in
-                         np.random.choice(
-                             nChannels, size=sizeCh, replace=False)])
+        channels.append(
+            ["channel" + str(i + 1) for i in np.random.choice(nChannels, size=sizeCh, replace=False)]
+        )
 
     # 1 random toilim
     toilims = []
@@ -123,22 +121,42 @@ def mk_selection_dicts(nTrials, nChannels, toi_min, toi_max, min_len=0.25):
 
     # combinatorics of all selection options
     # order matters to assign the selection dict keys!
-    toilim_combinations = itertools.product(trials,
-                                            channels,
-                                            toilims)
+    toilim_combinations = itertools.product(trials, channels, toilims)
 
     selections = []
     for comb in toilim_combinations:
 
         sel_dct = {}
-        sel_dct['trials'] = comb[0]
-        sel_dct['channel'] = comb[1]
-        sel_dct['latency'] = comb[2]
+        sel_dct["trials"] = comb[0]
+        sel_dct["channel"] = comb[1]
+        sel_dct["latency"] = comb[2]
         selections.append(sel_dct)
 
     return selections
 
+
 def teardown():
     """Cleanup to run at the end of a set of tests, typically at the end of a Test class."""
     # Close matplotlib plot windows:
-    plt.close('all')
+    try:
+        plt.close("all")
+    except:
+        pass
+
+
+def get_file_from_anywhere(possible_locations):
+    """
+    Helper function to get a file from a list of possible locations.
+    Useful to run tests on different systems. If you do not have access
+    to the ESI cluster, this allows you to still run tests on your local
+    machine, all you need to do is copy the required files to your local
+    machine and add the path to the list of possible locations.
+
+    Parameters
+    ----------
+    possible_locations : list of strings, will be expanded with ```os.path.expanduser``` so it is fine to give somehthing like '~/file.txt'.
+    """
+    for loc in possible_locations:
+        if os.path.isfile(expanduser(loc)):
+            return loc
+    return None

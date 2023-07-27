@@ -6,7 +6,7 @@
 import numpy as np
 
 
-def _norm_spec(ftr, nSamples, fs, mode='bins'):
+def _norm_spec(ftr, nSamples, fs, mode="bins"):
 
     """
     Normalizes the complex Fourier transform to
@@ -14,9 +14,9 @@ def _norm_spec(ftr, nSamples, fs, mode='bins'):
     """
 
     # frequency bins
-    if mode == 'density':
+    if mode == "density":
         delta_f = fs / nSamples
-    elif mode == 'bins':
+    elif mode == "bins":
         delta_f = 1
 
     ftr *= np.sqrt(2) / (nSamples * np.sqrt(delta_f))
@@ -34,9 +34,9 @@ def _norm_taper(taper, windows, nSamples):
     distributed over the spectral window response.
     """
 
-    if taper == 'dpss':
+    if taper == "dpss":
         windows *= np.sqrt(nSamples)
-    elif taper == 'boxcar':
+    elif taper == "boxcar":
         windows *= np.sqrt(nSamples / windows.sum())
     # weird 3 point normalization,
     # checks out exactly for 'hann' though

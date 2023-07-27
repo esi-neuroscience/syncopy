@@ -8,22 +8,30 @@ import numpy as np
 
 # Syncopy imports
 import syncopy as spy
-from syncopy.connectivity.AV_compRoutines import NormalizeCrossSpectra, NormalizeCrossCov, GrangerCausality
-from syncopy.connectivity.ST_compRoutines import CrossSpectra, CrossCovariance, SpectralDyadicProduct, PPC_column
+from syncopy.connectivity.AV_compRoutines import (
+    NormalizeCrossSpectra,
+    NormalizeCrossCov,
+    GrangerCausality,
+)
+from syncopy.connectivity.ST_compRoutines import (
+    CrossSpectra,
+    CrossCovariance,
+    SpectralDyadicProduct,
+    PPC_column,
+)
 from syncopy.shared.input_processors import (
     process_taper,
     process_foi,
     process_padding,
     check_effective_parameters,
-    check_passed_kwargs
+    check_passed_kwargs,
 )
-from syncopy.shared.kwarg_decorators import (unwrap_cfg, unwrap_select,
-                                             detect_parallel_client)
-from syncopy.shared.errors import (
-    SPYValueError,
-    SPYWarning,
-    SPYInfo,
-    SPYTypeError)
+from syncopy.shared.kwarg_decorators import (
+    unwrap_cfg,
+    unwrap_select,
+    detect_parallel_client,
+)
+from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo, SPYTypeError
 
 from syncopy.datatype import CrossSpectralData, AnalogData, SpectralData
 from syncopy.shared.tools import get_defaults, best_match, get_frontend_cfg
@@ -39,10 +47,22 @@ connectivity_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "im
 @unwrap_cfg
 @unwrap_select
 @detect_parallel_client
-def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
-                         foi=None, foilim=None, pad='maxperlen',
-                         polyremoval=0, tapsmofrq=None, nTaper=None,
-                         taper="hann", taper_opt=None, jackknife=False, **kwargs):
+def connectivityanalysis(
+    data,
+    method="coh",
+    keeptrials=False,
+    output="abs",
+    foi=None,
+    foilim=None,
+    pad="maxperlen",
+    polyremoval=0,
+    tapsmofrq=None,
+    nTaper=None,
+    taper="hann",
+    taper_opt=None,
+    jackknife=False,
+    **kwargs,
+):
     """
     Perform connectivity analysis of Syncopy :class:`~syncopy.SpectralData` OR directly
     :class:`~syncopy.AnalogData` objects
@@ -238,7 +258,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     if not isinstance(data, (AnalogData, SpectralData)):
         lgl = "either AnalogData or SpectralData as input"
         act = f"{data.__class__.__name__}"
-        raise SPYValueError(lgl, 'data', act)
+        raise SPYValueError(lgl, "data", act)
     timeAxis = data.dimord.index("time")
     # Get everything of interest in local namespace
     defaults = get_defaults(connectivityanalysis)
@@ -254,16 +274,19 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         raise SPYValueError(legal=lgl, varname="method", actual=method)
 
     if not isinstance(jackknife, bool):
-        raise SPYTypeError(jackknife, 'jackknife', 'boolean')
+        raise SPYTypeError(jackknife, "jackknife", "boolean")
 
-    if jackknife and method not in ['coh', 'granger']:
+    if jackknife and method not in ["coh", "granger"]:
         # makes only sense for these methods
-        spy.log(f"Jackknife is not available for method {method}", level='WARNING',
-                caller='connectivityanalysis')
+        spy.log(
+            f"Jackknife is not available for method {method}",
+            level="WARNING",
+            caller="connectivityanalysis",
+        )
         jackknife = False
 
     # output settings are only relevant for coherence
-    if method != 'coh' and output != defaults['output']:
+    if method != "coh" and output != defaults["output"]:
         msg = f"Setting `output` for method {method} has not effect!"
         SPYWarning(msg)
 
@@ -278,7 +301,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     # check padding
 
-    if method == "corr" and pad != 'maxperlen':
+    if method == "corr" and pad != "maxperlen":
         lgl = "'maxperlen', no padding needed/allowed for cross-correlations"
         actual = f"{pad}"
         raise SPYValueError(legal=lgl, varname="pad", actual=actual)
@@ -289,51 +312,57 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     # Prepare keyword dict for logging (use `lcls` to get actually provided
     # keyword values, not defaults set above)
-    log_dict = {"method": method,
-                "keeptrials": keeptrials,
-                "polyremoval": polyremoval,
-                "pad": pad}
+    log_dict = {
+        "method": method,
+        "keeptrials": keeptrials,
+        "polyremoval": polyremoval,
+        "pad": pad,
+    }
 
     # --- method specific processing ---
 
-    if method == 'corr':
+    if method == "corr":
         if not isinstance(data, AnalogData):
             lgl = f"AnalogData instance as input for method {method}"
             actual = f"{data.__class__.__name__}"
-            raise SPYValueError(lgl, 'data', actual)
+            raise SPYValueError(lgl, "data", actual)
 
-        if lcls['foi'] is not None:
-            msg = 'Parameter `foi` has no effect for method `corr`'
+        if lcls["foi"] is not None:
+            msg = "Parameter `foi` has no effect for method `corr`"
             SPYWarning(msg)
 
-        check_effective_parameters(CrossCovariance, defaults, lcls, besides=('jackknife',))
+        check_effective_parameters(CrossCovariance, defaults, lcls, besides=("jackknife",))
 
         # single trial cross-correlations
         if keeptrials:
-            av_compRoutine = None   # no trial average
-            norm = True   # normalize individual trials within the ST CR
+            av_compRoutine = None  # no trial average
+            norm = True  # normalize individual trials within the ST CR
         else:
             av_compRoutine = NormalizeCrossCov()
             norm = False
 
         # parallel computation over trials
-        st_compRoutine = CrossCovariance(samplerate=data.samplerate,
-                                         polyremoval=polyremoval,
-                                         timeAxis=timeAxis,
-                                         norm=norm)
+        st_compRoutine = CrossCovariance(
+            samplerate=data.samplerate,
+            polyremoval=polyremoval,
+            timeAxis=timeAxis,
+            norm=norm,
+        )
         # hard coded as class attribute
         st_dimord = CrossCovariance.dimord
 
     # all these methods need the single trial cross spectra
     # we just have to sort out if we need an mtmfft first
-    elif method in ['csd', 'coh', 'ppc', 'granger']:
+    elif method in ["csd", "coh", "ppc", "granger"]:
         nTrials = len(data.trials)
         if nTrials == 1:
-            lgl = "multi-trial input data, spectral connectivity measures critically depend on trial averaging!"
+            lgl = (
+                "multi-trial input data, spectral connectivity measures critically depend on trial averaging!"
+            )
             act = "only one trial"
-            raise SPYValueError(lgl, 'data', act)
+            raise SPYValueError(lgl, "data", act)
 
-        if keeptrials is not False and method in ('coh', 'ppc', 'granger'):
+        if keeptrials is not False and method in ("coh", "ppc", "granger"):
             lgl = f"False, trial averaging needed for method {method}!"
             act = keeptrials
             raise SPYValueError(lgl, varname="keeptrials", actual=act)
@@ -343,31 +372,48 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             # the actual number of samples in case of later padding
             nSamples = process_padding(pad, lenTrials, data.samplerate)
 
-            check_effective_parameters(CrossSpectra, defaults, lcls, besides=('jackknife',))
+            check_effective_parameters(CrossSpectra, defaults, lcls, besides=("jackknife",))
 
-            st_compRoutine, st_dimord = cross_spectra(data, method, nSamples,
-                                                      foi, foilim, tapsmofrq,
-                                                      nTaper, taper, taper_opt,
-                                                      polyremoval, log_dict, timeAxis)
+            st_compRoutine, st_dimord = cross_spectra(
+                data,
+                method,
+                nSamples,
+                foi,
+                foilim,
+                tapsmofrq,
+                nTaper,
+                taper,
+                taper_opt,
+                polyremoval,
+                log_dict,
+                timeAxis,
+            )
         # SpectralData input
         elif isinstance(data, SpectralData):
             # cross-spectra need complex input spectra
             if not np.issubdtype(data.data.dtype, np.complexfloating):
                 lgl = "complex valued spectra, set `output='fourier'` in spy.freqanalysis!"
                 act = "real valued spectral data"
-                raise SPYValueError(lgl, 'data', act)
+                raise SPYValueError(lgl, "data", act)
 
-            if method == 'granger':
+            if method == "granger":
                 # check that for SpectralData input, we have empty time axes
                 # no time-resolved Granger supported atm
                 if isinstance(data, SpectralData):
-                    if data.data.shape[data.dimord.index('time')] != len(data.trials):
-                        raise NotImplementedError("Time resolved Granger causality from tf-spectra not available atm")
+                    if data.data.shape[data.dimord.index("time")] != len(data.trials):
+                        raise NotImplementedError(
+                            "Time resolved Granger causality from tf-spectra not available atm"
+                        )
 
             # by constraining to output='fourier', detrimental taper averaging
             # gets already catched by freqanalysis!
 
-            check_effective_parameters(SpectralDyadicProduct, defaults, lcls, besides=('jackknife'),)
+            check_effective_parameters(
+                SpectralDyadicProduct,
+                defaults,
+                lcls,
+                besides=("jackknife"),
+            )
             # there are no free parameters here,
             # everything had to be setup during freqanalysis!
             st_compRoutine = SpectralDyadicProduct()
@@ -375,20 +421,20 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
 
     # --- Set up of computation of single trial cross quantities is complete ---
 
-    if method == 'coh':
+    if method == "coh":
         if output not in connectivity_outputs:
             lgl = f"one of {connectivity_outputs}"
             raise SPYValueError(lgl, varname="output", actual=output)
-        log_dict['output'] = output
+        log_dict["output"] = output
 
         # final normalization after trial averaging
         av_compRoutine = NormalizeCrossSpectra(output=output)
 
-    elif method == 'ppc':
+    elif method == "ppc":
         # besides = ['jackknife']
         # spectral analysis only possible with AnalogData
         if isinstance(data, AnalogData):
-            besides = ['taper', 'tapsmofrq', 'nTaper']
+            besides = ["taper", "tapsmofrq", "nTaper"]
         else:
             besides = None
         check_effective_parameters(PPC_column, defaults, lcls, besides=besides)
@@ -397,22 +443,19 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         # inits of the PPC CR to compute all trial pairs
         av_compRoutine = "ppc"
 
-    elif method == 'granger':
-        besides = ['jackknife']
+    elif method == "granger":
+        besides = ["jackknife"]
         # spectral analysis only possible with AnalogData
         if isinstance(data, AnalogData):
-            besides += ['taper', 'tapsmofrq', 'nTaper']
+            besides += ["taper", "tapsmofrq", "nTaper"]
 
         check_effective_parameters(GrangerCausality, defaults, lcls, besides=besides)
 
         # after trial averaging
         # hardcoded numerical parameters
-        av_compRoutine = GrangerCausality(rtol=5e-6,
-                                          nIter=100,
-                                          cond_max=1e4
-                                          )
+        av_compRoutine = GrangerCausality(rtol=5e-6, nIter=100, cond_max=1e4)
     # here the single trial spectra are the final result
-    elif method == 'csd':
+    elif method == "csd":
         av_compRoutine = None
 
     # -------------------------------------------------
@@ -423,19 +466,21 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     st_out = CrossSpectralData(dimord=st_dimord)
 
     # we need single trials for the jackknife and the PPC
-    keeptrials = True if (keeptrials or (jackknife or method == 'ppc')) else False
+    keeptrials = True if (keeptrials or (jackknife or method == "ppc")) else False
 
     # Perform the trial-parallelized computation of the matrix quantity
-    st_compRoutine.initialize(data,
-                              st_out._stackingDim,
-                              chan_per_worker=None,   # no parallelisation over channels possible
-                              keeptrials=keeptrials)  # True for jackknifing
+    st_compRoutine.initialize(
+        data,
+        st_out._stackingDim,
+        chan_per_worker=None,  # no parallelisation over channels possible
+        keeptrials=keeptrials,
+    )  # True for jackknifing
     st_compRoutine.compute(data, st_out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
     if jackknife:
         jack_in = st_out  # single trials for the replicates
         # the trial average for the direct estimate by the av_compRoutine
-        st_out = spy.mean(st_out, dim='trials')
+        st_out = spy.mean(st_out, dim="trials")
         # compute all the leave-one-out (loo) trial average replicates
         replicates_avg = jk.trial_avg_replicates(jack_in)
 
@@ -443,7 +488,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # keeptrials can be True and hence we are done here
     if av_compRoutine is None:
         st_out.cfg.update(data.cfg)
-        st_out.cfg.update({'connectivityanalysis': new_cfg})
+        st_out.cfg.update({"connectivityanalysis": new_cfg})
         return st_out
 
     # ---------------
@@ -453,7 +498,7 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # set up nTrials(nTrials-1) pair computations
     # which need an outer loop over nTrials as a single CR
     # can only compute one column of all the nTrials x nTrials combinations
-    elif av_compRoutine == 'ppc':
+    elif av_compRoutine == "ppc":
         # we need to average all the CR results, shapes match
         accumulator = np.zeros(st_out.trials[0].shape, dtype=np.float32)
         nTrials = len(st_out.trials)
@@ -476,17 +521,14 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             st_out.selectdata(trials=trl_arr[trl_bi], inplace=True)
 
             # set up CR
-            ppc_CR = PPC_column(trl2_idx=trl2_idx,
-                                hdf5_path=hdf5_path)
+            ppc_CR = PPC_column(trl2_idx=trl2_idx, hdf5_path=hdf5_path)
             # inner result
             trl_pairs = CrossSpectralData(dimord=st_dimord)
-            ppc_CR.initialize(st_out, trl_pairs._stackingDim,
-                              chan_per_worker=None,
-                              keeptrials=True)
+            ppc_CR.initialize(st_out, trl_pairs._stackingDim, chan_per_worker=None, keeptrials=True)
             ppc_CR.compute(st_out, trl_pairs, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
             # now average the nTrials-1 remaining pairs
-            trl_pairs_avg = st.mean(trl_pairs, dim='trials')
+            trl_pairs_avg = st.mean(trl_pairs, dim="trials")
             accumulator += trl_pairs_avg.trials[0] * weights[trl_idx - 1]
 
             # reset selection
@@ -509,17 +551,20 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
         out = CrossSpectralData(dimord=st_dimord)
         # now take the trial average from the single trial CR as input
         av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
-        av_compRoutine.pre_check()   # make sure we got a trial_average
-        av_compRoutine.compute(st_out, out, parallel=kwargs.get("parallel"),
-                               log_dict=log_dict)
+        av_compRoutine.pre_check()  # make sure we got a trial_average
+        av_compRoutine.compute(st_out, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
         # `out` is the direct estimate
         if jackknife:
             jack_rep = CrossSpectralData(dimord=st_dimord)
             av_compRoutine.initialize(replicates_avg, jack_rep._stackingDim)
             # without `pre_check` we can compute the replicates for all loo averages (in parallel!)
-            av_compRoutine.compute(replicates_avg, jack_rep, parallel=kwargs.get("parallel"),
-                                   log_dict=log_dict)
+            av_compRoutine.compute(
+                replicates_avg,
+                jack_rep,
+                parallel=kwargs.get("parallel"),
+                log_dict=log_dict,
+            )
             # now compute bias and variance
             bias, variance = jk.bias_var(out, jack_rep)
 
@@ -527,8 +572,8 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
             variance._persistent_hdf5 = True
 
             # and attach to output object
-            out._register_dataset('jack_var', inData=variance.data)
-            out._register_dataset('jack_bias', inData=bias.data)
+            out._register_dataset("jack_var", inData=variance.data)
+            out._register_dataset("jack_bias", inData=bias.data)
 
             # for now, as we don't have dynamic properties
             out.jack_var = out._jack_var
@@ -538,31 +583,41 @@ def connectivityanalysis(data, method="coh", keeptrials=False, output="abs",
     # to support chained frontend calls..
     out.cfg.update(data.cfg)
     # attach frontend parameters for replay
-    new_cfg.update({'output': output})
-    out.cfg.update({'connectivityanalysis': new_cfg})
+    new_cfg.update({"output": output})
+    out.cfg.update({"connectivityanalysis": new_cfg})
 
     return out
 
 
-def cross_spectra(data, method, nSamples,
-                  foi, foilim, tapsmofrq,
-                  nTaper, taper, taper_opt,
-                  polyremoval, log_dict, timeAxis):
-    '''
+def cross_spectra(
+    data,
+    method,
+    nSamples,
+    foi,
+    foilim,
+    tapsmofrq,
+    nTaper,
+    taper,
+    taper_opt,
+    polyremoval,
+    log_dict,
+    timeAxis,
+):
+    """
     Sets up the CR to compute the single trial cross-spectra from AnalogData
-    '''
+    """
 
     # --- Basic foi sanitization ---
 
     foi, foilim = process_foi(foi, foilim, data.samplerate)
 
     # --- Setting up specific Methods ---
-    if method == 'granger':
+    if method == "granger":
 
         if foi is not None or foilim is not None:
             lgl = "no foi specification for Granger analysis"
             actual = "foi or foilim specification"
-            raise SPYValueError(lgl, 'foi/foilim', actual)
+            raise SPYValueError(lgl, "foi/foilim", actual)
 
         nChannels = len(data.channel)
         nTrials = len(data.trials)
@@ -585,39 +640,49 @@ def cross_spectra(data, method, nSamples,
         foi, _ = best_match(freqs, foilim, span=True, squash_duplicates=True)
     elif foi is None and foilim is None:
         # Construct array of maximally attainable frequencies
-        msg = (f"Setting frequencies of interest to {freqs[0]:.1f}-"
-               f"{freqs[-1]:.1f}Hz")
+        msg = f"Setting frequencies of interest to {freqs[0]:.1f}-" f"{freqs[-1]:.1f}Hz"
         SPYInfo(msg)
         foi = freqs
 
     # sanitize taper selection and retrieve dpss settings
-    taper, taper_opt = process_taper(taper,
-                                     taper_opt,
-                                     tapsmofrq,
-                                     nTaper,
-                                     keeptapers=False,   # ST_CSD's always average tapers
-                                     foimax=foi.max(),
-                                     samplerate=data.samplerate,
-                                     nSamples=nSamples,
-                                     output="pow")   # ST_CSD's always have this unit/norm
+
+    if data.selection is None:
+        sinfo = data.sampleinfo
+    else:
+        sinfo = data.selection.trialdefinition[:, :2]
+    lenTrials = np.diff(sinfo).squeeze()
+
+    taper, taper_opt = process_taper(
+        taper,
+        taper_opt,
+        tapsmofrq,
+        nTaper,
+        keeptapers=False,  # ST_CSD's always average tapers
+        foimax=foi.max(),
+        samplerate=data.samplerate,
+        nSamples=lenTrials.mean(),
+        output="pow",
+    )  # ST_CSD's always have this unit/norm
 
     log_dict["foi"] = foi
     log_dict["taper"] = taper
-    if taper_opt and taper == 'dpss':
+    if taper_opt and taper == "dpss":
         log_dict["nTaper"] = taper_opt["Kmax"]
         log_dict["tapsmofrq"] = tapsmofrq
     elif taper_opt:
         log_dict["taper_opt"] = taper_opt
 
     # parallel computation over trials
-    st_compRoutine = CrossSpectra(samplerate=data.samplerate,
-                                  nSamples=nSamples,
-                                  taper=taper,
-                                  taper_opt=taper_opt,
-                                  demean_taper=method == 'granger',
-                                  polyremoval=polyremoval,
-                                  timeAxis=timeAxis,
-                                  foi=foi)
+    st_compRoutine = CrossSpectra(
+        samplerate=data.samplerate,
+        nSamples=nSamples,
+        taper=taper,
+        taper_opt=taper_opt,
+        demean_taper=method == "granger",
+        polyremoval=polyremoval,
+        timeAxis=timeAxis,
+        foi=foi,
+    )
     # hard coded as class attribute
     st_dimord = CrossSpectra.dimord
 

@@ -10,7 +10,7 @@ import scipy.signal.windows as sci_win
 from scipy.signal import convolve
 
 
-def apply_fir(data, fkernel, method='fft'):
+def apply_fir(data, fkernel, method="fft"):
 
     """
     Convolution of the input `data` with a FIR filter.
@@ -184,9 +184,7 @@ def minphaserceps(fkernel):
     """
 
     nSamples = len(fkernel)
-    upsamplingFactor = (
-        1e3  # Impulse response upsampling/zero padding to reduce time-aliasing
-    )
+    upsamplingFactor = 1e3  # Impulse response upsampling/zero padding to reduce time-aliasing
     nFFT = int(2 ** np.ceil(np.log2(nSamples * upsamplingFactor)))  # Power of 2
     clipThresh = 1e-8  # -160 dB
 
@@ -198,9 +196,7 @@ def minphaserceps(fkernel):
     specR = np.real(np.fft.ifft(np.log(specC)))
 
     # Convolve
-    ires = np.hstack([specR[1 : nFFT // 2], 0]) + np.conj(
-        specR[nFFT // 2 : nFFT + 1][::-1]
-    )
+    ires = np.hstack([specR[1 : nFFT // 2], 0]) + np.conj(specR[nFFT // 2 : nFFT + 1][::-1])
     specR = np.hstack([specR[0], ires, np.zeros(nFFT // 2 - 2)])
 
     # Minimum phase

@@ -7,7 +7,7 @@ from syncopy import __plt__
 from syncopy.plotting.config import pltErrMsg
 from syncopy.shared.errors import SPYWarning
 
-__all__ = ['singlepanelplot', 'multipanelplot']
+__all__ = ["singlepanelplot", "multipanelplot"]
 
 
 def singlepanelplot(data, **show_kwargs):

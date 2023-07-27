@@ -15,8 +15,16 @@ from ...datatype.util import TimeIndexer
 __all__ = ["definetrial"]
 
 
-def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
-                trigger=None, stop=None, clip_edges=False):
+def definetrial(
+    obj,
+    trialdefinition=None,
+    pre=None,
+    post=None,
+    start=None,
+    trigger=None,
+    stop=None,
+    clip_edges=False,
+):
     """(Re-)define trials of a Syncopy data object
 
     Data can be structured into trials based on timestamps of a start, trigger
@@ -84,8 +92,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
     # Check array/object holding trial specifications
     if trialdefinition is not None:
         if trialdefinition.__class__.__name__ == "EventData":
-            data_parser(trialdefinition, varname="trialdefinition",
-                        writable=None, empty=False)
+            data_parser(trialdefinition, varname="trialdefinition", writable=None, empty=False)
             evt = True
         else:
             array_parser(trialdefinition, varname="trialdefinition", dims=2)
@@ -94,8 +101,15 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 scount = obj.data.shape[obj.dimord.index("time")]
             else:
                 scount = np.inf
-            array_parser(trialdefinition[:, :2], varname="sampleinfo", dims=(None, 2), hasnan=False,
-                         hasinf=False, ntype="int_like", lims=[0, scount])
+            array_parser(
+                trialdefinition[:, :2],
+                varname="sampleinfo",
+                dims=(None, 2),
+                hasnan=False,
+                hasinf=False,
+                ntype="int_like",
+                lims=[0, scount],
+            )
 
             trl = np.array(trialdefinition, dtype="float")
             ref = obj
@@ -107,8 +121,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
             trl = np.array([[0, obj.data.shape[obj.dimord.index("time")], 0]])
         else:
             sidx = obj.dimord.index("sample")
-            trl = np.array([[np.nanmin(obj.data[:,sidx]),
-                             np.nanmax(obj.data[:,sidx]), 0]])
+            trl = np.array([[np.nanmin(obj.data[:, sidx]), np.nanmax(obj.data[:, sidx]), 0]])
         ref = obj
         tgt = obj
         evt = False
@@ -122,9 +135,9 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         ref = trialdefinition
         tgt = obj
         trl = np.array(ref.trialinfo)
-        t0 = np.array(ref._t0).reshape((ref._t0.size,1))
+        t0 = np.array(ref._t0).reshape((ref._t0.size, 1))
         trl = np.hstack([ref.sampleinfo, t0, trl])
-        trl = np.round((trl/ref.samplerate) * tgt.samplerate).astype(int)
+        trl = np.round((trl / ref.samplerate) * tgt.samplerate).astype(int)
 
     # AnalogData + EventData w/keywords or just EventData w/keywords
     if any([kw is not None for kw in [pre, post, start, trigger, stop]]):
@@ -138,8 +151,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
             tgt = obj
         else:
             lgl = "AnalogData with associated EventData object"
-            act = "{} and {}".format(obj.__class__.__name__,
-                                     trialdefinition.__class__.__name__)
+            act = "{} and {}".format(obj.__class__.__name__, trialdefinition.__class__.__name__)
             raise SPYValueError(legal=lgl, actual=act, varname="input")
 
         # The only case we might actually need it: ensure `clip_edges` is valid
@@ -159,7 +171,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                 szin.append(len(var))
         if np.unique(szin).size > 1:
             lgl = "all trial-related arrays to have the same length"
-            act = "arrays with sizes {}".format(str(np.unique(szin)).replace("[","").replace("]",""))
+            act = "arrays with sizes {}".format(str(np.unique(szin)).replace("[", "").replace("]", ""))
             raise SPYValueError(legal=lgl, varname="trial-keywords", actual=act)
         if len(szin):
             ntrials = szin[0]
@@ -180,25 +192,51 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
         # If provided, ensure keywords make sense, otherwise allocate defaults
         kwrds = {}
-        vdict = {"pre": {"var": pre, "hasnan": False, "ntype": None, "fillvalue": 0},
-                 "post": {"var": post, "hasnan": False, "ntype": None, "fillvalue": 0},
-                 "start": {"var": start, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan},
-                 "trigger": {"var": trigger, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan},
-                 "stop": {"var": stop, "hasnan": None, "ntype": "int_like", "fillvalue": np.nan}}
+        vdict = {
+            "pre": {"var": pre, "hasnan": False, "ntype": None, "fillvalue": 0},
+            "post": {"var": post, "hasnan": False, "ntype": None, "fillvalue": 0},
+            "start": {
+                "var": start,
+                "hasnan": None,
+                "ntype": "int_like",
+                "fillvalue": np.nan,
+            },
+            "trigger": {
+                "var": trigger,
+                "hasnan": None,
+                "ntype": "int_like",
+                "fillvalue": np.nan,
+            },
+            "stop": {
+                "var": stop,
+                "hasnan": None,
+                "ntype": "int_like",
+                "fillvalue": np.nan,
+            },
+        }
         for vname, opts in vdict.items():
             if opts["var"] is not None:
                 if np.issubdtype(type(opts["var"]), np.number):
                     try:
-                        scalar_parser(opts["var"], varname=vname, ntype=opts["ntype"],
-                                      lims=[-np.inf, np.inf])
+                        scalar_parser(
+                            opts["var"],
+                            varname=vname,
+                            ntype=opts["ntype"],
+                            lims=[-np.inf, np.inf],
+                        )
                     except Exception as exc:
                         raise exc
                     opts["var"] = np.full((ntrials,), opts["var"])
                 else:
                     try:
-                        array_parser(opts["var"], varname=vname, hasinf=False,
-                                     hasnan=opts["hasnan"], ntype=opts["ntype"],
-                                     dims=(ntrials,))
+                        array_parser(
+                            opts["var"],
+                            varname=vname,
+                            hasinf=False,
+                            hasnan=opts["hasnan"],
+                            ntype=opts["ntype"],
+                            dims=(ntrials,),
+                        )
                     except Exception as exc:
                         raise exc
                 kwrds[vname] = opts["var"]
@@ -232,7 +270,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     act = str(kwrds["start"][trialno])
                     vname = "start"
                     break
-                begin = evtsp[sidx]/ref.samplerate
+                begin = evtsp[sidx] / ref.samplerate
                 evtid[sidx] = -np.pi
                 idxl.append(sidx)
 
@@ -243,7 +281,7 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
                     act = str(kwrds["trigger"][trialno])
                     vname = "trigger"
                     break
-                t0 = evtsp[idx]/ref.samplerate
+                t0 = evtsp[idx] / ref.samplerate
                 evtid[idx] = -np.pi
                 idxl.append(idx)
 
@@ -255,14 +293,14 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
 
             # Try to assign `stop`, if we got nothing, use `t0 + post`
             if not np.isnan(kwrds["stop"][trialno]):
-                evtid[:sidx] = [np.pi]*sidx
+                evtid[:sidx] = [np.pi] * sidx
                 try:
                     idx = evtid.index(kwrds["stop"][trialno])
                 except:
                     act = str(kwrds["stop"][trialno])
                     vname = "stop"
                     break
-                end = evtsp[idx]/ref.samplerate + kwrds["post"][trialno]
+                end = evtsp[idx] / ref.samplerate + kwrds["post"][trialno]
                 evtid[idx] = -np.pi
                 idxl.append(idx)
             else:
@@ -283,16 +321,15 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
             # Update counters and end this mess when we're done
             trialno += ninc
             cnt += 1
-            evtsp = evtsp[max(idxl, default=-1) + 1:]
-            evtid = evtid[max(idxl, default=-1) + 1:]
+            evtsp = evtsp[max(idxl, default=-1) + 1 :]
+            evtid = evtid[max(idxl, default=-1) + 1 :]
             if trialno == ntrials or cnt == nevents:
                 searching = False
 
         # Abort if the above loop ran into troubles
         if len(trl) < ntrials:
             if len(act) > 0:
-                raise SPYValueError(legal="existing event-id",
-                                    varname=vname, actual=act)
+                raise SPYValueError(legal="existing event-id", varname=vname, actual=act)
 
         # Make `trl` a NumPy array
         trl = np.round(np.array(trl) * tgt.samplerate).astype(int)
@@ -312,9 +349,11 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
     # The triplet `sampleinfo`, `t0` and `trialinfo` works identically for
     # all data genres
     if trl.shape[1] < 3:
-        raise SPYValueError("array of shape (no. of trials, 3+)",
-                            varname="trialdefinition",
-                            actual="shape = {shp:s}".format(shp=str(trl.shape)))
+        raise SPYValueError(
+            "array of shape (no. of trials, 3+)",
+            varname="trialdefinition",
+            actual="shape = {shp:s}".format(shp=str(trl.shape)),
+        )
 
     # Finally: assign `sampleinfo`, `t0` and `trialinfo` (and potentially `trialid`)
     # use target class setter
@@ -328,22 +367,26 @@ def definetrial(obj, trialdefinition=None, pre=None, post=None, start=None,
         idx = np.searchsorted(samples, tgt.sampleinfo.ravel())
         idx = idx.reshape(tgt.sampleinfo.shape)
 
-        tgt._trialslice = [slice(st,end) for st,end in idx]
+        tgt._trialslice = [slice(st, end) for st, end in idx]
         tgt.trialid = np.full((samples.shape), -1, dtype=int)
         for itrl, itrl_slice in enumerate(tgt._trialslice):
             tgt.trialid[itrl_slice] = itrl
 
     # Write log entry
     if ref == tgt:
-        ref.log = "updated trial-definition with [" \
-                  + " x ".join([str(numel) for numel in trl.shape]) \
-                  + "] element array"
+        ref.log = (
+            "updated trial-definition with ["
+            + " x ".join([str(numel) for numel in trl.shape])
+            + "] element array"
+        )
     else:
         ref_log = ref._log.replace("\n\n", "\n\t")
         tgt.log = "trial-definition extracted from EventData object: "
         tgt._log += ref_log
-        tgt.cfg = {"method" : sys._getframe().f_code.co_name,
-                   "EventData object": ref.cfg}
+        tgt.cfg = {
+            "method": sys._getframe().f_code.co_name,
+            "EventData object": ref.cfg,
+        }
         ref.log = "updated trial-defnition of {} object".format(tgt.__class__.__name__)
 
     return

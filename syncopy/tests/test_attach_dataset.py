@@ -58,13 +58,11 @@ class TestAttachDataset:
         assert isinstance(spkd._dset_mean.file, h5py.File)
         assert np.array_equal(spkd._dset_mean[()], extra_data2)
 
-
-
-
     def test_destruction(self):
         """
         Test destructor: there should be no exceptions/errors on destruction.
         """
+
         def some_local_func():
             spkd = get_spike_data()
             extra_data = np.zeros((3, 3), dtype=np.float64)
@@ -72,7 +70,7 @@ class TestAttachDataset:
             # Let spkd get out of scope to call destructor.
 
         some_local_func()
-        assert not 'spkd' in locals()
+        assert not "spkd" in locals()
 
     def test_comparison_with_and_without_extra_dset(self):
         """
@@ -134,7 +132,9 @@ class TestAttachDataset:
         # is based on the `id` of the dataset. See https://github.com/h5py/h5py/blob/master/h5py/_hl/base.py#L348
         # We show this here, and one should keep it in mind:
         spkd3._register_dataset("dset_mean", extra_data1)
-        assert spkd3 != spkd1  # Even though they are copies, with identical `np.ndarrays` attached as `h5py.Datasets`!
+        assert (
+            spkd3 != spkd1
+        )  # Even though they are copies, with identical `np.ndarrays` attached as `h5py.Datasets`!
 
     def test_detach(self):
         """
@@ -199,23 +199,23 @@ class TestAttachDataset:
         extra_data1 = np.zeros((3, 3), dtype=np.float64)
         extra_data2 = np.zeros((3, 3), dtype=np.float64) + 2
         some_local_func(extra_data1, extra_data2)
-        assert 'adt' not in locals()
+        assert "adt" not in locals()
 
         # repeat with hdf5 datasets
         tfile1 = tempfile.NamedTemporaryFile(suffix=".h5", delete=False)
         tfile1.close()
         tfile2 = tempfile.NamedTemporaryFile(suffix=".h5", delete=False)
         tfile2.close()
-        with h5py.File(tfile1.name, 'w') as file1:
+        with h5py.File(tfile1.name, "w") as file1:
             extra_ds1 = file1.create_dataset("d1", extra_data1.shape)
             extra_ds1[()] = extra_data1
 
-            with h5py.File(tfile2.name, 'w') as file2:
+            with h5py.File(tfile2.name, "w") as file2:
                 extra_ds2 = file2.create_dataset("d2", extra_data2.shape)
                 extra_ds2[()] = extra_data2
 
                 some_local_func(extra_ds1, extra_ds2)
-                assert 'adt' not in locals()
+                assert "adt" not in locals()
 
         tfile1.close()
         os.unlink(tfile1.name)
@@ -227,6 +227,7 @@ class TestAttachDataset:
         Test that we can run attach, update and detach an extra sequential
         dataset with None data to Syncopy AnalogData Object.
         """
+
         def some_local_func():
             adt = _get_fooof_signal()
             assert isinstance(adt, spy.AnalogData)
@@ -255,7 +256,7 @@ class TestAttachDataset:
             # Let it get out of scope to call destructor.
 
         some_local_func()
-        assert not 'adt' in locals()
+        assert not "adt" in locals()
 
     def test_run_psth_with_attached_dset(self):
         """
@@ -272,9 +273,7 @@ class TestAttachDataset:
         extra_data = np.zeros((3, 3), dtype=np.float64)
         spkd._register_dataset("dset_mean", extra_data)
 
-        counts = spy.spike_psth(spkd,
-                                self.cfg,
-                                keeptrials=True)
+        counts = spy.spike_psth(spkd, self.cfg, keeptrials=True)
 
         # Make sure we did not interfere with the PSTH computation.
         assert np.allclose(np.diff(counts.time[0]), self.cfg.binsize)
@@ -302,18 +301,17 @@ class TestAttachDataset:
 
         # Show that we can delete the old one, and attach a new one with different shape.
         spkd._unregister_dataset("dset_mean")
-        spkd._register_dataset("dset_mean", extra_data_diff_type) # Fine this time, it's new.
+        spkd._register_dataset("dset_mean", extra_data_diff_type)  # Fine this time, it's new.
 
     def test_save_load_unregister(self):
         """Test that saving and loading with attached seq datasets works.
-           Also tests that the attached datasets gets deleted from the
-           backing HDF5 file when calling `_unregister_dataset()`.
+        Also tests that the attached datasets gets deleted from the
+        backing HDF5 file when calling `_unregister_dataset()`.
         """
 
         spkd = get_spike_data()
         extra_data = np.zeros((3, 3), dtype=np.float64)
         spkd._register_dataset("dset_mean", extra_data)
-
 
         tfile0 = tempfile.NamedTemporaryFile(suffix=".spike", delete=True)
         tfile0.close()
@@ -337,7 +335,7 @@ class TestAttachDataset:
         tfile2 = tempfile.NamedTemporaryFile(suffix=".spike", delete=True)
         tfile2.close()
 
-        file1 = h5py.File(tfile1.name, 'w')
+        file1 = h5py.File(tfile1.name, "w")
         extra_dset = file1.create_dataset("d1", extra_data.shape)
         extra_dset[()] = extra_data
 
@@ -356,5 +354,5 @@ class TestAttachDataset:
         assert "dset_mean" not in h5py.File(tmp_spy_filename, mode="r").keys()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     T1 = TestAttachDataset()

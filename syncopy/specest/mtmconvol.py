@@ -14,8 +14,17 @@ from .stft import stft
 from ._norm_spec import _norm_taper
 
 
-def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
-              taper_opt=None, boundary='zeros', padded=True, detrend=False):
+def mtmconvol(
+    data_arr,
+    samplerate,
+    nperseg,
+    noverlap=None,
+    taper="hann",
+    taper_opt=None,
+    boundary="zeros",
+    padded=True,
+    detrend=False,
+):
 
     """
     (Multi-)tapered short time fast Fourier transform. Returns
@@ -87,7 +96,7 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     dFreq = freqs[1] - freqs[0]
 
     if taper is None:
-        taper = 'boxcar'
+        taper = "boxcar"
 
     taper_func = getattr(signal.windows, taper)
 
@@ -98,8 +107,8 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
     # as signal.stft has hardcoded scaling='spectrum'
     # -> normalizes with win.sum() :/
     # see also https://github.com/scipy/scipy/issues/14740
-    if taper == 'dpss':
-        taper_opt['sym'] = False
+    if taper == "dpss":
+        taper_opt["sym"] = False
 
     # only truly 2d for multi-taper "dpss"
     windows = np.atleast_2d(taper_func(nperseg, **taper_opt))
@@ -117,17 +126,26 @@ def mtmconvol(data_arr, samplerate, nperseg, noverlap=None, taper="hann",
         nTime = int(np.ceil(nSamples / (nperseg - noverlap)))
 
     # Short time Fourier transforms (nTime x nTapers x nFreq x nChannels)
-    ftr = np.zeros((nTime, windows.shape[0], nFreq, nChannels), dtype='complex64')
+    ftr = np.zeros((nTime, windows.shape[0], nFreq, nChannels), dtype="complex64")
 
     logger = logging.getLogger("syncopy_" + platform.node())
-    logger.debug(f"Running mtmconvol on {len(windows)} windows, data chunk has {nSamples} samples and {nChannels} channels.")
+    logger.debug(
+        f"Running mtmconvol on {len(windows)} windows, data chunk has {nSamples} samples and {nChannels} channels."
+    )
 
     for taperIdx, win in enumerate(windows):
         # ftr has shape (nFreq, nChannels, nTime)
-        pxx, _, _ = stft(data_arr, samplerate, window=win,
-                         nperseg=nperseg, noverlap=noverlap,
-                         boundary=boundary, padded=padded,
-                         axis=0, detrend=detrend)
+        pxx, _, _ = stft(
+            data_arr,
+            samplerate,
+            window=win,
+            nperseg=nperseg,
+            noverlap=noverlap,
+            boundary=boundary,
+            padded=padded,
+            axis=0,
+            detrend=detrend,
+        )
 
         ftr[:, taperIdx, ...] = pxx.transpose(2, 0, 1)[:nTime, ...]
 

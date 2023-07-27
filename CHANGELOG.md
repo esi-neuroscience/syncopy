@@ -1,6 +1,24 @@
 # Changelog of SyNCoPy
 All notable changes to this project will be documented in this file.
 
+
+## Current WIP
+
+### NEW
+- Add spike plotting, implements #434
+- Conversion to and from mne's RawArray and EpochsArray
+- Add export of to NWB format for AnalogData, TimeLockData, and SpikeData. #508
+- Add support for reading NWB files containing SpikeData, related to #508
+- Add support for concatenating Syncopy data objects (e.g., to add channels) with new `spy.concat` (PR 522)
+
+### Changed
+- When reading/importing NWB files, support trials (in addition to epochs, which were interpreted as trials). Epochs are still supported.
+
+### Fixed
+- Fix SpikeData string rep, #511
+- corrected slepian/dpss default taper settings, #559
+
+
 ## [2023.05]
 
 ### NEW

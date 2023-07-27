@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Ensure tooling functions shared across the package work as intended
-# 
+#
 
 # Builtin/3rd party package imports
 import numpy as np
@@ -12,7 +12,7 @@ from syncopy.shared.tools import best_match
 from syncopy.shared.errors import SPYValueError
 
 
-class TestBestMatch():
+class TestBestMatch:
 
     # Source-arrays with integer elements
     intSource = np.arange(10)
@@ -25,39 +25,47 @@ class TestBestMatch():
     # Selections defined by ordered/unordered int/float arrays
     intSelection = intSource[:4]
     randIntSelection = np.random.choice(intSelection, size=intSelection.size, replace=False)
-    floatSelection = np.array([1.9, 9., 1., -0.4, 1.2, 0.2, 9.3])
+    floatSelection = np.array([1.9, 9.0, 1.0, -0.4, 1.2, 0.2, 9.3])
     sortFloatSelection = np.sort(floatSelection)
-    
+
     def test_intsource(self):
-        
+
         for source in [self.intSource, self.randIntSource]:
-            for selection in [self.intSelection, self.randIntSelection, 
-                              self.floatSelection, self.sortFloatSelection]:
+            for selection in [
+                self.intSelection,
+                self.randIntSelection,
+                self.floatSelection,
+                self.sortFloatSelection,
+            ]:
                 expectedVal = np.round(selection)
                 expectedIdx = np.array([np.where(source == elem)[0][0] for elem in expectedVal])
                 val, idx = best_match(source, selection)
                 assert np.array_equal(val, expectedVal)
                 assert np.array_equal(idx, expectedIdx)
-                
+
                 val, idx = best_match(source, selection, squash_duplicates=True)
                 _, sidx = np.unique(expectedVal, return_index=True)
                 sidx.sort()
                 assert np.array_equal(val, expectedVal[sidx])
                 assert np.array_equal(idx, expectedIdx[sidx])
-                
+
                 with pytest.raises(SPYValueError):
                     best_match(source, selection, tol=1e-6)
-                
+
                 val, idx = best_match(source, [selection.min(), selection.max()], span=True)
-                expectedVal = np.array([elem for elem in source 
-                                        if selection.min() <= elem <= selection.max()])
+                expectedVal = np.array(
+                    [elem for elem in source if selection.min() <= elem <= selection.max()]
+                )
                 expectedIdx = np.array([np.where(source == elem)[0][0] for elem in expectedVal])
-        
 
     def test_floatsource(self):
         for source in [self.floatSource, self.randFloatSource]:
-            for selection in [self.intSelection, self.randIntSelection, 
-                              self.floatSelection, self.sortFloatSelection]:
+            for selection in [
+                self.intSelection,
+                self.randIntSelection,
+                self.floatSelection,
+                self.sortFloatSelection,
+            ]:
                 expectedVal = np.array([source[np.argmin(np.abs(source - elem))] for elem in selection])
                 expectedIdx = np.array([np.where(source == elem)[0][0] for elem in expectedVal])
                 val, idx = best_match(source, selection)
@@ -74,7 +82,7 @@ class TestBestMatch():
                     best_match(source, selection, tol=1e-6)
 
                 val, idx = best_match(source, [selection.min(), selection.max()], span=True)
-                expectedVal = np.array([elem for elem in source 
-                                        if selection.min() <= elem <= selection.max()])
+                expectedVal = np.array(
+                    [elem for elem in source if selection.min() <= elem <= selection.max()]
+                )
                 expectedIdx = np.array([np.where(source == elem)[0][0] for elem in expectedVal])
-                

@@ -9,8 +9,7 @@ import numpy as np
 
 # Local imports
 from syncopy.shared.filetypes import FILE_EXT
-from syncopy.shared.errors import (SPYIOError, SPYTypeError, SPYValueError,
-                                   SPYWarning)
+from syncopy.shared.errors import SPYIOError, SPYTypeError, SPYValueError, SPYWarning
 
 __all__ = []
 
@@ -92,9 +91,9 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
     # First, take care of directories...
     if not isfile:
         isdir = os.path.isdir(fs_loc)
-        if (isdir and not exists):
-            raise SPYIOError (fs_loc, exists=isdir)
-        elif (not isdir and exists):
+        if isdir and not exists:
+            raise SPYIOError(fs_loc, exists=isdir)
+        elif not isdir and exists:
             raise SPYValueError(legal="directory", actual="file")
         else:
             return fs_loc
@@ -123,9 +122,9 @@ def io_parser(fs_loc, varname="", isfile=True, ext="", exists=True):
 
         # Now make sure file does or does not exist
         isfile = os.path.isfile(fs_loc)
-        if (isfile and not exists):
+        if isfile and not exists:
             raise SPYIOError(fs_loc, exists=isfile)
-        elif (not isfile and exists):
+        elif not isfile and exists:
             raise SPYValueError(legal="file", actual="directory")
         else:
             return fs_loc.split(file_name)[0], file_name
@@ -214,14 +213,25 @@ def scalar_parser(var, varname="", ntype=None, lims=None):
             legal = "value to be "
         if np.any(val < lims[0]) or np.any(val > lims[1]) or not np.isfinite(var):
             legal += "greater or equals {lb:s} and less or equals {ub:s}"
-            raise SPYValueError(legal.format(lb=str(lims[0]), ub=str(lims[1])),
-                                varname=varname, actual=str(var))
+            raise SPYValueError(
+                legal.format(lb=str(lims[0]), ub=str(lims[1])),
+                varname=varname,
+                actual=str(var),
+            )
 
     return
 
 
-def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
-                 lims=None, dims=None, issorted=None):
+def array_parser(
+    var,
+    varname="",
+    ntype=None,
+    hasinf=None,
+    hasnan=None,
+    lims=None,
+    dims=None,
+    issorted=None,
+):
     """
     Parse array-like objects
 
@@ -364,22 +374,28 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
         if ntype is None:
             ntype = "numeric"
         if dims is None:
-            dims = (None, )
+            dims = (None,)
 
     # If required, parse type (handle "int_like" and "numeric" separately)
     if ntype is not None:
         msg = "dtype = {dt:s}"
         if ntype in ["numeric", "int_like"]:
             if not np.issubdtype(arr.dtype, np.number):
-                raise SPYValueError(msg.format(dt="numeric"), varname=varname,
-                                    actual=msg.format(dt=str(arr.dtype)))
+                raise SPYValueError(
+                    msg.format(dt="numeric"),
+                    varname=varname,
+                    actual=msg.format(dt=str(arr.dtype)),
+                )
             if ntype == "int_like":
                 if not np.array_equal(arr, np.round(arr)):
                     raise SPYValueError(msg.format(dt=ntype), varname=varname)
         else:
             if not np.issubdtype(arr.dtype, np.dtype(ntype).type):
-                raise SPYValueError(msg.format(dt=ntype), varname=varname,
-                                    actual=msg.format(dt=str(arr.dtype)))
+                raise SPYValueError(
+                    msg.format(dt=ntype),
+                    varname=varname,
+                    actual=msg.format(dt=str(arr.dtype)),
+                )
 
     # If required, parse finiteness of array-elements
     if hasinf is not None:
@@ -414,8 +430,11 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
             amax = fi_arr.max()
         if amin < lims[0] or amax > lims[1]:
             legal = "all array elements to be bounded by {lb:s} and {ub:s}"
-            raise SPYValueError(legal.format(lb=str(lims[0]), ub=str(lims[1])),
-                                varname=varname, actual=f"array with range {amin} to {amax}")
+            raise SPYValueError(
+                legal.format(lb=str(lims[0]), ub=str(lims[1])),
+                varname=varname,
+                actual=f"array with range {amin} to {amax}",
+            )
 
     # If required parse dimensional layout of array
     if dims is not None:
@@ -435,17 +454,22 @@ def array_parser(var, varname="", ntype=None, hasinf=None, hasnan=None,
                     ashape = max((ischar,), arr.squeeze().shape)
             if len(dims) != len(ashape):
                 msg = "{}-dimensional array"
-                raise SPYValueError(legal=msg.format(len(dims)), varname=varname,
-                                    actual=msg.format(len(ashape)))
+                raise SPYValueError(
+                    legal=msg.format(len(dims)),
+                    varname=varname,
+                    actual=msg.format(len(ashape)),
+                )
             for dk, dim in enumerate(dims):
                 if dim is not None and ashape[dk] != dim:
-                    raise SPYValueError("array of shape " + str(dims),
-                                        varname=varname, actual="shape = " + str(arr.shape))
+                    raise SPYValueError(
+                        "array of shape " + str(dims),
+                        varname=varname,
+                        actual="shape = " + str(arr.shape),
+                    )
         else:
             ndim = max(ischar, arr.ndim)
             if ndim != dims:
-                raise SPYValueError(str(dims) + "d-array", varname=varname,
-                                    actual=str(ndim) + "d-array")
+                raise SPYValueError(str(dims) + "d-array", varname=varname, actual=str(ndim) + "d-array")
 
     # If required check if array elements are orderd by magnitude
     if issorted is not None:
@@ -528,34 +552,35 @@ def data_parser(data, varname="", dataclass=None, writable=None, empty=None, dim
     if empty is not None:
         legal = "{status:s} Syncopy data object"
         if empty and not data._is_empty():
-            raise SPYValueError(legal=legal.format(status="empty"),
-                                varname=varname,
-                                actual="non-empty")
+            raise SPYValueError(legal=legal.format(status="empty"), varname=varname, actual="non-empty")
         elif not empty and data._is_empty():
-            raise SPYValueError(legal=legal.format(status="non-empty"),
-                                varname=varname,
-                                actual="empty")
+            raise SPYValueError(legal=legal.format(status="non-empty"), varname=varname, actual="empty")
 
     # If requested, ensure proper access to object
     if writable is not None:
         legal = "{access:s} to Syncopy data object"
         actual = "mode = {mode:s}"
         if writable and data.mode == "r":
-            raise SPYValueError(legal=legal.format(access="write-access"),
-                                varname=varname,
-                                actual=actual.format(mode=data.mode))
+            raise SPYValueError(
+                legal=legal.format(access="write-access"),
+                varname=varname,
+                actual=actual.format(mode=data.mode),
+            )
         elif not writable and data.mode != "r":
-            raise SPYValueError(legal=legal.format(access="read-only-access"),
-                                varname=varname,
-                                actual=actual.format(mode=data.mode))
+            raise SPYValueError(
+                legal=legal.format(access="read-only-access"),
+                varname=varname,
+                actual=actual.format(mode=data.mode),
+            )
 
     # If requested, check integrity of dimensional information (if non-empty)
     if dimord is not None:
         base = "Syncopy {diminfo:s} data object"
         if data.dimord != dimord:
             legal = base.format(diminfo="'" + "' x '".join(str(dim) for dim in dimord) + "'")
-            actual = base.format(diminfo="'" + "' x '".join(str(dim) for dim in data.dimord)
-                                 + "' " if data.dimord else "empty")
+            actual = base.format(
+                diminfo="'" + "' x '".join(str(dim) for dim in data.dimord) + "' " if data.dimord else "empty"
+            )
             raise SPYValueError(legal=legal, varname=varname, actual=actual)
 
     return
@@ -624,12 +649,12 @@ def filename_parser(filename, is_in_valid_container=None):
     """
     if filename is None:
         return {
-        "filename": None,
-        "container": None,
-        "folder": None,
-        "tag": None,
-        "basename": None,
-        "extension": None
+            "filename": None,
+            "container": None,
+            "folder": None,
+            "tag": None,
+            "basename": None,
+            "extension": None,
         }
 
     filename = os.path.abspath(os.path.expanduser(filename))
@@ -639,52 +664,59 @@ def filename_parser(filename, is_in_valid_container=None):
     basename, ext = os.path.splitext(filename)
 
     if filename.count(".") > 2:
-        raise SPYValueError(legal="single extension, found {}".format(filename.count(".")),
-                            actual=filename, varname="filename")
+        raise SPYValueError(
+            legal="single extension, found {}".format(filename.count(".")),
+            actual=filename,
+            varname="filename",
+        )
     if ext == FILE_EXT["dir"] and basename.count(".") > 0:
-        raise SPYValueError(legal="no extension, found {}".format(basename.count(".")),
-                            actual=basename, varname="container")
+        raise SPYValueError(
+            legal="no extension, found {}".format(basename.count(".")),
+            actual=basename,
+            varname="container",
+        )
 
     if ext == FILE_EXT["info"]:
         filename = basename
         basename, ext = os.path.splitext(filename)
     elif ext == FILE_EXT["dir"]:
         return {
-        "filename": None,
-        "container": filename,
-        "folder": folder,
-        "tag": None,
-        "basename": basename,
-        "extension": ext
+            "filename": None,
+            "container": filename,
+            "folder": folder,
+            "tag": None,
+            "basename": basename,
+            "extension": ext,
         }
 
     if ext not in FILE_EXT["data"] + (FILE_EXT["dir"],):
-        raise SPYValueError(legal=FILE_EXT["data"],
-                            actual=ext, varname="filename extension")
+        raise SPYValueError(legal=FILE_EXT["data"], actual=ext, varname="filename extension")
 
     folderExtIsSpy = os.path.splitext(container)[1] == FILE_EXT["dir"]
     if is_in_valid_container is not None:
         if not folderExtIsSpy and is_in_valid_container:
-            raise SPYValueError(legal=FILE_EXT["dir"],
-                                actual=os.path.splitext(container)[1],
-                                varname="folder extension")
+            raise SPYValueError(
+                legal=FILE_EXT["dir"],
+                actual=os.path.splitext(container)[1],
+                varname="folder extension",
+            )
         elif folderExtIsSpy and not is_in_valid_container:
-            raise SPYValueError(legal='not ' + FILE_EXT["dir"],
-                                actual=os.path.splitext(container)[1],
-                                varname="folder extension")
-
+            raise SPYValueError(
+                legal="not " + FILE_EXT["dir"],
+                actual=os.path.splitext(container)[1],
+                varname="folder extension",
+            )
 
     if folderExtIsSpy:
         containerBasename = os.path.splitext(container)[0]
         if not basename.startswith(containerBasename):
-            raise SPYValueError(legal=containerBasename,
-                                actual=filename,
-                                varname='start of filename')
+            raise SPYValueError(legal=containerBasename, actual=filename, varname="start of filename")
         tag = basename.partition(containerBasename)[-1]
         if tag == "":
             tag = None
         else:
-            if tag[0] == '_': tag = tag[1:]
+            if tag[0] == "_":
+                tag = tag[1:]
         basename = containerBasename
     else:
         container = None
@@ -696,13 +728,13 @@ def filename_parser(filename, is_in_valid_container=None):
         "folder": folder,
         "tag": tag,
         "basename": basename,
-        "extension": ext
+        "extension": ext,
     }
 
 
 def sequence_parser(sequence, content_type=None, varname=""):
 
-    '''
+    """
     Check if input is of sequence (list, tuple, array..)
     type. Intended for function arguments like
     `add_fields = ['fieldA', 'fieldB']`. For numeric
@@ -736,27 +768,21 @@ def sequence_parser(sequence, content_type=None, varname=""):
 
     sequence_parser(seq1, content_type=int)
 
-    '''
+    """
 
     # this does NOT capture str and dict
     try:
         iter(sequence)
     except TypeError:
-        expected = 'sequence'
-        raise SPYTypeError(sequence,
-                           varname=varname,
-                           expected=expected)
+        expected = "sequence"
+        raise SPYTypeError(sequence, varname=varname, expected=expected)
 
     if isinstance(sequence, str) or isinstance(sequence, dict):
-        expected = 'sequence'
-        raise SPYTypeError(sequence,
-                           varname=varname,
-                           expected=expected)
+        expected = "sequence"
+        raise SPYTypeError(sequence, varname=varname, expected=expected)
 
     if content_type is not None:
         for element in sequence:
             if not isinstance(element, content_type):
                 expected = content_type.__name__
-                raise SPYTypeError(element,
-                                   varname=f"element of {varname}",
-                                   expected=expected)
+                raise SPYTypeError(element, varname=f"element of {varname}", expected=expected)

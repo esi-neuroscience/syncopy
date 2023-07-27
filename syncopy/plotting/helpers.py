@@ -20,6 +20,7 @@ def revert_selection(plotter):
 
     All plotting routines must have `data` as 1st argument!
     """
+
     @functools.wraps(plotter)
     def wrapper_plot(data, *args, **kwargs):
 
@@ -149,7 +150,7 @@ def get_method(dataobject, frontend_name):
     """
 
     cfg_entry = dataobject.cfg[frontend_name]
-    return cfg_entry.get('method')
+    return cfg_entry.get("method")
 
 
 def get_output(dataobject, frontend_name):
@@ -160,7 +161,7 @@ def get_output(dataobject, frontend_name):
     """
 
     cfg_entry = dataobject.cfg[frontend_name]
-    return cfg_entry.get('output')
+    return cfg_entry.get("output")
 
 
 def calc_multi_layout(nAx):
@@ -179,7 +180,7 @@ def calc_multi_layout(nAx):
     if nAx % 2 != 0:
         ncols = int(np.sqrt(nAx))  # this is max pltConfig["mMaxYaxes"]
         nrows = ncols
-        while(ncols * nrows < nAx):
+        while ncols * nrows < nAx:
             ncols += 1
             nrows = int(nAx / ncols)
         # nAx was prime and too big
@@ -190,7 +191,7 @@ def calc_multi_layout(nAx):
     if nAx % 2 == 0 and nAx > 2:
         nrows = int(np.sqrt(nAx))  # this is max pltConfig["mMaxYaxes"]
         ncols = nAx // nrows
-        while(ncols * nrows < nAx):
+        while ncols * nrows < nAx:
             nrows -= 1
             ncols = int(nAx / nrows)
     # just two axes

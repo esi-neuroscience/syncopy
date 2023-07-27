@@ -28,7 +28,7 @@ from .compRoutines import (
     Rectify,
     Hilbert,
     Detrending,
-    Standardize
+    Standardize,
 )
 
 availableFilters = ("but", "firws")
@@ -48,7 +48,7 @@ def preprocessing(
     filter_type="lp",
     freq=None,
     order=None,
-    direction='twopass',
+    direction="twopass",
     window="hamming",
     polyremoval=None,
     zscore=False,
@@ -124,9 +124,7 @@ def preprocessing(
 
     # Make sure our one mandatory input object can be processed
     try:
-        data_parser(
-            data, varname="data", dataclass="AnalogData", writable=None, empty=False
-        )
+        data_parser(data, varname="data", dataclass="AnalogData", writable=None, empty=False)
     except Exception as exc:
         raise exc
     timeAxis = data.dimord.index("time")
@@ -220,10 +218,7 @@ def preprocessing(
     # -- Method calls
 
     # Prepare keyword dict for logging
-    log_dict = {
-        "polyremoval": polyremoval,
-        "zscore": zscore
-    }
+    log_dict = {"polyremoval": polyremoval, "zscore": zscore}
 
     # pre-processing
     if zscore:
@@ -237,9 +232,7 @@ def preprocessing(
             keeptrials=True,
         )
 
-        stdCR.compute(
-            data, std_data, parallel=kwargs.get("parallel"), log_dict=log_dict
-        )
+        stdCR.compute(data, std_data, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
         data = std_data
 
@@ -270,10 +263,7 @@ def preprocessing(
         log_dict["filter_type"] = filter_type
         log_dict["freq"] = freq
 
-        check_effective_parameters(
-            ButFiltering, defaults, lcls, besides=("hilbert", "rectify",
-                                                   "zscore")
-        )
+        check_effective_parameters(ButFiltering, defaults, lcls, besides=("hilbert", "rectify", "zscore"))
 
         filterMethod = ButFiltering(
             samplerate=data.samplerate,
@@ -361,24 +351,22 @@ def preprocessing(
             chan_per_worker=kwargs.get("chan_per_worker"),
             keeptrials=True,
         )
-        filterMethod.compute(
-            data, filtered, parallel=kwargs.get("parallel"), log_dict=log_dict
-        )
+        filterMethod.compute(data, filtered, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
         # give warnings if NaNs were present
         nan_trials = []
         for key, value in metadata_from_hdf5_file(filtered.filename).items():
-            if 'has_nan' in key and value:
+            if "has_nan" in key and value:
                 # try to also record the trial numbers
-                trl_num = key.split('__')[-1].split('_')[0]
+                trl_num = key.split("__")[-1].split("_")[0]
                 nan_trials.append(int(trl_num))
 
         if len(nan_trials) != 0:
             msg = "Data contains NaNs! See `.info['nan_trials']` for the offending trials"
-            if filter_class == 'but':
+            if filter_class == "but":
                 msg += "\n\t\t try using a 'onepass' FIR filter of low order.."
             SPYWarning(msg)
-        filtered.info['nan_trials'] = nan_trials
+        filtered.info["nan_trials"] = nan_trials
 
     # -- check for post-processing flags --
 
@@ -392,12 +380,10 @@ def preprocessing(
             chan_per_worker=kwargs.get("chan_per_worker"),
             keeptrials=True,
         )
-        rectCR.compute(
-            filtered, rectified, parallel=kwargs.get("parallel"), log_dict=log_dict
-        )
+        rectCR.compute(filtered, rectified, parallel=kwargs.get("parallel"), log_dict=log_dict)
         del filtered
         rectified.cfg.update(data.cfg)
-        rectified.cfg.update({'preprocessing': new_cfg})
+        rectified.cfg.update({"preprocessing": new_cfg})
         return rectified
 
     elif hilbert:
@@ -410,12 +396,10 @@ def preprocessing(
             chan_per_worker=kwargs.get("chan_per_worker"),
             keeptrials=True,
         )
-        hilbertCR.compute(
-            filtered, htrafo, parallel=kwargs.get("parallel"), log_dict=log_dict
-        )
+        hilbertCR.compute(filtered, htrafo, parallel=kwargs.get("parallel"), log_dict=log_dict)
         del filtered
         htrafo.cfg.update(data.cfg)
-        htrafo.cfg.update({'preprocessing': new_cfg})
+        htrafo.cfg.update({"preprocessing": new_cfg})
         return htrafo
 
     # no post-processing
@@ -423,5 +407,5 @@ def preprocessing(
         # attach potential older cfg's from the input
         # to support chained frontend calls..
         filtered.cfg.update(data.cfg)
-        filtered.cfg.update({'preprocessing': new_cfg})
+        filtered.cfg.update({"preprocessing": new_cfg})
         return filtered

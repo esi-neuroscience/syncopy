@@ -1,18 +1,22 @@
+.. _field_trip:
+
 Syncopy for FieldTrip Users
 ===========================
 
 Syncopy is written in the `Python programming language
 <https://www.python.org/>`_ using the `NumPy <https://www.numpy.org/>`_ and
 `SciPy <https://scipy.org/>`_ libraries for computing as well as `Dask
-<https://dask.org>`_ for parallelization. However, its call signatures and
+<https://dask.org>`_ for parallelization. The scope of Syncopy is limited to
+emulate parts of FieldTrip, in particular
+spectral and connectivity analysis of electrophysiology data. However, its call signatures and
 parameter names are designed to mimic the `MATLAB <https://mathworks.com>`_
 analysis toolbox `FieldTrip <http://www.fieldtriptoolbox.org>`_.
 
-The scope of Syncopy is limited to emulate parts of FieldTrip, in particular
-spectral analysis of electrophysiology data. Therefore, M/EEG-specific routines
-such as loading M/EEG file types, source localization, etc. are currently not
-included in Syncopy. For a Python toolbox tailored to M/EEG data analysis, see
-for example the `MNE Project <https://www.martinos.org/mne/>`_.
+.. note::
+ MEGM/EEG-specific routines
+ such as loading M/EEG file types, source localization, etc. are currently not
+ included in Syncopy. For a Python toolbox tailored to MEG/EEG data analysis, see
+ for example the `MNE Project <https://www.martinos.org/mne/>`_.
 
 .. contents::
     Contents
@@ -173,7 +177,7 @@ Translating MATLAB Code to Python
 For translating code from MATLAB to Python there are several guides, e.g.
 
 * the `Mathesaurus <http://mathesaurus.sourceforge.net/matlab-numpy.html>`_
-* `NumPy for Matlab users <https://docs.scipy.org/doc/numpy/user/numpy-for-matlab-users.html>`_
+* `NumPy for Matlab users <https://numpy.org/doc/stable/user/numpy-for-matlab-users.html>`_
 * `MATLAB to Python - A Migration Guide by Enthought <https://www.enthought.com/white-paper-matlab-to-python>`_
 
 Key Differences between the Python and MATLAB Languages

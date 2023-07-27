@@ -8,11 +8,7 @@ import matplotlib.pyplot as ppl
 from syncopy import synthdata
 from syncopy.connectivity import csd
 from syncopy.connectivity import ST_compRoutines as stCR
-from syncopy.connectivity.wilson_sf import (
-    wilson_sf,
-    regularize_csd,
-    max_rel_err
-)
+from syncopy.connectivity.wilson_sf import wilson_sf, regularize_csd, max_rel_err
 from syncopy.connectivity.granger import granger
 
 
@@ -40,15 +36,12 @@ def test_coherence():
     for i in range(nTrials):
 
         # 1 phase phase shifted harmonics + white noise + constant, SNR = 1
-        trl_dat = [np.cos(harm_freq * 2 * np. pi * tvec + ps)
-                   for ps in phase_shifts]
+        trl_dat = [np.cos(harm_freq * 2 * np.pi * tvec + ps) for ps in phase_shifts]
         trl_dat = np.array(trl_dat).T
         trl_dat = np.array(trl_dat) + np.random.randn(nSamples, len(phase_shifts))
 
         # process every trial individually
-        CSD, freqs = csd.csd(trl_dat, fs,
-                             taper='hann',
-                             norm=False)  # this is important!
+        CSD, freqs = csd.csd(trl_dat, fs, taper="hann", norm=False)  # this is important!
 
         assert avCSD.shape == CSD.shape
         avCSD += CSD
@@ -66,12 +59,12 @@ def test_coherence():
     coh = Cij[:, 0, 1]
 
     fig, ax = ppl.subplots(figsize=(6, 4), num=None)
-    ax.set_xlabel('frequency (Hz)')
-    ax.set_ylabel('coherence')
-    ax.set_ylim((-.02, 1.05))
-    ax.set_title(f'{nTrials} trials averaged coherence,  SNR=1')
+    ax.set_xlabel("frequency (Hz)")
+    ax.set_ylabel("coherence")
+    ax.set_ylim((-0.02, 1.05))
+    ax.set_title(f"{nTrials} trials averaged coherence,  SNR=1")
 
-    ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
+    ax.plot(freqs, coh, lw=1.5, alpha=0.8, c="cornflowerblue")
 
     # we test for the highest peak sitting at
     # the vicinity (± 5Hz) of the harmonic
@@ -88,8 +81,8 @@ def test_coherence():
     # trial averaging should suppress the noise
     # we test that away from the harmonic the coherence is low
     level = 0.4
-    assert np.all(coh[:peak_idx - 2] < level)
-    assert np.all(coh[peak_idx + 2:] < level)
+    assert np.all(coh[: peak_idx - 2] < level)
+    assert np.all(coh[peak_idx + 2 :] < level)
 
 
 def test_csd():
@@ -106,18 +99,14 @@ def test_csd():
     phase_shifts = np.array([0, np.pi / 2, np.pi])
 
     # 1 phase phase shifted harmonics + white noise, SNR = 1
-    data = [np.cos(harm_freq * 2 * np. pi * tvec + ps)
-            for ps in phase_shifts]
+    data = [np.cos(harm_freq * 2 * np.pi * tvec + ps) for ps in phase_shifts]
     data = np.array(data).T
     data = np.array(data) + np.random.randn(nSamples, len(phase_shifts))
 
     bw = 8  # Hz
     NW = nSamples * bw / (2 * fs)
-    Kmax = int(2 * NW - 1)   # multiple tapers for single trial coherence
-    CSD, freqs = csd.csd(data, fs,
-                         taper='dpss',
-                         taper_opt={'Kmax': Kmax, 'NW': NW},
-                         norm=True)
+    Kmax = int(2 * NW - 1)  # multiple tapers for single trial coherence
+    CSD, freqs = csd.csd(data, fs, taper="dpss", taper_opt={"Kmax": Kmax, "NW": NW}, norm=True)
 
     # output has shape (nFreq, nChannels, nChannels)
     assert CSD.shape == (len(freqs), data.shape[1], data.shape[1])
@@ -126,12 +115,12 @@ def test_csd():
     coh = np.abs(CSD[:, 0, 1])
 
     fig, ax = ppl.subplots(figsize=(6, 4), num=None)
-    ax.set_xlabel('frequency (Hz)')
-    ax.set_ylabel('coherence')
-    ax.set_ylim((-.02, 1.05))
-    ax.set_title(f'MTM coherence, {Kmax} tapers, SNR=1')
+    ax.set_xlabel("frequency (Hz)")
+    ax.set_ylabel("coherence")
+    ax.set_ylim((-0.02, 1.05))
+    ax.set_title(f"MTM coherence, {Kmax} tapers, SNR=1")
 
-    ax.plot(freqs, coh, lw=1.5, alpha=0.8, c='cornflowerblue')
+    ax.plot(freqs, coh, lw=1.5, alpha=0.8, c="cornflowerblue")
 
     # we test for the highest peak sitting at
     # the vicinity (± 5Hz) of one the harmonic
@@ -194,8 +183,7 @@ def test_wilson():
         sol = synthdata.ar2_network(nSamples=nSamples, seed=None, nTrials=None)
         # --- get the (single trial) CSD ---
 
-        CSD, freqs = csd.csd(sol, fs,
-                             norm=False)
+        CSD, freqs = csd.csd(sol, fs, norm=False)
 
         CSDav += CSD
 
@@ -214,14 +202,12 @@ def test_wilson():
     assert err < 1e-6
 
     fig, ax = ppl.subplots(figsize=(6, 4))
-    ax.set_xlabel('frequency (Hz)')
-    ax.set_ylabel(r'$|CSD_{ij}(f)|$')
+    ax.set_xlabel("frequency (Hz)")
+    ax.set_ylabel(r"$|CSD_{ij}(f)|$")
     chan = nChannels // 2
     # show (real) auto-spectra
-    ax.plot(freqs, np.abs(CSDav[:, chan, chan]),
-            '-o', label='original CSD', ms=3)
-    ax.plot(freqs, np.abs(CSDfac[:, chan, chan]),
-            '-o', label='factorized CSD', ms=3)
+    ax.plot(freqs, np.abs(CSDav[:, chan, chan]), "-o", label="original CSD", ms=3)
+    ax.plot(freqs, np.abs(CSDfac[:, chan, chan]), "-o", label="factorized CSD", ms=3)
     # ax.set_xlim((350, 450))
     ax.legend()
 
@@ -282,10 +268,7 @@ def test_granger():
         bw = 2
         NW = bw * nSamples / (2 * fs)
         Kmax = int(2 * NW - 1)  # optimal number of tapers
-        CSD, freqs = csd.csd(sol, fs,
-                             taper='dpss',
-                             taper_opt={'Kmax': Kmax, 'NW': NW},
-                             demean_taper=True)
+        CSD, freqs = csd.csd(sol, fs, taper="dpss", taper_opt={"Kmax": Kmax, "NW": NW}, demean_taper=True)
 
         CSDav += CSD
 
@@ -298,10 +281,10 @@ def test_granger():
     assert G.shape == CSDav.shape
 
     fig, ax = ppl.subplots(figsize=(6, 4))
-    ax.set_xlabel('frequency (Hz)')
-    ax.set_ylabel(r'Granger causality(f)')
-    ax.plot(freqs, G[:, 0, 1], label=r'Granger $1\rightarrow2$')
-    ax.plot(freqs, G[:, 1, 0], label=r'Granger $2\rightarrow1$')
+    ax.set_xlabel("frequency (Hz)")
+    ax.set_ylabel(r"Granger causality(f)")
+    ax.plot(freqs, G[:, 0, 1], label=r"Granger $1\rightarrow2$")
+    ax.plot(freqs, G[:, 1, 0], label=r"Granger $2\rightarrow1$")
     ax.legend()
 
     # check for directional causality at 40Hz
@@ -322,6 +305,6 @@ def test_granger():
     # check high causality for 2->1
     assert G2[freq_idx, 1, 0] > 0.7
 
-    ax.plot(freqs, G2[:, 0, 1], label=r'Granger (LS) $1\rightarrow2$')
-    ax.plot(freqs, G2[:, 1, 0], label=r'Granger (LS) $2\rightarrow1$')
+    ax.plot(freqs, G2[:, 0, 1], label=r"Granger (LS) $1\rightarrow2$")
+    ax.plot(freqs, G2[:, 1, 0], label=r"Granger (LS) $2\rightarrow1$")
     ax.legend()

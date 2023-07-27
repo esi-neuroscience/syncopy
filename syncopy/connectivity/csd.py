@@ -13,13 +13,15 @@ from syncopy.shared.errors import SPYValueError
 from syncopy.shared.const_def import spectralConversions
 
 
-def csd(trl_dat,
-        samplerate=1,
-        nSamples=None,
-        taper="hann",
-        taper_opt=None,
-        demean_taper=False,
-        norm=False):
+def csd(
+    trl_dat,
+    samplerate=1,
+    nSamples=None,
+    taper="hann",
+    taper_opt=None,
+    demean_taper=False,
+    norm=False,
+):
 
     """
     Single trial Fourier cross spectral estimates between all channels
@@ -101,7 +103,7 @@ def csd(trl_dat,
 
     if norm:
         # only meaningful for multi-tapering
-        if taper != 'dpss':
+        if taper != "dpss":
             msg = "Normalization of single trial csd only possible with taper='dpss'"
             raise SPYValueError(legal=msg, varname="taper", actual=taper)
         # main diagonal has shape (nChannels x nFreq): the auto spectra
@@ -113,8 +115,7 @@ def csd(trl_dat,
     return CS_ij.transpose(2, 0, 1), freqs
 
 
-def normalize_csd(csd_av_dat,
-                  output='abs'):
+def normalize_csd(csd_av_dat, output="abs"):
 
     r"""
     Given the trial averaged cross spectral densities,

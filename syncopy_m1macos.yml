@@ -1,0 +1,28 @@
+name: syncopy
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python >= 3.10, < 3.11
+  - dask
+  - distributed
+  - dask-jobqueue
+  - h5py
+  - numpy
+  - scipy
+  - matplotlib
+  - tqdm
+  - natsort
+  - pip
+  - psutil
+  - tqdm
+  - fooof >= 1.0
+  - bokeh
+  - ipdb
+  - memory_profiler
+  - pylint
+  - python-graphviz
+  - pytest-cov
+  - ruamel.yaml
+  - setuptools_scm
+  - pip

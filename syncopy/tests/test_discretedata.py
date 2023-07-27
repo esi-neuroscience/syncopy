@@ -21,24 +21,32 @@ from syncopy.tests.misc import construct_spy_filename
 from syncopy.tests.test_selectdata import getSpikeData
 
 
-class TestSpikeData():
+class TestSpikeData:
 
     # Allocate test-dataset
     nc = 10
     ns = 30
     nd = 50
     seed = np.random.RandomState(13)
-    data = np.vstack([seed.choice(ns, size=nd),
-                      seed.choice(nc, size=nd),
-                      seed.choice(int(nc / 2), size=nd)]).T
-    data = data[data[:,0].argsort()]
+    data = np.vstack(
+        [
+            seed.choice(ns, size=nd),
+            seed.choice(nc, size=nd),
+            seed.choice(int(nc / 2), size=nd),
+        ]
+    ).T
+    data = data[data[:, 0].argsort()]
     data2 = data.copy()
     data2[:, -1] = data[:, 0]
     data2[:, 0] = data[:, -1]
-    trl = np.vstack([np.arange(0, ns, 5),
-                     np.arange(5, ns + 5, 5),
-                     np.ones((int(ns / 5), )),
-                     np.ones((int(ns / 5), )) * np.pi]).T
+    trl = np.vstack(
+        [
+            np.arange(0, ns, 5),
+            np.arange(5, ns + 5, 5),
+            np.ones((int(ns / 5),)),
+            np.ones((int(ns / 5),)) * np.pi,
+        ]
+    ).T
     num_smp = np.unique(data[:, 0]).size
     num_chn = data[:, 1].max() + 1
     num_unt = data[:, 2].max() + 1
@@ -46,55 +54,65 @@ class TestSpikeData():
     def test_init(self):
 
         # data and no labels triggers default labels
-        dummy = SpikeData(data=4  * np.ones((2, 3), dtype=int))
+        dummy = SpikeData(data=4 * np.ones((2, 3), dtype=int))
         # labels are 0-based
-        assert dummy.channel == 'channel05'
-        assert dummy.unit == 'unit05'
+        assert dummy.channel == "channel5"
+        assert dummy.unit == "unit5"
 
         # data and fitting labels is fine
-        assert isinstance(SpikeData(data=np.ones((2, 3), dtype=int), channel=['only_channel']),
-                          SpikeData)
+        assert isinstance(
+            SpikeData(data=np.ones((2, 3), dtype=int), channel=["only_channel"]),
+            SpikeData,
+        )
 
         # --- invalid inits ---
 
         # non-integer types
-        with pytest.raises(SPYTypeError, match='expected integer like'):
-            _ = SpikeData(data=np.ones((2, 3)), unit=['unit1', 'unit2'])
+        with pytest.raises(SPYTypeError, match="expected integer like"):
+            _ = SpikeData(data=np.ones((2, 3)), unit=["unit1", "unit2"])
 
-        with pytest.raises(SPYTypeError, match='expected integer like'):
+        with pytest.raises(SPYTypeError, match="expected integer like"):
             data = np.array([np.nan, 2, np.nan])[:, np.newaxis]
-            _ = SpikeData(data=data, unit=['unit1', 'unit2'])
+            _ = SpikeData(data=data, unit=["unit1", "unit2"])
 
         # data and too many labels
-        with pytest.raises(SPYValueError, match='expected exactly 1 unit'):
-            _ = SpikeData(data=np.ones((2, 3), dtype=int), unit=['unit1', 'unit2'])
+        with pytest.raises(SPYValueError, match="expected exactly 1 unit"):
+            _ = SpikeData(data=np.ones((2, 3), dtype=int), unit=["unit1", "unit2"])
 
         # no data but labels
-        with pytest.raises(SPYValueError, match='cannot assign `channel` without data'):
-            _ = SpikeData(channel=['a', 'b', 'c'])
+        with pytest.raises(SPYValueError, match="cannot assign `channel` without data"):
+            _ = SpikeData(channel=["a", "b", "c"])
 
     def test_register_dset(self):
         sdata = SpikeData(self.data, samplerate=10)
         assert not sdata._is_empty()
-        sdata._register_dataset("blah", np.zeros((3,3), dtype=float))
-
+        sdata._register_dataset("blah", np.zeros((3, 3), dtype=float))
 
     def test_empty(self):
         dummy = SpikeData()
         assert len(dummy.cfg) == 0
         assert dummy.dimord is None
-        for attr in ["channel", "data", "sampleinfo", "samplerate",
-                     "trialid", "trialinfo", "unit"]:
+        for attr in [
+            "channel",
+            "data",
+            "sampleinfo",
+            "samplerate",
+            "trialid",
+            "trialinfo",
+            "unit",
+        ]:
             assert getattr(dummy, attr) is None
         with pytest.raises(SPYTypeError):
             SpikeData({})
 
     def test_issue_257_fixed_no_error_for_empty_data(self):
         """This tests that empty datasets are not allowed"""
-        with pytest.raises(SPYValueError, match='non empty'):
-            data = SpikeData(np.column_stack(([],[],[])).astype(int),
-                             dimord=['sample', 'channel', 'unit'],
-                             samplerate=30000)
+        with pytest.raises(SPYValueError, match="non empty"):
+            data = SpikeData(
+                np.column_stack(([], [], [])).astype(int),
+                dimord=["sample", "channel", "unit"],
+                samplerate=30000,
+            )
 
     def test_nparray(self):
         dummy = SpikeData(self.data)
@@ -116,28 +134,37 @@ class TestSpikeData():
         dummy = SpikeData(self.data, trialdefinition=self.trl)
         smp = self.data[:, 0]
         for trlno, start in enumerate(range(0, self.ns, 5)):
-            idx = np.intersect1d(np.where(smp >= start)[0],
-                                 np.where(smp < start + 5)[0])
+            idx = np.intersect1d(np.where(smp >= start)[0], np.where(smp < start + 5)[0])
             trl_ref = self.data[idx, ...]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
         # test ``_get_trial`` with NumPy array: swapped dimensions
-        dummy = SpikeData(self.data2, trialdefinition=self.trl,
-                          dimord=["unit", "channel", "sample"])
+        dummy = SpikeData(self.data2, trialdefinition=self.trl, dimord=["unit", "channel", "sample"])
         smp = self.data2[:, -1]
         for trlno, start in enumerate(range(0, self.ns, 5)):
-            idx = np.intersect1d(np.where(smp >= start)[0],
-                                 np.where(smp < start + 5)[0])
+            idx = np.intersect1d(np.where(smp >= start)[0], np.where(smp < start + 5)[0])
             trl_ref = self.data2[idx, ...]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
+
+    def test_str_rep_with_trials(self):
+        """Test string representation of SpikeData with trialdefinition. Ensure that the bug with the string representation is fixed."""
+        dummy = SpikeData(self.data, trialdefinition=self.trl)
+        assert "samplerate" in str(dummy)
 
     def test_saveload(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = os.path.join(tdir, "dummy")
 
             # basic but most important: ensure object integrity is preserved
-            checkAttr = ["channel", "data", "dimord", "sampleinfo",
-                         "samplerate", "trialinfo", "unit"]
+            checkAttr = [
+                "channel",
+                "data",
+                "dimord",
+                "sampleinfo",
+                "samplerate",
+                "trialinfo",
+                "unit",
+            ]
             dummy = SpikeData(self.data, samplerate=10)
             dummy.save(fname)
             filename = construct_spy_filename(fname, dummy)
@@ -186,22 +213,25 @@ class TestSpikeData():
             time.sleep(0.1)
 
 
-class TestEventData():
+class TestEventData:
 
     # Allocate test-datasets
     nc = 10
     ns = 30
-    data = np.vstack([np.arange(0, ns, 5),
-                      np.zeros((int(ns / 5), ))]).T.astype(int)
+    data = np.vstack([np.arange(0, ns, 5), np.zeros((int(ns / 5),))]).T.astype(int)
     data[1::2, 1] = 1
     data2 = data.copy()
     data2[:, -1] = data[:, 0]
     data2[:, 0] = data[:, -1]
     data3 = np.hstack([data2, data2])
-    trl = np.vstack([np.arange(0, ns, 5),
-                     np.arange(5, ns + 5, 5),
-                     np.ones((int(ns / 5), )),
-                     np.ones((int(ns / 5), )) * np.pi]).T
+    trl = np.vstack(
+        [
+            np.arange(0, ns, 5),
+            np.arange(5, ns + 5, 5),
+            np.ones((int(ns / 5),)),
+            np.ones((int(ns / 5),)) * np.pi,
+        ]
+    ).T
     num_smp = np.unique(data[:, 0]).size
     num_evt = np.unique(data[:, 1]).size
     customDimord = ["sample", "eventid", "custom1", "custom2"]
@@ -234,37 +264,37 @@ class TestEventData():
     def test_register_dset(self):
         edata = EventData(self.data, samplerate=10)
         assert not edata._is_empty()
-        edata._register_dataset("blah", np.zeros((3,3), dtype=float))
+        edata._register_dataset("blah", np.zeros((3, 3), dtype=float))
+
+    def test_str_rep_with_trials(self):
+        """Test string representation of EventData with trialdefinition. Ensure that the bug with the string representation is fixed."""
+        dummy = EventData(self.data, trialdefinition=self.trl)
+        assert "samplerate" in str(dummy)  # The real test is that 'str(dummy)' does not raise an error.
 
     def test_ed_trialretrieval(self):
         # test ``_get_trial`` with NumPy array: regular order
         dummy = EventData(self.data, trialdefinition=self.trl)
         smp = self.data[:, 0]
         for trlno, start in enumerate(range(0, self.ns, 5)):
-            idx = np.intersect1d(np.where(smp >= start)[0],
-                                 np.where(smp < start + 5)[0])
+            idx = np.intersect1d(np.where(smp >= start)[0], np.where(smp < start + 5)[0])
             trl_ref = self.data[idx, ...]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
         # test `_get_trial` with NumPy array: swapped dimensions
-        dummy = EventData(self.data2, trialdefinition=self.trl,
-                          dimord=["eventid", "sample"])
+        dummy = EventData(self.data2, trialdefinition=self.trl, dimord=["eventid", "sample"])
         smp = self.data2[:, -1]
         for trlno, start in enumerate(range(0, self.ns, 5)):
-            idx = np.intersect1d(np.where(smp >= start)[0],
-                                 np.where(smp < start + 5)[0])
+            idx = np.intersect1d(np.where(smp >= start)[0], np.where(smp < start + 5)[0])
             trl_ref = self.data2[idx, ...]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
         # test `_get_trial` with NumPy array: customized columns names
         nuDimord = ["eventid", "sample", "custom1", "custom2"]
-        dummy = EventData(self.data3, trialdefinition=self.trl,
-                          dimord=nuDimord)
+        dummy = EventData(self.data3, trialdefinition=self.trl, dimord=nuDimord)
         assert dummy.dimord == nuDimord
         smp = self.data3[:, -1]
         for trlno, start in enumerate(range(0, self.ns, 5)):
-            idx = np.intersect1d(np.where(smp >= start)[0],
-                                 np.where(smp < start + 5)[0])
+            idx = np.intersect1d(np.where(smp >= start)[0], np.where(smp < start + 5)[0])
             trl_ref = self.data3[idx, ...]
             assert np.array_equal(dummy._get_trial(trlno), trl_ref)
 
@@ -317,7 +347,11 @@ class TestEventData():
             del dummy, dummy2
 
             # save dataset w/custom column names and ensure `dimord` is preserved
-            dummy = EventData(np.hstack([self.data, self.data]), dimord=self.customDimord, samplerate=10)
+            dummy = EventData(
+                np.hstack([self.data, self.data]),
+                dimord=self.customDimord,
+                samplerate=10,
+            )
             dummy.save(fname + "_customDimord")
             filename = construct_spy_filename(fname + "_customDimord", dummy)
             dummy2 = load(filename)
@@ -337,8 +371,7 @@ class TestEventData():
         pre = 2
         post = 1
         msk = self.data[:, 1] == 1
-        sinfo = np.vstack([self.data[msk, 0] / sr_e - pre,
-                           self.data[msk, 0] / sr_e + post]).T
+        sinfo = np.vstack([self.data[msk, 0] / sr_e - pre, self.data[msk, 0] / sr_e + post]).T
         sinfo_e = np.round(sinfo * sr_e).astype(int)
         sinfo_a = np.round(sinfo * sr_a).astype(int)
 
@@ -350,8 +383,12 @@ class TestEventData():
         # Compute sampleinfo w/ start/stop combination
         evt_dummy = EventData(self.data, samplerate=sr_e)
         evt_dummy.definetrial(start=0, stop=1)
-        sinfo2 = np.vstack([self.data[np.where(self.data[:, 1] == 0)[0], 0],
-                            self.data[np.where(self.data[:, 1] == 1)[0], 0]]).T
+        sinfo2 = np.vstack(
+            [
+                self.data[np.where(self.data[:, 1] == 0)[0], 0],
+                self.data[np.where(self.data[:, 1] == 1)[0], 0],
+            ]
+        ).T
         assert np.array_equal(sinfo2, evt_dummy.sampleinfo)
 
         # Same w/ more complicated data array
@@ -374,12 +411,12 @@ class TestEventData():
         for sk, (start, stop) in enumerate(zip(starts, stops)):
             idx = dcodes.index(start)
             start = dsamps[idx]
-            dcodes = dcodes[idx + 1:]
-            dsamps = dsamps[idx + 1:]
+            dcodes = dcodes[idx + 1 :]
+            dsamps = dsamps[idx + 1 :]
             idx = dcodes.index(stop)
             stop = dsamps[idx]
-            dcodes = dcodes[idx + 1:]
-            dsamps = dsamps[idx + 1:]
+            dcodes = dcodes[idx + 1 :]
+            dsamps = dsamps[idx + 1 :]
             sinfo3[sk, :] = [start, stop]
         evt_dummy = EventData(data3, dimord=self.customDimord, samplerate=sr_e)
         evt_dummy.definetrial(start=[2, 2, 1], stop=[1, 2, 0])
@@ -407,8 +444,12 @@ class TestEventData():
         assert np.array_equal(ang_dummy.sampleinfo, sinfo_a)
 
         # Extend data and provoke an exception due to out of bounds error
-        smp = np.vstack([np.arange(self.ns, int(2.5 * self.ns), 5),
-                         np.zeros((int((1.5 * self.ns) / 5),))]).T.astype(int)
+        smp = np.vstack(
+            [
+                np.arange(self.ns, int(2.5 * self.ns), 5),
+                np.zeros((int((1.5 * self.ns) / 5),)),
+            ]
+        ).T.astype(int)
         smp[1::2, 1] = 1
         smp = np.hstack([smp, smp])
         data4 = np.vstack([data3, smp])
@@ -459,12 +500,15 @@ class TestEventData():
         with pytest.raises(SPYValueError):
             ang_dummy.definetrial(evt_dummy, pre=pre, post=post, trigger=1)
 
-class TestWaveform():
 
+class TestWaveform:
     def test_waveform_invalid_set(self):
         """Sets invalid waveform for data: dimension mismatch"""
         spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
-        assert spiked.data.shape == (2, 3,)
+        assert spiked.data.shape == (
+            2,
+            3,
+        )
         with pytest.raises(SPYValueError, match="wrong size waveform"):
             spiked.waveform = np.ones((3, 3), dtype=int)
 
@@ -485,30 +529,44 @@ class TestWaveform():
         spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
 
         assert not spiked._is_empty()
-        assert spiked.data.shape == (2, 3,)
+        assert spiked.data.shape == (
+            2,
+            3,
+        )
         assert type(spiked.data) == h5py.Dataset
         assert spiked._get_backing_hdf5_file_handle() is not None
         spiked.waveform = np.ones((2, 3), dtype=int)
         assert "waveform" in spiked._hdfFileDatasetProperties
-        assert spiked.waveform.shape == (2, 3,)
+        assert spiked.waveform.shape == (
+            2,
+            3,
+        )
 
     def test_waveform_valid_set_with_None(self):
         """Sets waveform to None, which is valid."""
         spiked = SpikeData(data=np.ones((2, 3), dtype=int), samplerate=10)
         assert not spiked._is_empty()
-        assert spiked.data.shape == (2, 3,)
+        assert spiked.data.shape == (
+            2,
+            3,
+        )
         spiked.waveform = np.ones((2, 3), dtype=int)
-        assert spiked.waveform.shape == (2, 3,)
+        assert spiked.waveform.shape == (
+            2,
+            3,
+        )
         spiked.waveform = None
         assert spiked.waveform is None
         # try to set again
         spiked.waveform = np.ones((2, 3), dtype=int)
-        assert spiked.waveform.shape == (2, 3,)
-
+        assert spiked.waveform.shape == (
+            2,
+            3,
+        )
 
     def test_waveform_selection_trial(self):
         numSpikes, waveform_dimsize = 20, 50
-        spiked = getSpikeData(nSpikes = numSpikes)
+        spiked = getSpikeData(nSpikes=numSpikes)
         assert sum([s.shape[0] for s in spiked.trials]) == numSpikes
         assert spiked.waveform is None
         spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
@@ -519,7 +577,7 @@ class TestWaveform():
         trial2_nspikes = spiked.trials[2].shape[0]
 
         # Select 2 trials and verify that the number of spikes is correct.
-        selection = { 'trials': [0, 2] }
+        selection = {"trials": [0, 2]}
         res = spiked.selectdata(selection)
         assert len(res.trials) == 2
         assert res.trials[0].shape[0] == trial0_nspikes
@@ -532,12 +590,14 @@ class TestWaveform():
         # Verify on data level.
         expected_data_indices = np.where((spiked.trialid == 0) | (spiked.trialid == 2))[0]
         for spike_idx in range(res.waveform.shape[0]):
-            assert np.all(res.waveform[spike_idx, :, :] == spiked.waveform[expected_data_indices][spike_idx, :, :])
+            assert np.all(
+                res.waveform[spike_idx, :, :] == spiked.waveform[expected_data_indices][spike_idx, :, :]
+            )
 
     def test_save_load_with_waveform(self):
         """Test saving file with waveform data."""
         numSpikes, waveform_dimsize = 20, 50
-        spiked = getSpikeData(nSpikes = numSpikes)
+        spiked = getSpikeData(nSpikes=numSpikes)
         spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
 
         tfile1 = tempfile.NamedTemporaryFile(suffix=".spike", delete=True)
@@ -561,22 +621,22 @@ class TestWaveform():
 
     def test_psth_with_waveform(self):
         """Test that the waveform does not break frontend functions, like PSTH.
-           The waveform should just be ignored, and the resulting TimeLockData
-           will of course NOT have a waveform.
+        The waveform should just be ignored, and the resulting TimeLockData
+        will of course NOT have a waveform.
         """
         numSpikes, waveform_dimsize = 20, 50
-        spiked = getSpikeData(nSpikes = numSpikes)
+        spiked = getSpikeData(nSpikes=numSpikes)
         spiked.waveform = np.ones((numSpikes, 3, waveform_dimsize), dtype=int)
 
         cfg = spy.StructDict()
         cfg.binsize = 0.1
-        cfg.latency = 'maxperiod'  # frontend default
+        cfg.latency = "maxperiod"  # frontend default
         res = spy.spike_psth(spiked, cfg)
         assert type(res) == spy.TimeLockData
         assert not hasattr(res, "waveform")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     T1 = TestSpikeData()
     T2 = TestEventData()

@@ -51,6 +51,7 @@ powerlinux:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
+    - pip install pynwb==2.3.2
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
@@ -94,8 +95,11 @@ m1macos:
     - rm -rf ~/.spy
     - source /opt/conda/etc/profile.d/conda.sh
     - conda clean --all -y
-    - conda env update -f syncopy.yml --prune
+    - conda env update --name syncopy --file syncopy.yml --prune
     - conda activate syncopy
+    #- conda install -c conda-forge importlib_resources iniconfig tblib sortedcontainers dask-jobqueue
+    #- conda install pynwb=2.4.0 -c conda-forge
+    - pip install pynwb==2.4.0
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
@@ -135,7 +139,7 @@ slurmtest-acme:
     - source /opt/conda/etc/profile.d/conda.sh
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
-    - conda install esi-acme=2022.11 -c conda-forge
+    - conda install esi-acme=2023.4 -c conda-forge
     - export PYTHONPATH=$CI_PROJECT_DIR
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_specest.py
     - srun -p DEV --mem=8000m pytest -ra $TEST_DIR/test_connectivity.py
@@ -155,7 +159,7 @@ pypitest:
     - rm -rf dist/
     - source $HOME/miniconda/etc/profile.d/conda.sh
     # get poetry with python 3.10
-    - conda create --yes --name syncopy-deploy python=3.10 poetry=1.4.0
+    - conda create --yes --name syncopy-deploy python=3.10 poetry=1.5
     - conda activate syncopy-deploy
     - poetry build
     # needs pypi token as env variable in GitLab CI config
@@ -188,7 +192,7 @@ pypideploy:
     - rm -rf dist/
     - source $HOME/miniconda/etc/profile.d/conda.sh
     # get poetry with python 3.10
-    - conda create --yes --name syncopy-deploy python=3.10 poetry=1.4.0
+    - conda create --yes --name syncopy-deploy python=3.10 poetry=1.5
     - conda activate syncopy-deploy
     - poetry build
     # needs pypi credentials stored as env var PYPI_SECRET in the Gitlab CI web interface.

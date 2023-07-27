@@ -13,9 +13,11 @@ from datetime import datetime
 from glob import glob
 from collections import OrderedDict
 from tqdm import tqdm
+
 if sys.platform == "win32":
     # tqdm breaks term colors on Windows - fix that (tqdm issue #446)
     import colorama
+
     colorama.deinit()
     colorama.init(strip=False)
 
@@ -81,17 +83,22 @@ def cleanup(older_than=24, interactive=True, only_current_session=False):
     """
 
     # Make sure age-cutoff is valid
-    scalar_parser(older_than, varname="older_than", ntype="int_like",
-                  lims=[0, np.inf])
+    scalar_parser(older_than, varname="older_than", ntype="int_like", lims=[0, np.inf])
     older_than = int(older_than)
 
     # For clarification: show location of storage folder that is scanned here
     funcName = "Syncopy <{}>".format(inspect.currentframe().f_code.co_name)
     storage_size_gb, storage_num_files = get_dir_size(__storage__, out="GB")
-    dirInfo = \
-        "\n{name:s} Analyzing temporary storage folder '{dir:s}' containing {numf:d} files with total size {sizegb:.2f} GB...\n"
-    log(dirInfo.format(name=funcName, dir=__storage__, numf=storage_num_files, sizegb=storage_size_gb),
-        caller='cleanup')
+    dirInfo = "\n{name:s} Analyzing temporary storage folder '{dir:s}' containing {numf:d} files with total size {sizegb:.2f} GB...\n"
+    log(
+        dirInfo.format(
+            name=funcName,
+            dir=__storage__,
+            numf=storage_num_files,
+            sizegb=storage_size_gb,
+        ),
+        caller="cleanup",
+    )
 
     # Parse interactive keyword: if `False`, don't ask, just delete
     if not isinstance(interactive, bool):
@@ -109,40 +116,47 @@ def cleanup(older_than=24, interactive=True, only_current_session=False):
 
     # Farewell if nothing's to do here
     if not dangling:
-        ext = \
-        "Did not find any dangling data or Syncopy session remains " +\
-        "older than {age:d} hours."
+        ext = "Did not find any dangling data or Syncopy session remains " + "older than {age:d} hours."
         log(ext.format(name=funcName, age=older_than), caller=cleanup)
         spydir_size_gb, spydir_num_files = get_dir_size(__spydir__, out="GB")
-        log(f"Note: {spydir_num_files} files with total size of {spydir_size_gb:.2f} GB left in spy dir '{__spydir__}'.",
-            caller=cleanup)
+        log(
+            f"Note: {spydir_num_files} files with total size of {spydir_size_gb:.2f} GB left in spy dir '{__spydir__}'.",
+            caller=cleanup,
+        )
         return
 
     # Prepare info prompt for dangling files
     if dangling:
-        dangInfo = \
-            "Found {numdang:d} dangling files not associated to any session " +\
-            "using {szdang:4.1f} GB of disk space. \n"
+        dangInfo = (
+            "Found {numdang:d} dangling files not associated to any session "
+            + "using {szdang:4.1f} GB of disk space. \n"
+        )
         numdang = 0
         szdang = 0.0
         for file in dangling:
             try:
                 if os.path.isfile(file):
-                    szdang += os.path.getsize(file)/1024**3
+                    szdang += os.path.getsize(file) / 1024**3
                     numdang += 1
                 elif os.path.isdir(file):
-                    szdang += sum(os.path.getsize(os.path.join(dirpth, fname)) / 1024**3 \
-                                           for dirpth, _, fnames in os.walk(file) \
-                                               for fname in fnames)
+                    szdang += sum(
+                        os.path.getsize(os.path.join(dirpth, fname)) / 1024**3
+                        for dirpth, _, fnames in os.walk(file)
+                        for fname in fnames
+                    )
                     numdang += 1
 
             except OSError as ex:
-                log(f"Dangling file {file} no longer exists: {ex}. (Maybe already deleted.)", caller=cleanup)
+                log(
+                    f"Dangling file {file} no longer exists: {ex}. (Maybe already deleted.)",
+                    caller=cleanup,
+                )
         dangInfo = dangInfo.format(numdang=numdang, szdang=szdang)
 
-        dangOptions = \
-            "[D]ANGLING FILE removal to delete anything not associated to sessions " +\
-            "(you will not be prompted for confirmation) \n"
+        dangOptions = (
+            "[D]ANGLING FILE removal to delete anything not associated to sessions "
+            + "(you will not be prompted for confirmation) \n"
+        )
         dangValid = ["D"]
         promptInfo = dangInfo
         promptOptions = dangOptions
@@ -154,9 +168,7 @@ def cleanup(older_than=24, interactive=True, only_current_session=False):
     abortValid = ["C"]
 
     if dangling:
-        rmAllOption = \
-            "[R]EMOVE all dangling files at once " +\
-            "(you will not be prompted for confirmation)\n"
+        rmAllOption = "[R]EMOVE all dangling files at once " + "(you will not be prompted for confirmation)\n"
         rmAllValid = ["R"]
         promptInfo = dangInfo
         promptOptions = dangOptions + rmAllOption
@@ -164,8 +176,10 @@ def cleanup(older_than=24, interactive=True, only_current_session=False):
 
     # By default, ask what to do; if `interactive` is `False`, remove everything
     if interactive:
-        choice = user_input(promptInfo + promptChoice + promptOptions + abortOption,
-                            valid=promptValid + abortValid)
+        choice = user_input(
+            promptInfo + promptChoice + promptOptions + abortOption,
+            valid=promptValid + abortValid,
+        )
     else:
         choice = "R"
 
@@ -176,8 +190,7 @@ def cleanup(older_than=24, interactive=True, only_current_session=False):
 
     # Delete everything
     elif choice == "R":
-        for contents in tqdm([[dat] for dat in dangling],
-                             desc="Deleting temporary data...", disable=None):
+        for contents in tqdm([[dat] for dat in dangling], desc="Deleting temporary data...", disable=None):
             _rm_session(contents)
 
     # Don't do anything for now, continue w/dangling data
@@ -186,11 +199,15 @@ def cleanup(older_than=24, interactive=True, only_current_session=False):
 
     # Report on remaining data
     storage_size_gb, storage_num_files = get_dir_size(__storage__, out="GB")
-    log(f"{storage_num_files} files with total size of {storage_size_gb:.2f} GB left in storage dir '{__storage__}'.",
-        caller='cleanup')
+    log(
+        f"{storage_num_files} files with total size of {storage_size_gb:.2f} GB left in storage dir '{__storage__}'.",
+        caller="cleanup",
+    )
     spydir_size_gb, spydir_num_files = get_dir_size(__spydir__, out="GB")
-    log(f"{spydir_num_files} files with total size of {spydir_size_gb:.2f} GB left in spy dir '{__spydir__}'.",
-        caller='cleanup')
+    log(
+        f"{spydir_num_files} files with total size of {spydir_size_gb:.2f} GB left in spy dir '{__spydir__}'.",
+        caller="cleanup",
+    )
 
 
 def clear():

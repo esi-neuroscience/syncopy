@@ -12,8 +12,13 @@ import dask.distributed as dd
 
 
 import syncopy as spy
-from syncopy.shared.errors import (SPYTypeError, SPYValueError,
-                                   SPYError, SPYWarning, SPYInfo)
+from syncopy.shared.errors import (
+    SPYTypeError,
+    SPYValueError,
+    SPYError,
+    SPYWarning,
+    SPYInfo,
+)
 from syncopy.shared.tools import StructDict
 from syncopy.shared.metadata import h5_add_metadata, parse_cF_returns
 
@@ -143,9 +148,11 @@ def unwrap_cfg(func):
         if k == 1:
             cfg = args.pop(cfgidx)
         elif k > 1:
-            raise SPYValueError(legal="single `cfg` input",
-                                varname="cfg",
-                                actual="{0:d} `cfg` objects in input arguments".format(k))
+            raise SPYValueError(
+                legal="single `cfg` input",
+                varname="cfg",
+                actual="{0:d} `cfg` objects in input arguments".format(k),
+            )
 
         # Now parse provided keywords for `cfg` entry - if `cfg` was already
         # provided as positional argument, abort
@@ -175,14 +182,12 @@ def unwrap_cfg(func):
             # NOTE: the frontend defaults not set by the user do NOT appear in `kwargs`!
             for key in kwargs:
                 # these get special treatment below
-                if key in ['data', 'dataset']:
+                if key in ["data", "dataset"]:
                     continue
                 elif key in cfg:
                     lgl = f"parameter set either via `cfg.{key}=...` or directly via keyword"
                     act = f"parameter `{key}` set in both `cfg` and via explicit keyword"
-                    raise SPYValueError(legal=lgl,
-                                        varname=f"cfg/{key}",
-                                        actual=act)
+                    raise SPYValueError(legal=lgl, varname=f"cfg/{key}", actual=act)
                 # now attach the explicit set keywords to `cfg`
                 # to be passed to the func call
                 else:
@@ -227,12 +232,13 @@ def unwrap_cfg(func):
         # contains Syncopy data objects. Finally, rename remaining positional arguments
         if data:
             if any([isinstance(arg, spy.datatype.base_data.BaseData) for arg in args]):
-                lgl = "Syncopy data object provided either via `cfg`/keyword or " +\
-                    "positional arguments, not both"
+                lgl = (
+                    "Syncopy data object provided either via `cfg`/keyword or "
+                    + "positional arguments, not both"
+                )
                 raise SPYValueError(legal=lgl, varname="cfg/data")
             if kwargs.get("data") or kwargs.get("dataset"):
-                lgl = "Syncopy data object provided either via `cfg` or as " +\
-                    "keyword argument, not both"
+                lgl = "Syncopy data object provided either via `cfg` or as " + "keyword argument, not both"
                 raise SPYValueError(legal=lgl, varname="cfg.data")
             if not isinstance(data, spy.datatype.base_data.BaseData):
                 raise SPYError("`data` must be Syncopy data object!")
@@ -245,7 +251,7 @@ def unwrap_cfg(func):
                 arg = args.pop(0)
                 if data is not None and isinstance(arg, spy.datatype.base_data.BaseData):
                     lgl = "only one Syncopy data object"
-                    raise SPYValueError(lgl, varname='data')
+                    raise SPYValueError(lgl, varname="data")
                 if isinstance(arg, spy.datatype.base_data.BaseData):
                     data = arg
                 else:
@@ -260,36 +266,35 @@ def unwrap_cfg(func):
             return func(data, *posargs, **cfg)
 
     # Append two-liner to docstring header mentioning the use of `cfg`
-    introEntry = \
-    "    \n" +\
-    "    The parameters listed below can be provided as is or a via a `cfg`\n" +\
-    "    configuration 'structure', see Notes for details. \n"
-    wrapper_cfg.__doc__ = _append_docstring(wrapper_cfg,
-                                            introEntry,
-                                            insert_in="Header",
-                                            at_end=True)
+    introEntry = (
+        "    \n"
+        + "    The parameters listed below can be provided as is or a via a `cfg`\n"
+        + "    configuration 'structure', see Notes for details. \n"
+    )
+    wrapper_cfg.__doc__ = _append_docstring(wrapper_cfg, introEntry, insert_in="Header", at_end=True)
 
     # Append a paragraph explaining the use of `cfg` by an example that explicitly
     # mentions `func`'s name and input parameters
-    notesEntry = \
-    "    This function can be either called providing its input arguments directly\n" +\
-    "    or via a `cfg` configuration 'structure'. For instance, the following function\n" +\
-    "    calls are equivalent\n" +\
-    "    \n" +\
-    "    >>> spy.{fname:s}({arg0:s}, {kwarg0:s}=...)\n" +\
-    "    >>> cfg = spy.StructDict()\n" +\
-    "    >>> cfg.{kwarg0:s} = ...\n" +\
-    "    >>> spy.{fname:s}(cfg, {arg0:s})\n" +\
-    "    >>> cfg.{arg0:s} = {arg0:s}\n" +\
-    "    >>> spy.{fname:s}(cfg)\n" +\
-    "    \n" +\
-    "    Please refer to :doc:`/user/fieldtrip` for further details. \n\n"
-    wrapper_cfg.__doc__ = _append_docstring(wrapper_cfg,
-                                            notesEntry.format(fname=func.__name__,
-                                                              arg0=arg0,
-                                                              kwarg0=kwarg0),
-                                            insert_in="Notes",
-                                            at_end=False)
+    notesEntry = (
+        "    This function can be either called providing its input arguments directly\n"
+        + "    or via a `cfg` configuration 'structure'. For instance, the following function\n"
+        + "    calls are equivalent\n"
+        + "    \n"
+        + "    >>> spy.{fname:s}({arg0:s}, {kwarg0:s}=...)\n"
+        + "    >>> cfg = spy.StructDict()\n"
+        + "    >>> cfg.{kwarg0:s} = ...\n"
+        + "    >>> spy.{fname:s}(cfg, {arg0:s})\n"
+        + "    >>> cfg.{arg0:s} = {arg0:s}\n"
+        + "    >>> spy.{fname:s}(cfg)\n"
+        + "    \n"
+        + "    Please refer to :doc:`/user/fieldtrip` for further details. \n\n"
+    )
+    wrapper_cfg.__doc__ = _append_docstring(
+        wrapper_cfg,
+        notesEntry.format(fname=func.__name__, arg0=arg0, kwarg0=kwarg0),
+        insert_in="Notes",
+        at_end=False,
+    )
 
     return wrapper_cfg
 
@@ -380,8 +385,9 @@ def unwrap_select(func):
                     break
                 else:
                     if select is not None:
-                        raise SPYError(f"Selection found both in kwarg 'selection' ({select}) and in \npassed Syncopy Data object of type '{type(obj)}' ({obj.selection})")
-
+                        raise SPYError(
+                            f"Selection found both in kwarg 'selection' ({select}) and in \npassed Syncopy Data object of type '{type(obj)}' ({obj.selection})"
+                        )
 
         # Call function with modified data object(s)
         res = func(*args, **kwargs)
@@ -395,10 +401,11 @@ def unwrap_select(func):
         return res
 
     # Append `select` keyword entry to wrapped function's docstring and signature
-    selectDocEntry = \
-    "    select : dict or :class:`~syncopy.shared.tools.StructDict` or str\n" +\
-    "        In-place selection of subset of input data for processing. Please refer\n" +\
-    "        to :func:`syncopy.selectdata` for further usage details."
+    selectDocEntry = (
+        "    select : dict or :class:`~syncopy.shared.tools.StructDict` or str\n"
+        + "        In-place selection of subset of input data for processing. Please refer\n"
+        + "        to :func:`syncopy.selectdata` for further usage details."
+    )
     wrapper_select.__doc__ = _append_docstring(func, selectDocEntry)
     wrapper_select.__signature__ = _append_signature(func, "select")
 
@@ -486,10 +493,11 @@ def detect_parallel_client(func):
                 parallel = True
             except ValueError:
                 if parallel:
-                    msg = (f"Could not find a running dask cluster!\n"
-                           "Try `esi_cluster_setup` from ACME to set up a cluster on the ESI HPC\n"
-                           "..computing sequentially"
-                           )
+                    msg = (
+                        f"Could not find a running dask cluster!\n"
+                        "Try `esi_cluster_setup` from ACME to set up a cluster on the ESI HPC\n"
+                        "..computing sequentially"
+                    )
                     logger.important(msg)
                 parallel = False
 
@@ -523,14 +531,15 @@ def detect_parallel_client(func):
                 # we are on a HPC but ACME and/or Dask client are missing,
                 # LocalCluster still gets created
                 if has_slurm and not spy.__acme__:
-                    slurm_msg = ("We are apparently on a slurm cluster but\n"
-                                 "Syncopy could not find a Dask client.\n"
-                                 "Syncopy does not provide an "
-                                 "automatic Dask SLURMCluster on its own!"
-                                 "\nPlease consider configuring your own dask cluster "
-                                 "via `dask_jobqueue.SLURMCluster()`"
-                                 "\n\nCreating a LocalCluster as fallback.."
-                           )
+                    slurm_msg = (
+                        "We are apparently on a slurm cluster but\n"
+                        "Syncopy could not find a Dask client.\n"
+                        "Syncopy does not provide an "
+                        "automatic Dask SLURMCluster on its own!"
+                        "\nPlease consider configuring your own dask cluster "
+                        "via `dask_jobqueue.SLURMCluster()`"
+                        "\n\nCreating a LocalCluster as fallback.."
+                    )
                     SPYWarning(slurm_msg)
 
                 # -- spawn fallback local cluster --
@@ -539,8 +548,7 @@ def detect_parallel_client(func):
                 # attaches to local cluster residing in global namespace
                 dd.Client(cluster)
                 kill_spawn = True
-                msg = ("No running Dask cluster found, created a local instance:\n"
-                       f"\t{cluster.scheduler}")
+                msg = "No running Dask cluster found, created a local instance:\n" f"\t{cluster.scheduler}"
                 logger.important(msg)
 
         # Add/update `parallel` to/in keyword args
@@ -561,14 +569,15 @@ def detect_parallel_client(func):
         return results
 
     # Append `parallel` keyword entry to wrapped function's docstring and signature
-    parallelDocEntry = \
-    "    parallel : None or bool\n" +\
-    "        If `None` (recommended), processing is automatically performed in \n" +\
-    "        parallel (i.e., concurrently across trials/channel-groups), provided \n" +\
-    "        a dask parallel processing client is running and available. \n" +\
-    "        Parallel processing can be manually disabled by setting `parallel` \n" +\
-    "        to `False`. If `parallel` is `True` but no parallel processing client\n" +\
-    "        is running, computing will be performed sequentially."
+    parallelDocEntry = (
+        "    parallel : None or bool\n"
+        + "        If `None` (recommended), processing is automatically performed in \n"
+        + "        parallel (i.e., concurrently across trials/channel-groups), provided \n"
+        + "        a dask parallel processing client is running and available. \n"
+        + "        Parallel processing can be manually disabled by setting `parallel` \n"
+        + "        to `False`. If `parallel` is `True` but no parallel processing client\n"
+        + "        is running, computing will be performed sequentially."
+    )
     parallel_client_detector.__doc__ = _append_docstring(func, parallelDocEntry)
     parallel_client_detector.__signature__ = _append_signature(func, "parallel")
 
@@ -711,7 +720,7 @@ def process_io(func):
         else:
 
             # Create distributed lock (use unique name so it's synced across workers)
-            lock = dd.lock.Lock(name='sequential_write')
+            lock = dd.lock.Lock(name="sequential_write")
             # Either (continue to) compute average or write current chunk
             lock.acquire()
             with h5py.File(outfilename, "r+") as h5fout:
@@ -774,7 +783,7 @@ def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):
         return
 
     # these are the 4 whitespaces right in front of every doc string line
-    space4 = '    '
+    space4 = "    "
 
     # "Header" insertions always work (an empty docstring is enough to do this).
     # Otherwise ensure the provided `insert_in` section already exists, i.e.,
@@ -799,7 +808,7 @@ def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):
 
         # to avoid clipping the last line of a parameter description
         if sectionTextList[-1] != space4:
-            sectionTextList.append('\n')
+            sectionTextList.append("\n")
             sectionTextList.append(space4)
     else:
         # this is the 1st line break or the '    --------'
@@ -809,11 +818,7 @@ def _append_docstring(func, supplement, insert_in="Parameters", at_end=True):
     sectionText += supplement
     sectionText += "".join(sectionTextList[insertAtLine:])
 
-    newDocString = textBefore +\
-                   sectionHeading +\
-                   sectionText +\
-                   sectionDivider +\
-                   rest
+    newDocString = textBefore + sectionHeading + sectionText + sectionDivider + rest
 
     return newDocString
 
@@ -862,8 +867,7 @@ def _append_signature(func, kwname, kwdefault=None):
         newSignature = funcSignature
     else:
         paramList = list(funcSignature.parameters.values())
-        keyword = inspect.Parameter(kwname, inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                                    default=kwdefault)
+        keyword = inspect.Parameter(kwname, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=kwdefault)
         if paramList[-1].name == "kwargs":
             paramList.insert(-1, keyword)
         else:

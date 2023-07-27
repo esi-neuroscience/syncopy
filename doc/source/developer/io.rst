@@ -177,13 +177,4 @@ Example JSON file:
 Reading Other File Formats
 --------------------------
 
-Reading and writing other data formats is currently not supported. Getting your
-data into Syncopy is, however, relatively straightforward, if you can access
-your data in Python, e.g. by using `NEO <http://neuralensemble.org/neo/>`_.
-
-Similar to :func:`syncopy.load` you'll have to write a function that creates an
-empty data object (e.g. :class:`syncopy.AnalogData`) and fills the ``data``
-property with an index-able array as well as all relevant metadata properties.
-
-In future releases of Syncopy, example reading routines and/or exporting
-functions will be provided.
+Please see :ref:`data_basics` for information on how to read other file formats.

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # Populate namespace with plotting routines
-# 
+#
 
 # Importlocal modules, but only import routines from spy_plotting.py
 from .spy_plotting import *

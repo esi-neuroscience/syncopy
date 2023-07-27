@@ -32,7 +32,13 @@ from syncopy.shared.parsers import (
     filename_parser,
     data_parser,
 )
-from syncopy.shared.errors import SPYInfo, SPYTypeError, SPYValueError, SPYError, SPYWarning
+from syncopy.shared.errors import (
+    SPYInfo,
+    SPYTypeError,
+    SPYValueError,
+    SPYError,
+    SPYWarning,
+)
 from syncopy.datatype.methods.definetrial import definetrial as _definetrial
 from syncopy import __version__, __storage__, __acme__, __sessionid__
 
@@ -69,7 +75,7 @@ class BaseData(ABC):
         "_log",
     )
     # all data types have a `trials` property
-    _selectionKeyWords = ('trials',)
+    _selectionKeyWords = ("trials",)
     #: properties that are mapped onto HDF5 datasets
     _hdfFileDatasetProperties = ()
 
@@ -135,8 +141,8 @@ class BaseData(ABC):
 
     @cfg.setter
     def cfg(self, dct):
-        """ For loading only, for processing the frontends
-        extend the existing (empty) cfg dictionary """
+        """For loading only, for processing the frontends
+        extend the existing (empty) cfg dictionary"""
 
         if not isinstance(dct, dict):
             raise SPYTypeError(dct, varname="cfg", expected="dictionary-like object")
@@ -310,9 +316,7 @@ class BaseData(ABC):
                 Number of expected array dimensions.
         """
 
-        fpath, fname = io_parser(
-            filename, varname="filename", isfile=True, exists=True
-        )
+        fpath, fname = io_parser(filename, varname="filename", isfile=True, exists=True)
         filename = os.path.join(fpath, fname)  # ensure `filename` is absolute path
 
         md = self.mode
@@ -332,9 +336,7 @@ class BaseData(ABC):
         if propertyName not in h5keys and len(h5keys) != 1:
             lgl = "HDF5 file with only one 'data' dataset or single dataset of arbitrary name"
             act = "HDF5 file holding {} data-objects"
-            raise SPYValueError(
-                legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName
-            )
+            raise SPYValueError(legal=lgl, actual=act.format(str(len(h5keys))), varname=propertyName)
         if len(h5keys) == 1:
             setattr(self, propertyName, h5f[h5keys[0]])
         else:
@@ -392,9 +394,14 @@ class BaseData(ABC):
                 self.filename = self._gen_filename()
 
             if propertyName not in self._hdfFileDatasetProperties:
-                if getattr(self, "_" + propertyName) is not None and not isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
-                    raise SPYValueError(legal="propertyName that does not clash with existing attributes",
-                                        varname='propertyName', actual=propertyName)
+                if getattr(self, "_" + propertyName) is not None and not isinstance(
+                    getattr(self, "_" + propertyName), h5py.Dataset
+                ):
+                    raise SPYValueError(
+                        legal="propertyName that does not clash with existing attributes",
+                        varname="propertyName",
+                        actual=propertyName,
+                    )
 
             h5f = self._get_backing_hdf5_file_handle()
             if h5f is None:
@@ -402,7 +409,6 @@ class BaseData(ABC):
                     h5f.create_dataset(propertyName, data=inData)
             else:
                 h5f.create_dataset(propertyName, data=inData)
-
 
         md = self.mode
         if md == "w":
@@ -461,8 +467,9 @@ class BaseData(ABC):
 
         # first catch empty lists
         if len(inData) == 0:
-            msg = ("Trying to set syncopy data with empty list, "
-                   f"setting `{propertyName}` dataset to `None`!")
+            msg = (
+                "Trying to set syncopy data with empty list, " f"setting `{propertyName}` dataset to `None`!"
+            )
             SPYWarning(msg)
             self._set_dataset_property_with_none(None, propertyName, ndim)
             return
@@ -478,16 +485,14 @@ class BaseData(ABC):
         # as we catched empty lists above, and checked against inconsistent
         # types we can do a hard instance check on the 1st entry only
         if isinstance(inData[0], np.ndarray):
-            self._set_dataset_property_with_array_list(inData,
-                                                       propertyName,
-                                                       ndim)
+            self._set_dataset_property_with_array_list(inData, propertyName, ndim)
         # alternatively must be all syncopy data objects
         else:
             for val in inData:
                 data_parser(val)
 
             # this should not happen, as all derived classes hardcoded this in their setters
-            if propertyName != 'data':
+            if propertyName != "data":
                 raise SPYError(f"Cannot concatenate syncopy objects for dataset {propertyName}")
 
             # if we landed here all is clear
@@ -539,9 +544,7 @@ class BaseData(ABC):
                 lgl = "NumPy 2d-arrays with {} columns".format(nCol)
                 act = "NumPy arrays of different shape"
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
-            trialLens = [
-                np.nanmax(val[:, self.dimord.index("sample")]) for val in inData
-            ]
+            trialLens = [np.nanmax(val[:, self.dimord.index("sample")]) for val in inData]
 
         nTrials = len(trialLens)
 
@@ -579,7 +582,7 @@ class BaseData(ABC):
         # --  dataset shape and object attribute inquiries --
 
         # take the 1st non-empty object as reference
-        i_ref = 0   # to avoid "probably undefined loop variable" linter warning
+        i_ref = 0  # to avoid "probably undefined loop variable" linter warning
         for i_ref, spy_obj in enumerate(inData):
             if spy_obj.data is None:
                 SPYWarning(f"Skipping empty dataset {spy_obj.filename} for concatenation")
@@ -591,12 +594,11 @@ class BaseData(ABC):
                 if len(shape_ref) != ndim:
                     lgl = f"dataset with dimension of {ndim}"
                     act = f"got dataset with dimension {len(shape_ref)}"
-                    raise SPYValueError(lgl, 'data', act)
+                    raise SPYValueError(lgl, "data", act)
 
                 stacking_dim_ref = spy_obj._stackingDim
                 # collect remaining attribute names like channel, freq, etc.
-                attr_ref = [attr for attr in spy_obj._hdfFileAttributeProperties
-                            if not attr.startswith('_')]
+                attr_ref = [attr for attr in spy_obj._hdfFileAttributeProperties if not attr.startswith("_")]
                 # boolean array to index non-stacking dimensions
                 # for strict shape comparison
                 bvec = np.ones(shape_ref.size, dtype=bool)
@@ -617,34 +619,34 @@ class BaseData(ABC):
 
             if spy_obj._stackingDim != stacking_dim_ref:
                 act = f"different stacking dimensions, {stacking_dim_ref} and {spy_obj._stackingDim}"
-                raise SPYValueError(lgl, 'data', act)
+                raise SPYValueError(lgl, "data", act)
 
             # catch mismatching dimensions (2d vs. 3d)
             if len(shape_ref) != len(spy_obj.data.shape):
                 act = f"mismatching shapes, {tuple(shape_ref)} and {spy_obj.data.shape}"
-                raise SPYValueError(lgl, 'data', act)
+                raise SPYValueError(lgl, "data", act)
 
             # shape tuple gets casted by numpy for array subtraction
             if not np.all((shape_ref - spy_obj.data.shape)[bvec] == 0):
                 act = f"mismatching shapes, {tuple(shape_ref)} and {spy_obj.data.shape}"
-                raise SPYValueError(lgl, 'data', act)
+                raise SPYValueError(lgl, "data", act)
 
             # check attributes like channel, freq, etc.
             # this also catches incompatible syncopy data types with same ndim,
             # e.g. SpectralData and CrossSpectralData
             for attr in spy_obj._hdfFileAttributeProperties:
-                if attr.startswith('_'):
+                if attr.startswith("_"):
                     continue
 
                 attr_val = getattr(spy_obj, attr, None)
                 if attr_val is None or attr not in attr_ref:
                     act = f"missing attribute `{attr}` in {spy_obj.filename}"
-                    raise SPYValueError(lgl, 'data', act)
+                    raise SPYValueError(lgl, "data", act)
                 # now hard check values, should be all arrays/sequences
                 # we want identical channel label, freq axis and so on..
                 if not np.all(getattr(spy_obj_ref, attr) == attr_val):
                     act = f"different attribute values for `{attr}`"
-                    raise SPYValueError(lgl, 'data', act)
+                    raise SPYValueError(lgl, "data", act)
 
             # finally increment stack count
             stack_count += spy_obj.data.shape[stacking_dim_ref]
@@ -662,10 +664,9 @@ class BaseData(ABC):
         self._stackingDimLabel = spy_obj_ref._stackingDimLabel
 
         # and route through the generator setter
-        self._set_dataset_property_with_generator(trl_gen,
-                                                  propertyName='data',
-                                                  ndim=len(res_shape),
-                                                  shape=res_shape)
+        self._set_dataset_property_with_generator(
+            trl_gen, propertyName="data", ndim=len(res_shape), shape=res_shape
+        )
 
         # -- set attribute properties --
 
@@ -684,10 +685,7 @@ class BaseData(ABC):
         self.samplerate = spy_obj_ref.samplerate
         spy_obj_ref.selection = None
 
-    def _set_dataset_property_with_generator(self, gen,
-                                             propertyName,
-                                             ndim,
-                                             shape=None):
+    def _set_dataset_property_with_generator(self, gen, propertyName, ndim, shape=None):
         """
         Create a dataset from a generator yielding (single trial) numpy arrays.
         If `shape` is not given fall back to HDF5 resizable datasets along
@@ -711,14 +709,17 @@ class BaseData(ABC):
         """
 
         if propertyName not in self._hdfFileDatasetProperties:
-            raise SPYValueError(legal=f"one of {self._hdfFileDatasetProperties}",
-                                varname='propertyName', actual=propertyName)
+            raise SPYValueError(
+                legal=f"one of {self._hdfFileDatasetProperties}",
+                varname="propertyName",
+                actual=propertyName,
+            )
 
         # If there is existing data, get out
         if isinstance(getattr(self, "_" + propertyName), h5py.Dataset):
             lgl = "empty syncopy object"
             act = "non-empty syncopy object"
-            raise SPYValueError(lgl, 'data', act)
+            raise SPYValueError(lgl, "data", act)
 
         # look at 1st trial to determine fixed dimensions
         try:
@@ -726,7 +727,7 @@ class BaseData(ABC):
         except StopIteration:
             lgl = "non-exhausted generator"
             act = "exhausted generator"
-            raise SPYValueError(lgl, 'data', act)
+            raise SPYValueError(lgl, "data", act)
 
         shape1 = list(trial1.shape)  # initial shape
 
@@ -734,7 +735,7 @@ class BaseData(ABC):
         if len(shape1) != ndim:
             lgl = f"arrays of dimension {ndim}"
             act = f"got array with dimension {len(shape1)}"
-            raise SPYValueError(lgl, 'data', act)
+            raise SPYValueError(lgl, "data", act)
 
         # boolean array to index non-stacking dimensions
         # for strict shape comparison
@@ -758,10 +759,7 @@ class BaseData(ABC):
         stack_count = 0
         trlSamples = []  # for constructing the trialdefinition
         with h5py.File(self.filename, "w") as h5f:
-            dset = h5f.create_dataset(propertyName,
-                                      shape=shape,
-                                      maxshape=maxshape,
-                                      dtype=trial1.dtype)
+            dset = h5f.create_dataset(propertyName, shape=shape, maxshape=maxshape, dtype=trial1.dtype)
 
             # we have to plug in the 1st trial already generated
             stack_step = trial1.shape[self._stackingDim]
@@ -777,24 +775,24 @@ class BaseData(ABC):
                 if not np.all((shape1 - np.array(trial.shape))[bvec] == 0):
                     lgl = "compatible trial shapes"
                     act = f"mismatching shapes, {tuple(shape1)} and {trial.shape}"
-                    raise SPYValueError(lgl, 'data', act)
+                    raise SPYValueError(lgl, "data", act)
 
                 stack_step = trial.shape[self._stackingDim]
                 # we have to resize for every trial if no total shape was given
                 if resize:
                     dset.resize(stack_count + stack_step, axis=self._stackingDim)
-                stack_idx[self._stackingDim] = np.s_[stack_count:stack_count + stack_step]
+                stack_idx[self._stackingDim] = np.s_[stack_count : stack_count + stack_step]
                 dset[tuple(stack_idx)] = trial
                 stack_count += stack_step
                 trlSamples.append(stack_step)
 
-            setattr(self, '_' + propertyName, dset)
+            setattr(self, "_" + propertyName, dset)
 
         self._reopen()
 
         # -- construct trialdefinition --
 
-        if propertyName == 'data':
+        if propertyName == "data":
             si = np.r_[0, np.cumsum(trlSamples)]
             sampleinfo = np.column_stack([si[:-1], si[1:]])
             trialdefinition = np.column_stack([sampleinfo, np.zeros(len(sampleinfo))])
@@ -823,9 +821,7 @@ class BaseData(ABC):
                 raise SPYValueError(legal=lgl, varname="data", actual=act)
 
     def _is_empty(self):
-        return all(
-            [getattr(self, "_" + attr, None) is None for attr in self._hdfFileDatasetProperties]
-        )
+        return all([getattr(self, "_" + attr, None) is None for attr in self._hdfFileDatasetProperties])
 
     @property
     def dimord(self):
@@ -855,9 +851,7 @@ class BaseData(ABC):
         # this enforces the _defaultDimord
         if set(dims) != set(self._defaultDimord):
             base = "dimensional labels {}"
-            lgl = base.format(
-                "'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'"
-            )
+            lgl = base.format("'" + "' x '".join(str(dim) for dim in self._defaultDimord) + "'")
             act = base.format("'" + "' x '".join(str(dim) for dim in dims) + "'")
             raise SPYValueError(legal=lgl, varname="dimord", actual=act)
 
@@ -895,7 +889,7 @@ class BaseData(ABC):
 
     @log.setter
     def log(self, msg):
-        """ This appends the assigned msg to the existing log """
+        """This appends the assigned msg to the existing log"""
         if not isinstance(msg, str):
             raise SPYTypeError(msg, varname="log", expected="str")
         prefix = "\n\n|=== {user:s}@{host:s}: {time:s} ===|\n\n\t{caller:s}"
@@ -1005,9 +999,7 @@ class BaseData(ABC):
 
     @sampleinfo.setter
     def sampleinfo(self, sinfo):
-        raise SPYError(
-            "Cannot set sampleinfo. Use `BaseData.trialdefinition` instead."
-        )
+        raise SPYError("Cannot set sampleinfo. Use `BaseData.trialdefinition` instead.")
 
     @property
     def trial_ids(self):
@@ -1017,12 +1009,12 @@ class BaseData(ABC):
 
     @property
     def trialintervals(self):
-        """nTrials x 2 :class:`numpy.ndarray` of [start, end] times in seconds """
+        """nTrials x 2 :class:`numpy.ndarray` of [start, end] times in seconds"""
         if self._trialdefinition is not None and self._samplerate is not None:
             # trial lengths in samples
             start_end = self.sampleinfo - self.sampleinfo[:, 0][:, None]
             start_end[:, 1] -= 1  # account for last time point
-           # add offset and convert to seconds
+            # add offset and convert to seconds
             start_end = (start_end + self._t0[:, None]) / self._samplerate
             return start_end
         else:
@@ -1030,7 +1022,7 @@ class BaseData(ABC):
 
     @property
     def _t0(self):
-        """ These are the (trigger) offsets """
+        """These are the (trigger) offsets"""
         if self._trialdefinition is not None:
             return self._trialdefinition[:, 2]
         else:
@@ -1117,11 +1109,15 @@ class BaseData(ABC):
         return None
 
     def _reopen(self):
-        """ Reattach datasets from backing hdf5 file. Respects current `self.mode`."""
+        """Reattach datasets from backing hdf5 file. Respects current `self.mode`."""
         for propertyName in self._hdfFileDatasetProperties:
             dsetProp = getattr(self, "_" + propertyName)
             if isinstance(dsetProp, h5py.Dataset):
-                setattr(self, "_" + propertyName, h5py.File(self.filename, mode=self.mode)[propertyName])
+                setattr(
+                    self,
+                    "_" + propertyName,
+                    h5py.File(self.filename, mode=self.mode)[propertyName],
+                )
 
     def copy(self):
         """
@@ -1213,16 +1209,12 @@ class BaseData(ABC):
                 )
             container = filename_parser(self.filename)["folder"]
 
-        spy.save(
-            self, filename=filename, container=container, tag=tag, overwrite=overwrite
-        )
+        spy.save(self, filename=filename, container=container, tag=tag, overwrite=overwrite)
 
     # Helper function generating pseudo-random temp file-names
     def _gen_filename(self):
 
-        fname_hsh = blake2b(
-            digest_size=4, salt=os.urandom(blake2b.SALT_SIZE)
-        ).hexdigest()
+        fname_hsh = blake2b(digest_size=4, salt=os.urandom(blake2b.SALT_SIZE)).hexdigest()
         fname = os.path.join(
             __storage__,
             "spy_{sess:s}_{hash:s}{ext:s}".format(
@@ -1328,9 +1320,7 @@ class BaseData(ABC):
         # Use `_infoFileProperties` to fetch dimensional object props: remove `dimord`
         # (has already been checked by `data_parser` above) and remove `cfg` (two
         # objects might be identical even if their history deviates)
-        dimProps = [
-            prop for prop in self._infoFileProperties if not prop.startswith("_")
-        ]
+        dimProps = [prop for prop in self._infoFileProperties if not prop.startswith("_")]
         dimProps = list(set(dimProps).difference(["dimord", "cfg"]))
         for prop in dimProps:
             val_this = getattr(self, prop)
@@ -1367,7 +1357,9 @@ class BaseData(ABC):
                         isEqual = val_this == val_other
 
                     if not isEqual:
-                        SPYInfo(f"HDF dataset '{dsetName}' mismatch for types '{type(val_this)}' and '{type(val_other)}'")
+                        SPYInfo(
+                            f"HDF dataset '{dsetName}' mismatch for types '{type(val_this)}' and '{type(val_other)}'"
+                        )
                         return False
                 else:
                     SPYInfo(f"HDF dataset mismatch: extra dataset '{dsetName}' in one instance")
@@ -1379,13 +1371,15 @@ class BaseData(ABC):
                         val_this = getattr(self, "_" + dsetName)
                         val_other = getattr(other, "_" + dsetName)
                         if isinstance(val_this, h5py.Dataset):
-                            #isEqual = True  # This case gets checked by trial below.
+                            # isEqual = True  # This case gets checked by trial below.
                             isEqual = val_this == val_other
                         elif val_this is None and val_other is None:
                             isEqual = True
 
                         if not isEqual:
-                            SPYInfo(f"HDF dataset '{dsetName}' mismatch for types '{type(val_this)}' and '{type(val_other)}'")
+                            SPYInfo(
+                                f"HDF dataset '{dsetName}' mismatch for types '{type(val_this)}' and '{type(val_other)}'"
+                            )
                             return False
                     else:
                         SPYInfo(f"HDF dataset mismatch: extra dataset '{dsetName}' in one instance")
@@ -1434,10 +1428,7 @@ class BaseData(ABC):
         # default dimord
         if (
             any(
-                [
-                    key in self._hdfFileDatasetProperties and value is not None
-                    for key, value in kwargs.items()
-                ]
+                [key in self._hdfFileDatasetProperties and value is not None for key, value in kwargs.items()]
             )
             and dimord is None
         ):
@@ -1525,7 +1516,4 @@ class FauxTrial:
         Return a new `FauxTrial` instance with reversed dimensions
         (parroting the NumPy original :func:`numpy.transpose`)
         """
-        return FauxTrial(
-            self.shape[::-1], self.idx[::-1], self.dtype, self.dimord[::-1]
-        )
-
+        return FauxTrial(self.shape[::-1], self.idx[::-1], self.dtype, self.dimord[::-1])

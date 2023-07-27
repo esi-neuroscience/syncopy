@@ -141,7 +141,7 @@ def show(data, squeeze=True, **kwargs):
         if invalid:
             lgl = f"unique and sorted `{sel_key}` indices"
             act = sel
-            raise SPYValueError(lgl, 'show kwargs', act)
+            raise SPYValueError(lgl, "show kwargs", act)
 
     # Leverage `selectdata` to sanitize input and perform subset picking
     data.selectdata(inplace=True, **kwargs)
@@ -159,7 +159,7 @@ def show(data, squeeze=True, **kwargs):
     SPYInfo("Showing{}".format(msg))
 
     # catch totally out of range toi selection
-    has_time = True if 'time' in data.dimord else False
+    has_time = True if "time" in data.dimord else False
 
     # Use an object's `_preview_trial` method fetch required indexing tuples
     idxList = []
@@ -171,17 +171,16 @@ def show(data, squeeze=True, **kwargs):
         # beforehand, e.g. foi, channel, ... but out of range toi's get mapped
         # repeatedly to the last index, causing invalid hdf5 indexing
         if has_time:
-            idx = idxs[data.dimord.index('time')]
-            if not isinstance(idx, slice) and (
-                    len(idx) != len(set(idx))):
+            idx = idxs[data.dimord.index("time")]
+            if not isinstance(idx, slice) and (len(idx) != len(set(idx))):
                 lgl = "valid `toi` selection"
                 act = sel
-                raise SPYValueError(lgl, 'show kwargs', act)
+                raise SPYValueError(lgl, "show kwargs", act)
 
-        for i, prop_idx in enumerate(idxs):            
+        for i, prop_idx in enumerate(idxs):
             if isinstance(prop_idx, list) and len(prop_idx) == 1:
                 idxs[i] = prop_idx[0]
-            
+
         idxList.append(tuple(idxs))
 
     # Reset in-place subset selection

@@ -36,7 +36,7 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
 
     # right now we have to enforce
     # single trial selection only
-    trl = show_kwargs.get('trials', None)
+    trl = show_kwargs.get("trials", None)
     if not isinstance(trl, Number) and len(data.trials) > 1:
         SPYWarning("Please select a single trial for plotting!")
         return
@@ -63,21 +63,19 @@ def plot_AnalogData(data, shifted=True, **show_kwargs):
 
     if nAx < 2:
         SPYWarning("Please select at least two channels for a multipanelplot!")
-        return
+        return None, None
 
-    elif nAx > pltConfig['mMaxAxes']:
+    elif nAx > pltConfig["mMaxAxes"]:
         SPYWarning(f"Please select max. {pltConfig['mMaxAxes']} channels for a multipanelplot!")
-        return
-    else:
-        # determine axes layout, prefer columns over rows due to display aspect ratio
-        nrows, ncols = plot_helpers.calc_multi_layout(nAx)
+        return None, None
+
+    # determine axes layout, prefer columns over rows due to display aspect ratio
+    nrows, ncols = plot_helpers.calc_multi_layout(nAx)
 
     fig, axs = _plotting.mk_multi_line_figax(nrows, ncols)
 
     for chan_dat, ax, label in zip(data_y.T, axs.flatten(), labels):
-        _plotting.plot_lines(ax, data_x, chan_dat,
-                             label=label,
-                             leg_fontsize=pltConfig['mLegendSize'])
+        _plotting.plot_lines(ax, data_x, chan_dat, label=label, leg_fontsize=pltConfig["mLegendSize"])
 
     # delete empty plot due to grid extension
     # because of prime nAx -> can be maximally 1 plot
@@ -108,7 +106,7 @@ def plot_SpectralData(data, **show_kwargs):
 
     # right now we have to enforce
     # single trial selection only
-    trl = show_kwargs.get('trials', None)
+    trl = show_kwargs.get("trials", None)
     if not isinstance(trl, Number) and len(data.trials) > 1:
         SPYWarning("Please select a single trial for plotting!")
         return
@@ -121,7 +119,7 @@ def plot_SpectralData(data, **show_kwargs):
     if nAx < 2:
         SPYWarning("Please select at least two channels for a multipanelplot!")
         return
-    elif nAx > pltConfig['mMaxAxes']:
+    elif nAx > pltConfig["mMaxAxes"]:
         SPYWarning("Please select max. {pltConfig['mMaxAxes']} channels for a multipanelplot!")
         return
     else:
@@ -150,55 +148,61 @@ def plot_SpectralData(data, **show_kwargs):
         maxP = data_cyx.max()
         for data_yx, ax, label in zip(data_cyx, axs.flatten(), channels):
             _plotting.plot_tfreq(ax, data_yx, time, freqs, vmax=maxP)
-            ax.set_title(label, fontsize=pltConfig['mTitleSize'])
+            ax.set_title(label, fontsize=pltConfig["mTitleSize"])
         fig.tight_layout()
         fig.subplots_adjust(wspace=0.05)
 
     # just a line plot
     else:
         msg = False
-        if 'toilim' in show_kwargs:
-            show_kwargs.pop('toilim')
+        if "toilim" in show_kwargs:
+            show_kwargs.pop("toilim")
             msg = True
-        if 'toi' in show_kwargs:
-            show_kwargs.pop('toi')
+        if "toi" in show_kwargs:
+            show_kwargs.pop("toi")
             msg = True
         if msg:
-            msg = ("Line spectra don't have a time axis, "
-                   "ignoring `toi/toilim` selection!")
+            msg = "Line spectra don't have a time axis, " "ignoring `toi/toilim` selection!"
             SPYWarning(msg)
 
         # get the data to plot
         data_x = plot_helpers.parse_foi(data, show_kwargs)
-        output = plot_helpers.get_output(data, 'freqanalysis')
+        output = plot_helpers.get_output(data, "freqanalysis")
 
         # only log10 the absolute squared spectra
-        if output == 'pow':
+        if output == "pow":
             data_y = np.log10(data.show(**show_kwargs))
-            ylabel = 'power (dB)'
-        elif output in ['fourier', 'complex']:
-            SPYWarning("Can't plot complex valued spectra, choose 'real' or 'imag' as output! Aborting plotting.")
+            ylabel = "power (dB)"
+        elif output in ["fourier", "complex"]:
+            SPYWarning(
+                "Can't plot complex valued spectra, choose 'real' or 'imag' as output! Aborting plotting."
+            )
             return
         else:
             data_y = data.show(**show_kwargs)
-            ylabel = f'{output}'
+            ylabel = f"{output}"
 
         taper_labels = None
-        if len(data.taper) != 1:   
-            taper = show_kwargs.get('taper')
+        if len(data.taper) != 1:
+            taper = show_kwargs.get("taper")
             # multiple tapers are to be plotted
             if not isinstance(taper, (Number, str)):
                 taper_labels = data.taper
 
-        fig, axs = _plotting.mk_multi_line_figax(nrows, ncols, xlabel='frequency (Hz)',
-                                                 ylabel=ylabel)
+        fig, axs = _plotting.mk_multi_line_figax(nrows, ncols, xlabel="frequency (Hz)", ylabel=ylabel)
 
         for chan_dat, ax, label in zip(data_y.T, axs.flatten(), channels):
             if taper_labels is not None:
-                _plotting.plot_lines(ax, data_x, chan_dat, label=taper_labels, leg_fontsize=pltConfig['mLegendSize'])
+                _plotting.plot_lines(
+                    ax,
+                    data_x,
+                    chan_dat,
+                    label=taper_labels,
+                    leg_fontsize=pltConfig["mLegendSize"],
+                )
             else:
                 _plotting.plot_lines(ax, data_x, chan_dat)
-            ax.set_title(label, fontsize=pltConfig['mTitleSize'])
+            ax.set_title(label, fontsize=pltConfig["mTitleSize"])
 
         # delete empty plot due to grid extension
         # because of prime nAx -> can be maximally 1 plot
@@ -207,69 +211,3 @@ def plot_SpectralData(data, **show_kwargs):
         fig.tight_layout()
 
     return fig, axs
-
-
-@plot_helpers.revert_selection
-def plot_CrossSpectralData(data, **show_kwargs):
-    """
-    Plot 2d-line plots for the different connectivity measures.
-
-    Parameters
-    ----------
-    data : :class:`~syncopy.datatype.CrossSpectralData`
-    show_kwargs : :func:`~syncopy.datatype.methods.show.show` arguments
-    """
-
-    if not __plt__:
-        SPYWarning(pltErrMsg)
-        return
-
-    # right now we have to enforce
-    # single trial selection only
-    trl = show_kwargs.get('trials', None)
-    if not isinstance(trl, int) and len(data.trials) > 1:
-        SPYWarning("Please select a single trial for plotting!")
-        return
-    elif len(data.trials) == 1:
-        trl = 0
-
-    # what channel combination
-    if 'channel_i' not in show_kwargs or 'channel_j' not in show_kwargs:
-        SPYWarning("Please select a channel combination for plotting!")
-        return
-    chi, chj = show_kwargs['channel_i'], show_kwargs['channel_j']
-
-    # what data do we have?
-    method = plot_helpers.get_method(data, 'connectivityanalysis')
-    output = plot_helpers.get_output(data, 'connectivityanalysis')
-
-    if method == 'granger':
-        xlabel = 'frequency (Hz)'
-        ylabel = 'Granger causality'
-        label = rf"channel{chi} $\rightarrow$ channel{chj}"
-        data_x = plot_helpers.parse_foi(data, show_kwargs)
-    elif method == 'coh':
-        xlabel = 'frequency (Hz)'
-        ylabel = f'{output} coherence'
-        label = rf"channel{chi} - channel{chj}"
-        data_x = plot_helpers.parse_foi(data, show_kwargs)
-    elif method == 'corr':
-        xlabel = 'lag'
-        ylabel = 'correlation'
-        label = rf"channel{chi} - channel{chj}"
-        data_x = plot_helpers.parse_toi(data, show_kwargs)
-    # that's all the methods we got so far
-    else:
-        raise NotImplementedError
-
-    # get the data to plot
-    data_y = data.show(**show_kwargs)
-
-    # Create the axes and figure if needed.
-    # Persistent axes allow for plotting different
-    # channel combinations into the same figure.
-    if not hasattr(data, 'ax'):
-        fig, data.ax = _plotting.mk_line_figax(xlabel, ylabel)
-    _plotting.plot_lines(data.ax, data_x, data_y, label=label)
-
-    return fig, data.ax

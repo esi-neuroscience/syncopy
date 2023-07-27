@@ -65,7 +65,7 @@ class StructDict(dict):
         -------
         Copy of StructDict.
         """
-        if(deep):
+        if deep:
             return self.deepcopy()
         else:
             obj = type(self).__new__(self.__class__)
@@ -137,7 +137,7 @@ def _serialize_value(value):
 
     # unpack the list, if ppl mix types this will go wrong
     if isinstance(value, list) and len(value) != 0:
-        if hasattr(value[0], 'is_integer'):
+        if hasattr(value[0], "is_integer"):
             value = [float(v) for v in value]
         # should only be the integers
         elif isinstance(value[0], Number) and not isinstance(value[0], bool):
@@ -146,7 +146,7 @@ def _serialize_value(value):
     # singleton/non-sequence type entries
     if isinstance(value, Number) and not isinstance(value, bool):
         # all floating types have this method
-        if hasattr(value, 'is_integer'):
+        if hasattr(value, "is_integer"):
             # get rid of np.int64 or np.float32
             value = int(value) if value.is_integer() else float(value)
         else:
@@ -194,13 +194,13 @@ def get_frontend_cfg(defaults, lcls, kwargs):
 
     # 'select' only allowed dictionary parameter within kwargs
     # we can 'pop' here as selection got digested beforehand by @unwrap_select
-    sdict = kwargs.pop('select', None)
+    sdict = kwargs.pop("select", None)
     if sdict is not None:
         # serialized selection dict
         ser_sdict = dict()
         for sel_key in sdict:
             ser_sdict[sel_key] = _serialize_value(sdict[sel_key])
-        new_cfg['select'] = ser_sdict
+        new_cfg["select"] = ser_sdict
 
     # should only be 'parallel' and 'chan_per_worker'
     for key in kwargs:
@@ -297,19 +297,15 @@ def best_match(source, selection, span=False, tol=None, squash_duplicates=False)
     if tol is not None:
         if not np.all([np.all((np.abs(source - value)) < tol) for value in selection]):
             lgl = "all elements of `selection` to be within a {0:2.4f}-band around `source`"
-            act = "values in `selection` deviating further than given tolerance " +\
-                "of {0:2.4f} from source"
-            raise SPYValueError(legal=lgl.format(tol),
-                                varname="selection",
-                                actual=act.format(tol))
+            act = "values in `selection` deviating further than given tolerance " + "of {0:2.4f} from source"
+            raise SPYValueError(legal=lgl.format(tol), varname="selection", actual=act.format(tol))
 
     # Do not perform O(n) potentially unnecessary sort operations...
     issorted = True
 
     # Interval-selections are a lot easier than discrete time-points...
     if span:
-        idx = np.intersect1d(np.where(source >= selection[0])[0],
-                             np.where(source <= selection[1])[0])
+        idx = np.intersect1d(np.where(source >= selection[0])[0], np.where(source <= selection[1])[0])
     else:
         issorted = True
         if source.size > 1 and np.diff(source).min() < 0:
@@ -319,8 +315,10 @@ def best_match(source, selection, span=False, tol=None, squash_duplicates=False)
             source = orig[idx_orig]
         idx = np.searchsorted(source, selection, side="left")
         leftNbrs = np.abs(selection - source[np.maximum(idx - 1, np.zeros(idx.shape, dtype=np.intp))])
-        rightNbrs = np.abs(selection - source[np.minimum(idx, np.full(idx.shape, source.size - 1, dtype=np.intp))])
-        shiftLeft = ((idx == source.size) | (leftNbrs < rightNbrs))
+        rightNbrs = np.abs(
+            selection - source[np.minimum(idx, np.full(idx.shape, source.size - 1, dtype=np.intp))]
+        )
+        shiftLeft = (idx == source.size) | (leftNbrs < rightNbrs)
         idx[shiftLeft] -= 1
 
     # Account for potentially unsorted selections (and thus unordered `idx`)
@@ -361,9 +359,9 @@ def get_defaults(obj):
 
     if not callable(obj):
         raise SPYTypeError(obj, varname="obj", expected="SyNCoPy function or class")
-    dct = {k: v.default for k, v in inspect.signature(obj).parameters.items()\
-           if v.default != v.empty and v.name != "cfg"}
+    dct = {
+        k: v.default
+        for k, v in inspect.signature(obj).parameters.items()
+        if v.default != v.empty and v.name != "cfg"
+    }
     return StructDict(dct)
-
-
-

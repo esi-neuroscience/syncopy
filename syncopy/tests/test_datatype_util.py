@@ -11,8 +11,7 @@ import tempfile
 from syncopy.datatype.util import get_dir_size
 
 
-class TestDirSize():
-
+class TestDirSize:
     def test_dirsize(self):
         with tempfile.TemporaryDirectory() as tdir:
             fname = "tmpfile"
@@ -29,9 +28,6 @@ class TestDirSize():
             assert dir_size_gb < 1e-6
 
 
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     T1 = TestDirSize()
-

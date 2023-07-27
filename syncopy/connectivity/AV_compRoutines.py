@@ -21,7 +21,10 @@ from .granger import granger
 
 # syncopy imports
 from syncopy.shared.const_def import spectralDTypes
-from syncopy.shared.computational_routine import ComputationalRoutine, propagate_properties
+from syncopy.shared.computational_routine import (
+    ComputationalRoutine,
+    propagate_properties,
+)
 from syncopy.shared.metadata import metadata_from_hdf5_file, cast_0array
 from syncopy.shared.kwarg_decorators import process_io
 from syncopy.shared.errors import (
@@ -30,10 +33,7 @@ from syncopy.shared.errors import (
 
 
 @process_io
-def normalize_csd_cF(csd_av_dat,
-                     output='abs',
-                     chunkShape=None,
-                     noCompute=False):
+def normalize_csd_cF(csd_av_dat, output="abs", chunkShape=None, noCompute=False):
 
     r"""
     Given the trial averaged cross spectral densities,
@@ -100,10 +100,10 @@ def normalize_csd_cF(csd_av_dat,
 
     # For initialization of computational routine,
     # just return output shape and dtype
-    if output in ['complex', 'fourier']:
-        fmt = spectralDTypes['fourier']
+    if output in ["complex", "fourier"]:
+        fmt = spectralDTypes["fourier"]
     else:
-        fmt = spectralDTypes['abs']
+        fmt = spectralDTypes["abs"]
     if noCompute:
         return outShape, fmt
 
@@ -129,7 +129,7 @@ class NormalizeCrossSpectra(ComputationalRoutine):
     """
 
     # the hard wired dimord of the cF
-    dimord = ['time', 'freq', 'channel_i', 'channel_j']
+    dimord = ["time", "freq", "channel_i", "channel_j"]
 
     computeFunction = staticmethod(normalize_csd_cF)
 
@@ -138,15 +138,15 @@ class NormalizeCrossSpectra(ComputationalRoutine):
     valid_kws = list(signature(normalize_csd_cF).parameters.keys())[1:]
 
     def pre_check(self):
-        '''
+        """
         Make sure we have a trial average,
         so the input data only consists of `1 trial`.
         Can only be performed after initialization!
-        '''
+        """
 
         if self.numTrials is None:
-            lgl = 'Initialize the computational Routine first!'
-            act = 'ComputationalRoutine not initialized!'
+            lgl = "Initialize the computational Routine first!"
+            act = "ComputationalRoutine not initialized!"
             raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
 
         if self.numTrials != 1:
@@ -156,16 +156,14 @@ class NormalizeCrossSpectra(ComputationalRoutine):
 
     def process_metadata(self, data, out):
 
-        time_axis = np.any(np.diff(data.trialdefinition)[:,0] != 1)
+        time_axis = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
 
         propagate_properties(data, out, self.keeptrials, time_axis)
         out.freq = data.freq
 
 
 @process_io
-def normalize_ccov_cF(trl_av_dat,
-                      chunkShape=None,
-                      noCompute=False):
+def normalize_ccov_cF(trl_av_dat, chunkShape=None, noCompute=False):
 
     """
     Given the trial averaged cross-covariances,
@@ -213,7 +211,7 @@ def normalize_ccov_cF(trl_av_dat,
     # just return output shape and dtype
     # cross spectra are complex!
     if noCompute:
-        return outShape, spectralDTypes['abs']
+        return outShape, spectralDTypes["abs"]
 
     # re-shape to (nLag x nChannels x nChannels)
     CCov_ij = trl_av_dat[:, 0, ...]
@@ -247,24 +245,24 @@ class NormalizeCrossCov(ComputationalRoutine):
     """
 
     # the hard wired dimord of the cF
-    dimord = ['time', 'freq', 'channel_i', 'channel_j']
+    dimord = ["time", "freq", "channel_i", "channel_j"]
 
     computeFunction = staticmethod(normalize_ccov_cF)
 
-    method = ""   # there is no backend
+    method = ""  # there is no backend
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(normalize_ccov_cF).parameters.keys())[1:]
 
     def pre_check(self):
-        '''
+        """
         Make sure we have a trial average,
         so the input data only consists of `1 trial`.
         Can only be performed after initialization!
-        '''
+        """
 
         if self.numTrials is None:
-            lgl = 'Initialize the computational Routine first!'
-            act = 'ComputationalRoutine not initialized!'
+            lgl = "Initialize the computational Routine first!"
+            act = "ComputationalRoutine not initialized!"
             raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
 
         if self.numTrials != 1:
@@ -292,12 +290,7 @@ class NormalizeCrossCov(ComputationalRoutine):
 
 
 @process_io
-def granger_cF(csd_av_dat,
-               rtol=5e-6,
-               nIter=100,
-               cond_max=1e4,
-               chunkShape=None,
-               noCompute=False):
+def granger_cF(csd_av_dat, rtol=5e-6, nIter=100, cond_max=1e4, chunkShape=None, noCompute=False):
 
     """
     Given the trial averaged cross spectral densities,
@@ -389,7 +382,7 @@ def granger_cF(csd_av_dat,
     # just return output shape and dtype
     # Granger causalities are real
     if noCompute:
-        return outShape, spectralDTypes['abs']
+        return outShape, spectralDTypes["abs"]
 
     # strip off singleton time dimension
     # for the backend calls
@@ -408,11 +401,12 @@ def granger_cF(csd_av_dat,
     Granger = granger(CSDreg, H, Sigma)
 
     # format is 'label--cast'
-    metadata = {'converged--bool': np.array(conv),
-                'max rel. err--float': np.array(err),
-                'reg. factor--float': np.array(factor),
-                'initial cond. num--float': np.array(ini_cn)
-                }
+    metadata = {
+        "converged--bool": np.array(conv),
+        "max rel. err--float": np.array(err),
+        "reg. factor--float": np.array(factor),
+        "initial cond. num--float": np.array(ini_cn),
+    }
 
     # reattach dummy time axis
     return Granger[None, ...], metadata
@@ -442,27 +436,32 @@ class GrangerCausality(ComputationalRoutine):
     #: 'reg. factor' : float, brute force regularization factor in case the CSD is nearly singular
     #:
     #: 'initial cond. num' : float, condition number of the CSD, regularization kicks in if that is too high
-    metadata_keys = ("converged", "max rel. err", "reg. factor", "initial cond. num",)
+    metadata_keys = (
+        "converged",
+        "max rel. err",
+        "reg. factor",
+        "initial cond. num",
+    )
 
     # the hard wired dimord of the cF
-    dimord = ['time', 'freq', 'channel_i', 'channel_j']
+    dimord = ["time", "freq", "channel_i", "channel_j"]
 
     computeFunction = staticmethod(granger_cF)
 
-    method = ""   # there is no backend
+    method = ""  # there is no backend
     # 1st argument,the data, gets omitted
     valid_kws = list(signature(granger_cF).parameters.keys())[1:]
 
     def pre_check(self):
-        '''
+        """
         Make sure we have a trial average,
         so the input data only consists of `1 trial`.
         Can only be performed after initialization!
-        '''
+        """
 
         if self.numTrials is None:
-            lgl = 'Initialize the computational Routine first!'
-            act = 'ComputationalRoutine not initialized!'
+            lgl = "Initialize the computational Routine first!"
+            act = "ComputationalRoutine not initialized!"
             raise SPYValueError(legal=lgl, varname=self.__class__.__name__, actual=act)
 
         if self.numTrials != 1:
@@ -480,7 +479,7 @@ class GrangerCausality(ComputationalRoutine):
 
         for key, value in mdata.items():
             # we always have a (single) trial average here
-            label_cast = key.split('__')[0]
+            label_cast = key.split("__")[0]
             # learn how to serialize
-            label, cast = label_cast.split('--')
+            label, cast = label_cast.split("--")
             out.info[label] = cast_0array(cast, value)
