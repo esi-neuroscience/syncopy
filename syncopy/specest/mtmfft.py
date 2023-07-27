@@ -135,7 +135,13 @@ def _get_dpss_pars(tapsmofrq, nSamples, samplerate):
 
     # taper width parameter in sample units
     NW = tapsmofrq * nSamples / samplerate
-    # from the minBw setting NW always is at least 1
+
+    # from the minBw formula in `input_processors.process_taper`
+    # Kmax is at least 1!
     Kmax = int(2 * NW - 1)  # optimal number of tapers
+
+    # ..but NW can be 0.9999999999999999..
+    # catch those floating point issues
+    Kmax = Kmax if Kmax > 1 else 1
 
     return NW, Kmax
