@@ -1,6 +1,6 @@
 # Syncopy Developer Information
 
-This is only relevant for people on the core team, and included development instructions.
+These development instructions are only relevant for people on the Syncopy core team.
 
 ## Making a new Release
 
