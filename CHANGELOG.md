@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## Current WIP
+## [2023.07]
 
 ### NEW
 - Add spike plotting, implements #434
