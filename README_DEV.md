@@ -17,8 +17,8 @@ At github:
   - parallel tests are run
   - platforms other than linux x64 are used
   - the ESI filesystem/cluster is available, so tests that require large local test data from the cluster's filesystem are run.
-* Once tests are all green, in the gitlab "pipeline" tab, of the completed pipeline, there is a manual stage 3 'upload' entry named 'pypitest'. Click it to run the pypitest test deployment.
-* If it succeeded: in the gitlab "pipeline" tab, of the completed pipeline, there is a manual stage 4 'deploy' entry named 'pypideploy'. Click it to run the final deployment to pypi.
+* Once tests are all green, in the gitlab "CI -- pipeline" tab, click on the name of the completed pipeline. You should see the stages. If parts of the pipeline stages 1 or 2 are still running, you can cancel them to unlock stage 3. There is a manual stage 3 'upload' entry named 'pypitest'. Click it to run the pypitest test deployment.
+* If it succeeded: there is a manual stage 4 'deploy' entry named 'pypideploy'. Click it to run the final deployment to pypi.
 
 This concludes the release to PyPI.
 
