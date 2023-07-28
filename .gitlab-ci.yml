@@ -192,7 +192,7 @@ pypideploy:
     - rm -rf dist/
     - source $HOME/miniconda/etc/profile.d/conda.sh
     # get poetry with python 3.10
-    - conda create --yes --name syncopy-deploy python=3.10 poetry=1.5
+    - conda create --yes --name syncopy-deploy python=3.10 poetry=1.5.1 -c conda-forge
     - conda activate syncopy-deploy
     - poetry build
     # needs pypi credentials stored as env var PYPI_SECRET in the Gitlab CI web interface.
