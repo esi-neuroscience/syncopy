@@ -26,7 +26,7 @@ This concludes the release to PyPI.
 
 Note: You need to release to PyPI first to start the conda release.
 
-* Go to github.com/esi-neuoscience/esi-syncopy-feedstock and there in `recipe/meta.yaml`, check:
+* Go to https://github.com/esi-neuroscience/esi-syncopy-feedstock and there in `recipe/meta.yaml`, check:
    - Update the version of the Syncopy package
    - Check versions of packages in `meta.yml` here versus versions in `pyproject.toml`/`syncopy.yml` in the root of the Syncopy GitHub repo (they need not be 100% identical, but having to old versions in there may lead to security risks or unexpected behaviour with older/buggy package versions).
    - Fill out the `PR` check list
