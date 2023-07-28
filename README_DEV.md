@@ -13,10 +13,10 @@ At github:
 * After last commit on github, log into the local ESI GitLab installation from within ESI and wait for the sync from Github to happen. The CI pipeline should start all runnners:
   - stage 1: single machine for all architectures like intelllinux, intelwin, macos
   - stage 2: slurm / HPC runners
-* Check + fix all failures. Note that the pipeline on the interal Gitlab differs from the CI run on Github in several ways:
+* Check + fix all failures. Note that the pipeline on the internal Gitlab differs from the CI run on Github in several ways:
   - parallel tests are run
   - platforms other than linux x64 are used
-  - the ESI filesystem/cluster is available, so tests that require local test data from cluster or the cluster itself are run
+  - the ESI filesystem/cluster is available, so tests that require large local test data from the cluster's filesystem are run.
 * Once tests are all green, in the gitlab "pipeline" tab, of the completed pipeline, there is a manual stage 3 'upload' entry named 'pypitest'. Click it to run the pypitest test deployment.
 * If it succeeded: in the gitlab "pipeline" tab, of the completed pipeline, there is a manual stage 4 'deploy' entry named 'pypideploy'. Click it to run the final deployment to pypi.
 
