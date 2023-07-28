@@ -27,7 +27,7 @@ This concludes the release to PyPI.
 Note: You need to release to PyPI first to start the conda release.
 
 * Go to https://github.com/esi-neuroscience/esi-syncopy-feedstock and there in `recipe/meta.yaml`, check:
-   - Update the version of the Syncopy package
+   - Update the version of the Syncopy package and use the file hash of the release on PyPI you did earlier (you can see the hash [here on PyPI](https://pypi.org/project/esi-syncopy/#files))
    - Check versions of packages in `meta.yml` here versus versions in `pyproject.toml`/`syncopy.yml` in the root of the Syncopy GitHub repo (they need not be 100% identical, but having to old versions in there may lead to security risks or unexpected behaviour with older/buggy package versions).
    - Fill out the `PR` check list
    - If the conditions listed in section [When to Rerender](https://conda-forge.org/docs/maintainer/updating_pkgs.html#when-to-rerender) in the conda documentation apply to the current change/release: request `@conda-forge-admin please rerender` via comment on GitHub. Important: this may require you to fork the feedstock repo to your private github account first and do it from there, because of github permission errors with organizations.
