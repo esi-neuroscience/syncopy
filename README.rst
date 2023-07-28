@@ -5,13 +5,15 @@ Systems Neuroscience Computing in Python
 ========================================
 
 
-|Conda Version| |PyPi Version| |License|
+|Conda Version| |PyPi Version| |License| |DOI|
 
 .. |Conda Version| image:: https://img.shields.io/conda/vn/conda-forge/esi-syncopy.svg
    :target: https://anaconda.org/conda-forge/esi-syncopy
 .. |PyPI version| image:: https://badge.fury.io/py/esi-syncopy.svg
    :target: https://badge.fury.io/py/esi-syncopy
 .. |License| image:: https://img.shields.io/github/license/esi-neuroscience/syncopy
+.. |DOI| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8191941.svg
+   :target: https://doi.org/10.5281/zenodo.8191941
 
 |Master Tests| |Master Coverage|
 
