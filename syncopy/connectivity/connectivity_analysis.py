@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Syncopy connectivity analysis methods
+# Syncopy connectivity analysis frontend
 #
 
 # Builtin/3rd party package imports
@@ -55,6 +55,7 @@ def connectivityanalysis(
     foi=None,
     foilim=None,
     pad="maxperlen",
+    channelcmb=None,
     polyremoval=0,
     tapsmofrq=None,
     nTaper=None,
@@ -184,6 +185,10 @@ def connectivityanalysis(
         only if the longest trial contains at maximum 2000 samples and the
         samplerate is 1kHz. If ``pad`` is ``'nextpow2'`` all trials are padded to the
         nearest power of two (in samples) of the longest trial.
+    channelcmb : [sender, receiver], list of array like
+        Two sequences ``sender`` and ``receiver`` encoding channel names or indices,
+        Connectivity measure gets computed only for those sender x receiver channel
+        combinations.
     tapsmofrq : float or None
         Only valid if ``method`` is ``'coh'`` or ``'granger'``.
         Enables multi-tapering and sets the amount of spectral
@@ -287,7 +292,7 @@ def connectivityanalysis(
 
     # output settings are only relevant for coherence
     if method != "coh" and output != defaults["output"]:
-        msg = f"Setting `output` for method {method} has not effect!"
+        msg = f"Setting `output` for method {method} has no effect!"
         SPYWarning(msg)
 
     # if a subset selection is present
@@ -298,6 +303,34 @@ def connectivityanalysis(
     else:
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
+    chan_avail = data.channel
+
+    # check channel combinations
+    if channelcmb is not None:
+        if not isinstance(channelcmb, list):
+            raise SPYTypeError(channelcmb, "channelcmb", expected="list")
+        if len(channelcmb) != 2:
+            lgl = "list with exactly two elements: [sender, receiver]"
+            raise SPYValueError(legal=lgl, varname="channelcmb",
+                                actual=f"length of {len(channelcmb)}")
+        # can't have channel selection AND channelcmb parameter set at the same time
+        if data.selection is not None and data.selection.channel is not None:
+            raise SPYValueError("either channel selection or use channelcmb", "select/channelcmb", "both")
+
+        sender, receiver = channelcmb
+
+        # check that channels ara available
+        for chan in sender:
+            if chan not in chan_avail:
+                lgl = "Names of existing channels"
+                act = chan
+                raise SPYValueError(lgl, "channelcmb", act)
+
+        for chan in receiver:
+            if chan not in chan_avail:
+                lgl = "Names of existing channels"
+                act = chan
+                raise SPYValueError(lgl, "channelcmb", act)
 
     # check padding
 
@@ -414,9 +447,31 @@ def connectivityanalysis(
                 lcls,
                 besides=("jackknife"),
             )
-            # there are no free parameters here,
-            # everything had to be setup during freqanalysis!
-            st_compRoutine = SpectralDyadicProduct()
+
+            # sanity checks done above
+            if channelcmb is not None:
+                sender, receiver = channelcmb
+
+                # save current selection
+
+                # get the indices/slice of the selected sender channels
+                data.selectdata(channel=sender, inplace=True)
+                send_idx = data.selection.channel
+                send_N = len(data.channel[send_idx])
+
+                # get the indices/slice of the selected receiver channels
+                data.selectdata(channel=receiver, inplace=True)
+                rec_idx = data.selection.channel
+                rec_N = len(data.channel[rec_idx])
+
+                data.selection = None
+                st_compRoutine = SpectralDyadicProduct(send_idx=send_idx, send_N=send_N,
+                                                       rec_idx=rec_idx, rec_N=rec_N)
+            else:
+                # there are no free parameters here,
+                # everything had to be setup during freqanalysis!                
+                st_compRoutine = SpectralDyadicProduct()
+
             st_dimord = SpectralDyadicProduct.dimord
 
     # --- Set up of computation of single trial cross quantities is complete ---

@@ -27,7 +27,13 @@ from syncopy.shared.kwarg_decorators import process_io
 
 
 @process_io
-def spectral_dyadic_product_cF(specs, chunkShape=None, noCompute=False):
+def spectral_dyadic_product_cF(specs,
+                               send_idx=None,
+                               send_N=None,
+                               rec_idx=None,
+                               rec_N=None,
+                               chunkShape=None,
+                               noCompute=False):
     """
     Single trial cross spectra directly from complex power spectra,
     hence no Fourier transforms are needed and all what is
@@ -70,21 +76,45 @@ def spectral_dyadic_product_cF(specs, chunkShape=None, noCompute=False):
 
     """
 
+    print(send_idx, send_N)
+    print(rec_idx, rec_N)
+
     # default dimord for SpectralData is ['time', 'taper', 'freq', 'channel']
     nTime = specs.shape[0]
     nFreq = specs.shape[2]
-    nChannels = specs.shape[3]
 
-    # we always average over tapers here
-    outShape = (nTime, nFreq, nChannels, nChannels)
+    # subset of channel combinations?
+    if send_idx is not None:
+        nChannels1 = send_N
+        nChannels2 = rec_N
 
-    # cross spectra are complex, input gets checked in frontend!
-    if noCompute:
-        return outShape, spectralDTypes["fourier"]
+        # we always average over tapers here
+        outShape = (nTime, nFreq, nChannels1, nChannels2)
 
-    # dyadic product along channel axes
-    # result has shape (nTime, nTapers x nFreq x nChannels x nChannels)
-    CS_ij = specs[..., np.newaxis] * specs[..., np.newaxis, :].conj()
+        # cross spectra are complex, input gets checked in frontend!
+        if noCompute:
+            return outShape, spectralDTypes["fourier"]
+
+        # dyadic product along channel axes
+        # result has shape (nTime, nTapers x nFreq x nChannels x nChannels)
+        CS_ij = specs[..., send_idx, np.newaxis] * specs[..., np.newaxis, rec_idx].conj()
+        print(CS_ij.shape, rec_idx, specs.shape)
+        print(specs[..., send_idx, np.newaxis].shape, specs[..., np.newaxis, rec_idx].shape)
+
+    # all channel comb, full dyadic channel product
+    else:
+        nChannels = specs.shape[3]
+
+        # we always average over tapers here
+        outShape = (nTime, nFreq, nChannels, nChannels)
+
+        # cross spectra are complex, input gets checked in frontend!
+        if noCompute:
+            return outShape, spectralDTypes["fourier"]
+
+        # dyadic product along channel axes
+        # result has shape (nTime, nTapers x nFreq x nChannels x nChannels)
+        CS_ij = specs[..., np.newaxis] * specs[..., np.newaxis, :].conj()
 
     # now average tapers
     # result has shape (nTime x nFreq x nChannels x nChannels)

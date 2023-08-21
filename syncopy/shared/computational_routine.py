@@ -1190,8 +1190,8 @@ def propagate_properties(in_data, out_data, keeptrials=True, time_axis=False):
     # from one channel to cross-channel data
     elif (is_Analog(in_data) or is_Spectral(in_data)) and is_CrossSpectral(out_data):
         chanSec = in_data.selection.channel
-        out_data.channel_i = np.array(in_data.channel[chanSec])
-        out_data.channel_j = np.array(in_data.channel[chanSec])
+        # out_data.channel_i = np.array(in_data.channel[chanSec])
+        # out_data.channel_j = np.array(in_data.channel[chanSec])
 
     # --- time and trialdefinition ---
 
