@@ -385,7 +385,7 @@ def connectivityanalysis(
         st_dimord = CrossCovariance.dimord
 
     # all these methods need the single trial cross spectra
-    # we just have to sort out if we need an mtmfft first
+    # we just have to sort out if we need an mtmfft first (for AnalogData input)
     elif method in ["csd", "coh", "ppc", "granger"]:
         nTrials = len(data.trials)
         if nTrials == 1:
@@ -405,7 +405,7 @@ def connectivityanalysis(
             # the actual number of samples in case of later padding
             nSamples = process_padding(pad, lenTrials, data.samplerate)
 
-            check_effective_parameters(CrossSpectra, defaults, lcls, besides=("jackknife",))
+            check_effective_parameters(CrossSpectra, defaults, lcls, besides=("jackknife", "channelcmb"))
 
             st_compRoutine, st_dimord = cross_spectra(
                 data,
@@ -445,11 +445,12 @@ def connectivityanalysis(
                 SpectralDyadicProduct,
                 defaults,
                 lcls,
-                besides=("jackknife"),
+                besides=("jackknife", "channelcmb"),
             )
 
-            # sanity checks done above
-            if channelcmb is not None:
+            # sanity checks for channelcmb done above, truly rectangular matrix
+            # operations only meaningful for PPC or single trial cross-spectra
+            if channelcmb is not None and method in ['ppc', 'csd']:
                 sender, receiver = channelcmb
 
                 # save current selection
@@ -634,6 +635,12 @@ def connectivityanalysis(
             out.jack_var = out._jack_var
             out.jack_bias = out._jack_bias
 
+        # now post-select specific channel combinations
+        if channelcmb is not None:
+            sender, receiver = channelcmb
+            out = out.selectdata(channel_i=sender)
+            out = out.selectdata(channel_j=receiver)
+
     # attach potential older cfg's from the input
     # to support chained frontend calls..
     out.cfg.update(data.cfg)
@@ -659,7 +666,7 @@ def cross_spectra(
     timeAxis,
 ):
     """
-    Sets up the CR to compute the single trial cross-spectra from AnalogData
+    Helper to set up the CR to compute the single trial cross-spectra from AnalogData
     """
 
     # --- Basic foi sanitization ---

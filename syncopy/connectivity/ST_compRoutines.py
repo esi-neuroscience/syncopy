@@ -95,7 +95,7 @@ def spectral_dyadic_product_cF(specs,
         if noCompute:
             return outShape, spectralDTypes["fourier"]
 
-        # dyadic product along channel axes
+        # dyadic product along sender/receiver channel axes
         # result has shape (nTime, nTapers x nFreq x nChannels x nChannels)
         CS_ij = specs[..., send_idx, np.newaxis] * specs[..., np.newaxis, rec_idx].conj()
         print(CS_ij.shape, rec_idx, specs.shape)
@@ -153,6 +153,10 @@ class SpectralDyadicProduct(ComputationalRoutine):
 
         time_axis = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
         propagate_properties(data, out, self.keeptrials, time_axis)
+        # digest `channelcmb` parameter, conflicting channel selection got ruled out!
+        if 'send_idx' in self.cfg:
+            out.channel_i = data.channel[self.cfg['send_idx']]
+            out.channel_j = data.channel[self.cfg['rec_idx']]
         out.freq = data.freq
 
 
