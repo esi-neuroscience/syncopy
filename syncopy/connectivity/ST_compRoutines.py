@@ -154,7 +154,7 @@ class SpectralDyadicProduct(ComputationalRoutine):
         time_axis = np.any(np.diff(data.trialdefinition)[:, 0] != 1)
         propagate_properties(data, out, self.keeptrials, time_axis)
         # digest `channelcmb` parameter, conflicting channel selection got ruled out!
-        if 'send_idx' in self.cfg:
+        if self.cfg['send_idx'] is not None:
             out.channel_i = data.channel[self.cfg['send_idx']]
             out.channel_j = data.channel[self.cfg['rec_idx']]
         out.freq = data.freq

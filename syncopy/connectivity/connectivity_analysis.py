@@ -186,9 +186,9 @@ def connectivityanalysis(
         samplerate is 1kHz. If ``pad`` is ``'nextpow2'`` all trials are padded to the
         nearest power of two (in samples) of the longest trial.
     channelcmb : [sender, receiver], list of array like
-        Two sequences ``sender`` and ``receiver`` encoding channel names or indices,
-        Connectivity measure gets computed only for those sender x receiver channel
-        combinations.
+        Two sequences of strings ``sender`` and ``receiver`` encoding channel names,
+        Connectivity measure gets computed only for those (sender x receiver) channel
+        combinations. Needs channel names as strings, indices (numbers) won't work.
     tapsmofrq : float or None
         Only valid if ``method`` is ``'coh'`` or ``'granger'``.
         Enables multi-tapering and sets the amount of spectral
@@ -617,17 +617,26 @@ def connectivityanalysis(
         # add log from last PPC CR call
         out.log = trl_pairs._log
 
-    # -----------------------------------------------
-    # ComputationalRoutine for the averaged ST output
-    # -----------------------------------------------
+    # --------------------------------------------------------
+    # ComputationalRoutines operating on the averaged ST output
+    # --------------------------------------------------------
 
     else:
-        print('sdfsdffffffffffffff')
         out = CrossSpectralData(dimord=st_dimord)
-        # now take the trial average from the single trial CR as input
-        av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
-        av_compRoutine.pre_check()  # make sure we got a trial_average
-        av_compRoutine.compute(st_out, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
+
+        # full quadratic CSD
+        if method == 'coh' or channelcmb is None:
+            # now take the trial average from the single trial CR as input
+            av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
+            av_compRoutine.pre_check()  # make sure we got a trial_average
+            av_compRoutine.compute(st_out, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
+
+        # loop over the pairs
+        elif channelcmb is not None and method == 'granger':
+            sender, receiver = channelcmb
+            for ch1 in sender:
+                for ch2 in receiver:
+                    pass
 
         # `out` is the direct estimate
         if jackknife:
@@ -657,7 +666,6 @@ def connectivityanalysis(
         # now post-select specific channel combinations
         if channelcmb is not None:
             sender, receiver = channelcmb
-            print(sender, '\n', receiver)
             out = out.selectdata(channel_i=sender)
             out = out.selectdata(channel_j=receiver)
 
