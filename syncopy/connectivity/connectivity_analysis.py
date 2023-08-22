@@ -305,21 +305,27 @@ def connectivityanalysis(
     lenTrials = np.diff(sinfo).squeeze()
     chan_avail = data.channel
 
-    # check channel combinations
+    # validate channel combinations parameter
     if channelcmb is not None:
+
+        if not isinstance(data, SpectralData):
+            expected = "SpectralData, `channelcmb` not supported for other data types, "
+            raise SPYTypeError(data, "data", expected=expected)
+
         if not isinstance(channelcmb, list):
             raise SPYTypeError(channelcmb, "channelcmb", expected="list")
         if len(channelcmb) != 2:
             lgl = "list with exactly two elements: [sender, receiver]"
             raise SPYValueError(legal=lgl, varname="channelcmb",
                                 actual=f"length of {len(channelcmb)}")
+
         # can't have channel selection AND channelcmb parameter set at the same time
         if data.selection is not None and data.selection.channel is not None:
             raise SPYValueError("either channel selection or use channelcmb", "select/channelcmb", "both")
 
         sender, receiver = channelcmb
 
-        # check that channels ara available
+        # check that channels are available
         for chan in sender:
             if chan not in chan_avail:
                 lgl = "Names of existing channels"
@@ -350,6 +356,7 @@ def connectivityanalysis(
         "keeptrials": keeptrials,
         "polyremoval": polyremoval,
         "pad": pad,
+        "channelcmb": channelcmb
     }
 
     # --- method specific processing ---
@@ -454,8 +461,13 @@ def connectivityanalysis(
                 sender, receiver = channelcmb
 
                 # save current selection
+                if data.selection is not None:
+                    select_backup = data.selection.select
+                else:
+                    select_backup = None
 
                 # get the indices/slice of the selected sender channels
+                # by using temporary inplace selections
                 data.selectdata(channel=sender, inplace=True)
                 send_idx = data.selection.channel
                 send_N = len(data.channel[send_idx])
@@ -465,7 +477,12 @@ def connectivityanalysis(
                 rec_idx = data.selection.channel
                 rec_N = len(data.channel[rec_idx])
 
-                data.selection = None
+                # revert to initial selection if any
+                if select_backup:
+                    data.selectdata(select_backup, inplace=True)
+                else:
+                    data.selection = None
+
                 st_compRoutine = SpectralDyadicProduct(send_idx=send_idx, send_N=send_N,
                                                        rec_idx=rec_idx, rec_N=rec_N)
             else:
@@ -510,6 +527,7 @@ def connectivityanalysis(
         # after trial averaging
         # hardcoded numerical parameters
         av_compRoutine = GrangerCausality(rtol=5e-6, nIter=100, cond_max=1e4)
+
     # here the single trial spectra are the final result
     elif method == "csd":
         av_compRoutine = None
@@ -604,6 +622,7 @@ def connectivityanalysis(
     # -----------------------------------------------
 
     else:
+        print('sdfsdffffffffffffff')
         out = CrossSpectralData(dimord=st_dimord)
         # now take the trial average from the single trial CR as input
         av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
@@ -638,6 +657,7 @@ def connectivityanalysis(
         # now post-select specific channel combinations
         if channelcmb is not None:
             sender, receiver = channelcmb
+            print(sender, '\n', receiver)
             out = out.selectdata(channel_i=sender)
             out = out.selectdata(channel_j=receiver)
 
