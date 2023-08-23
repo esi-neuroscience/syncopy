@@ -735,17 +735,6 @@ class Selector:
                         if steps.min() == steps.max() == 1:
                             idxList = slice(idxList[0], idxList[-1] + 1, 1)
 
-                    # be careful w/pairwise list-channel selections in `CrossSpectralData` objects
-                    # (that could not be converted to slices above)
-                    if isinstance(idxList, list) and selectkey in [
-                        "channel_i",
-                        "channel_j",
-                    ]:
-                        if len(idxList) > 1:
-                            err = "Unordered (low to high) or non-contiguous multi-channel-pair selections not supported"
-                            raise NotImplementedError(err)
-                        idxList = idxList[0]
-
                     setattr(self, selector, idxList)
 
         else:
