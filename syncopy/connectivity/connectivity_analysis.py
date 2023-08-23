@@ -5,6 +5,7 @@
 
 # Builtin/3rd party package imports
 import numpy as np
+import h5py
 
 # Syncopy imports
 import syncopy as spy
@@ -165,7 +166,7 @@ def connectivityanalysis(
         , ``'complex'`` for the complex valued coherency or ``'angle'``, ``'imag'`` or ``'real'``
         to extract the phase difference, imaginary or real part of the coherency respectively.
     keeptrials : bool
-        Relevant for cross-correlations (``method='corr'``) and cross spectra (``method='csd'``).
+        Relevant only for cross-correlations (``method='corr'``) and cross spectra (``method='csd'``).
         If `True` single-trial cross-correlations/cross-spectra are returned.
     foi : array-like or None
         Frequencies of interest (Hz) for output. If desired frequencies cannot be
@@ -185,11 +186,11 @@ def connectivityanalysis(
         only if the longest trial contains at maximum 2000 samples and the
         samplerate is 1kHz. If ``pad`` is ``'nextpow2'`` all trials are padded to the
         nearest power of two (in samples) of the longest trial.
-    channelcmb : [sender, receiver], list of array like, optional
-        Two sequences of strings ``sender`` and ``receiver`` encoding channel names.
-        such that connectivity measure gets computed only for those (sender x receiver)
-        channel combinations. Needs explicit channel names as strings,
-        and :class:`~syncopy.SpectralData` as input.
+    channelcmb : [senders, receivers], list of array like, optional
+        Two sequences ``senders`` and ``receivers`` encoding channel names or indices.
+        such that connectivity measure gets computed only for those (senders x receivers)
+        channel combinations. Only supported for spectral measures `'coh', 'ppc', 'granger'`
+        and requires :class:`~syncopy.SpectralData` as input data type.
     tapsmofrq : float or None
         Only valid if ``method`` is ``'coh'`` or ``'granger'``.
         Enables multi-tapering and sets the amount of spectral
@@ -302,6 +303,7 @@ def connectivityanalysis(
     else:
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
+    nTrials = len(sinfo)
 
     # validate channel combinations parameter
     if channelcmb is not None:
@@ -314,42 +316,41 @@ def connectivityanalysis(
             raise SPYTypeError(channelcmb, "channelcmb", expected="list")
 
         if len(channelcmb) != 2:
-            lgl = "list with exactly two elements: [sender, receiver]"
+            lgl = "list with exactly two elements: [senders, receivers]"
             raise SPYValueError(legal=lgl, varname="channelcmb",
                                 actual=f"length of {len(channelcmb)}")
 
         # can't have channel selection AND channelcmb parameter set at the same time
-        if data.selection is not None and data.selection.channel is not None:
+        if data.selection is not None and data.selection.channel != slice(None, None, 1):
             raise SPYValueError("either channel selection or use channelcmb", "select/channelcmb", "both")
 
-        sender, receiver = channelcmb
+        senders, receivers = channelcmb
 
         # make sure we have an iterable of consistent type
-        sequence_parser(sender, varname="channelcmb[sender,")
-        if not isinstance(sender[0], (str, int)):
-            raise SPYTypeError(sender[0], "channelcmb[sender,", "either `int` or `str`")
+        sequence_parser(senders, varname="channelcmb[senders,")
+        if not isinstance(senders[0], (str, int)):
+            raise SPYTypeError(senders[0], "channelcmb[senders,", "either `int` or `str`")
 
         # fix type, either channel name (str) or index (int)
-        cmb_type = type(sender[0])
+        cmb_type = type(senders[0])
         chan_avail = data.channel if cmb_type == 'str' else range(len(data.channel))
 
-        
         # repeat now with type check
-        sequence_parser(sender, varname="channelcmb[sender,", content_type=cmb_type)
-        # check also receiver
-        sequence_parser(receiver, varname="channelcmb[,receiver]", content_type=cmb_type)
+        sequence_parser(senders, varname="channelcmb[senders,", content_type=cmb_type)
+        # check also receivers
+        sequence_parser(receivers, varname="channelcmb[,receivers]", content_type=cmb_type)
 
 
         # check that channels are available
-        for chan in sender:
+        for chan in senders:
             if chan not in chan_avail:
-                lgl = "Names or indices of existing channels"
+                lgl = "names or indices of existing channels"
                 act = chan
                 raise SPYValueError(lgl, "channelcmb", act)
 
-        for chan in receiver:
+        for chan in receivers:
             if chan not in chan_avail:
-                lgl = "Names or indices of existing channels"
+                lgl = "names or indices of existing channels"
                 act = chan
                 raise SPYValueError(lgl, "channelcmb", act)
 
@@ -411,7 +412,6 @@ def connectivityanalysis(
     # all these methods need the single trial cross spectra
     # we just have to sort out if we need an mtmfft first (for AnalogData input)
     elif method in ["csd", "coh", "ppc", "granger"]:
-        nTrials = len(data.trials)
         if nTrials == 1:
             lgl = (
                 "multi-trial input data, spectral connectivity measures critically depend on trial averaging!"
@@ -474,10 +474,10 @@ def connectivityanalysis(
 
             # -- channelcmb, sanity checks for channelcmb done above! --
 
-            # truly rectangular matrix operations (len(sender) ~= len(receiver))
+            # truly rectangular matrix operations (len(senders) ~= len(receivers))
             # only meaningful for PPC and single trial cross-spectra
             if channelcmb is not None and method in ['ppc', 'csd']:
-                sender, receiver = channelcmb
+                senders, receivers = channelcmb
 
                 # save current selection
                 if data.selection is not None:
@@ -485,14 +485,14 @@ def connectivityanalysis(
                 else:
                     select_backup = None
 
-                # get the indices/slice of the selected sender channels
+                # get the indices/slice of the selected senders channels
                 # by using temporary inplace selections
-                data.selectdata(channel=sender, inplace=True)
+                data.selectdata(channel=senders, inplace=True)
                 send_idx = data.selection.channel
                 send_N = len(data.channel[send_idx])
 
                 # get the indices/slice of the selected receiver channels
-                data.selectdata(channel=receiver, inplace=True)
+                data.selectdata(channel=receivers, inplace=True)
                 rec_idx = data.selection.channel
                 rec_N = len(data.channel[rec_idx])
 
@@ -528,7 +528,7 @@ def connectivityanalysis(
         if isinstance(data, AnalogData):
             besides = ["taper", "tapsmofrq", "nTaper"]
         else:
-            besides = None
+            besides = ['channelcmb']
         check_effective_parameters(PPC_column, defaults, lcls, besides=besides)
 
         # this needs to be treated differently, as we need repeated
@@ -540,6 +540,8 @@ def connectivityanalysis(
         # spectral analysis only possible with AnalogData
         if isinstance(data, AnalogData):
             besides += ["taper", "tapsmofrq", "nTaper"]
+        else:
+            besides += ["channelcmb"]
 
         check_effective_parameters(GrangerCausality, defaults, lcls, besides=besides)
 
@@ -577,6 +579,10 @@ def connectivityanalysis(
         # compute all the leave-one-out (loo) trial average replicates
         replicates_avg = jk.trial_avg_replicates(jack_in)
 
+    # ------------------------
+    # evaluate av_compRoutine
+    # ------------------------
+
     # for single trial cross-corr/cross spectra results
     # keeptrials can be True and hence we are done here
     if av_compRoutine is None:
@@ -584,9 +590,7 @@ def connectivityanalysis(
         st_out.cfg.update({"connectivityanalysis": new_cfg})
         return st_out
 
-    # ---------------
-    # PPC computation
-    # ---------------
+    # -- PPC computation --
 
     # set up nTrials(nTrials-1) pair computations
     # which need an outer loop over nTrials as a single CR
@@ -636,9 +640,7 @@ def connectivityanalysis(
         # add log from last PPC CR call
         out.log = trl_pairs._log
 
-    # --------------------------------------------------------
-    # ComputationalRoutines operating on the averaged ST output
-    # --------------------------------------------------------
+    # -- Coherence and Granger --
 
     else:
         out = CrossSpectralData(dimord=st_dimord)
@@ -650,12 +652,47 @@ def connectivityanalysis(
             av_compRoutine.pre_check()  # make sure we got a trial_average
             av_compRoutine.compute(st_out, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
-        # loop over the pairs
+        # loop over the pairs and write in CR external hdf5 to
+        # collect results of individual computes
         elif channelcmb is not None and method == 'granger':
-            sender, receiver = channelcmb
-            for ch1 in sender:
-                for ch2 in receiver:
-                    pass
+            senders, receivers = channelcmb
+
+            # create new filename
+            fname = spy.CrossSpectralData().filename
+            with h5py.File(fname, "w") as h5file:
+
+                shape = (1, len(st_out.freq), len(senders), len(receivers))
+                dset = h5file.create_dataset("data",
+                                             dtype=np.float32,
+                                             shape=shape)
+
+            # compute granger in pairs
+            for idx1, ch1 in enumerate(senders):
+                for idx2, ch2 in enumerate(receivers):
+                    st_out.selectdata(channel_i=[ch1, ch2], channel_j=[ch1, ch2], inplace=True)
+
+                    # single pair result
+                    pair_out = spy.CrossSpectralData(dimord=st_dimord)
+                    av_compRoutine.initialize(st_out, pair_out._stackingDim, chan_per_worker=None)
+                    av_compRoutine.pre_check()  # make sure we got a trial_average
+                    av_compRoutine.compute(st_out, pair_out, parallel=kwargs.get("parallel"), log_dict=log_dict)
+
+                    # write result, idx1/idx2 directly encode positions in result matrix
+                    with h5py.File(fname, "r+") as h5file:
+                        dset = h5file['data']
+
+                        print(idx1, idx2)                        
+                        print(pair_out.data.shape)
+                        # direction ch1 -> ch2
+                        dset[0, :, idx1, idx2] = pair_out.data[0, :, 0, 1]
+                        # direction ch2 -> ch1
+                        dset[0, :, idx2, idx1] = pair_out.data[0, :, 1, 0]
+
+            # finally attach result matrix to result object
+            with h5py.File(fname, "r") as h5file:
+                dset = h5file['data']
+                out.data = dset
+            out._reopen()
 
         # `out` is the direct estimate
         if jackknife:
@@ -684,9 +721,9 @@ def connectivityanalysis(
 
         # now post-select specific channel combinations
         if channelcmb is not None:
-            sender, receiver = channelcmb
-            out = out.selectdata(channel_i=sender)
-            out = out.selectdata(channel_j=receiver)
+            senders, receivers = channelcmb
+            out = out.selectdata(channel_i=senders)
+            out = out.selectdata(channel_j=receivers)
 
     # attach potential older cfg's from the input
     # to support chained frontend calls..
