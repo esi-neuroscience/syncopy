@@ -735,6 +735,15 @@ class Selector:
                         if steps.min() == steps.max() == 1:
                             idxList = slice(idxList[0], idxList[-1] + 1, 1)
 
+                    if isinstance(idxList, list) and selectkey in [
+                            "channel_i",
+                            "channel_j"]:
+
+                        # why only for CrossSpectralData a 1-element
+                        # selection index list gets reduced to an int?!
+                        if len(idxList) == 1:
+                            idxList = idxList[0]
+
                     setattr(self, selector, idxList)
 
         else:

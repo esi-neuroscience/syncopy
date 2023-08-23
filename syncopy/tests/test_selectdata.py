@@ -367,11 +367,11 @@ class TestCrossSpectralSelections:
         # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
         valid_selections = [
             (
-                {"channel_i": [0, 1], "channel_j": [1, 2], "latency": [1, 2]},
+                {"channel_i": [0, 1], "channel_j": [0, 2], "latency": [1, 2]},
                 # the 'solutions'
                 {
                     "channel_i": slice(0, 2, 1),
-                    "channel_j": slice(1, 3, 1),
+                    "channel_j": [0, 2],
                     "latency": 3 * [slice(0, 3, 1)],
                 },
             ),
@@ -400,19 +400,9 @@ class TestCrossSpectralSelections:
         # each selection test is a 3-tuple: (selection kwargs, Error, error message sub-string)
         invalid_selections = [
             (
-                {"channel_i": [0, 2]},
-                NotImplementedError,
-                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported",
-            ),
-            (
-                {"channel_i": [1, 0]},
-                NotImplementedError,
-                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported",
-            ),
-            (
-                {"channel_j": ["channel3", "channel1"]},
-                NotImplementedError,
-                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported",
+                {"channel_i": [0, 4]},
+                SPYValueError,
+                r"existing names or indices"
             ),
         ]
 
