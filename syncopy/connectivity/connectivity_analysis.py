@@ -35,13 +35,13 @@ from syncopy.shared.errors import SPYValueError, SPYWarning, SPYInfo, SPYTypeErr
 
 from syncopy.datatype import CrossSpectralData, AnalogData, SpectralData
 from syncopy.shared.tools import get_defaults, best_match, get_frontend_cfg
-from syncopy.shared.parsers import data_parser, scalar_parser
+from syncopy.shared.parsers import data_parser, scalar_parser, sequence_parser
 from syncopy.shared.computational_routine import propagate_properties
 from syncopy.statistics import jackknifing as jk
 from syncopy.statistics import summary_stats as st
 
 availableMethods = ("coh", "corr", "granger", "csd", "ppc")
-connectivity_outputs = {"abs", "pow", "complex", "fourier", "angle", "real", "imag"}
+connectivity_outputs = ("abs", "pow", "complex", "fourier", "angle", "real", "imag")
 
 
 @unwrap_cfg
@@ -185,10 +185,11 @@ def connectivityanalysis(
         only if the longest trial contains at maximum 2000 samples and the
         samplerate is 1kHz. If ``pad`` is ``'nextpow2'`` all trials are padded to the
         nearest power of two (in samples) of the longest trial.
-    channelcmb : [sender, receiver], list of array like
-        Two sequences of strings ``sender`` and ``receiver`` encoding channel names,
-        Connectivity measure gets computed only for those (sender x receiver) channel
-        combinations. Needs channel names as strings, indices (numbers) won't work.
+    channelcmb : [sender, receiver], list of array like, optional
+        Two sequences of strings ``sender`` and ``receiver`` encoding channel names.
+        such that connectivity measure gets computed only for those (sender x receiver)
+        channel combinations. Needs explicit channel names as strings,
+        and :class:`~syncopy.SpectralData` as input.
     tapsmofrq : float or None
         Only valid if ``method`` is ``'coh'`` or ``'granger'``.
         Enables multi-tapering and sets the amount of spectral
@@ -271,8 +272,6 @@ def connectivityanalysis(
     # check for ineffective additional kwargs
     check_passed_kwargs(lcls, defaults, frontend_name="connectivity")
 
-    new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
-
     # Ensure a valid computational method was selected
     if method not in availableMethods:
         lgl = "'" + "or '".join(opt + "' " for opt in availableMethods)
@@ -303,7 +302,6 @@ def connectivityanalysis(
     else:
         sinfo = data.sampleinfo
     lenTrials = np.diff(sinfo).squeeze()
-    chan_avail = data.channel
 
     # validate channel combinations parameter
     if channelcmb is not None:
@@ -314,6 +312,7 @@ def connectivityanalysis(
 
         if not isinstance(channelcmb, list):
             raise SPYTypeError(channelcmb, "channelcmb", expected="list")
+
         if len(channelcmb) != 2:
             lgl = "list with exactly two elements: [sender, receiver]"
             raise SPYValueError(legal=lgl, varname="channelcmb",
@@ -325,16 +324,32 @@ def connectivityanalysis(
 
         sender, receiver = channelcmb
 
+        # make sure we have an iterable of consistent type
+        sequence_parser(sender, varname="channelcmb[sender,")
+        if not isinstance(sender[0], (str, int)):
+            raise SPYTypeError(sender[0], "channelcmb[sender,", "either `int` or `str`")
+
+        # fix type, either channel name (str) or index (int)
+        cmb_type = type(sender[0])
+        chan_avail = data.channel if cmb_type == 'str' else range(len(data.channel))
+
+        
+        # repeat now with type check
+        sequence_parser(sender, varname="channelcmb[sender,", content_type=cmb_type)
+        # check also receiver
+        sequence_parser(receiver, varname="channelcmb[,receiver]", content_type=cmb_type)
+
+
         # check that channels are available
         for chan in sender:
             if chan not in chan_avail:
-                lgl = "Names of existing channels"
+                lgl = "Names or indices of existing channels"
                 act = chan
                 raise SPYValueError(lgl, "channelcmb", act)
 
         for chan in receiver:
             if chan not in chan_avail:
-                lgl = "Names of existing channels"
+                lgl = "Names or indices of existing channels"
                 act = chan
                 raise SPYValueError(lgl, "channelcmb", act)
 
@@ -358,6 +373,8 @@ def connectivityanalysis(
         "pad": pad,
         "channelcmb": channelcmb
     }
+
+    new_cfg = get_frontend_cfg(defaults, lcls, kwargs)
 
     # --- method specific processing ---
 
@@ -455,8 +472,10 @@ def connectivityanalysis(
                 besides=("jackknife", "channelcmb"),
             )
 
-            # sanity checks for channelcmb done above, truly rectangular matrix
-            # operations only meaningful for PPC or single trial cross-spectra
+            # -- channelcmb, sanity checks for channelcmb done above! --
+
+            # truly rectangular matrix operations (len(sender) ~= len(receiver))
+            # only meaningful for PPC and single trial cross-spectra
             if channelcmb is not None and method in ['ppc', 'csd']:
                 sender, receiver = channelcmb
 
@@ -487,7 +506,7 @@ def connectivityanalysis(
                                                        rec_idx=rec_idx, rec_N=rec_N)
             else:
                 # there are no free parameters here,
-                # everything had to be setup during freqanalysis!                
+                # everything had to be setup during freqanalysis!
                 st_compRoutine = SpectralDyadicProduct()
 
             st_dimord = SpectralDyadicProduct.dimord

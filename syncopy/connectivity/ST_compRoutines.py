@@ -76,9 +76,6 @@ def spectral_dyadic_product_cF(specs,
 
     """
 
-    print(send_idx, send_N)
-    print(rec_idx, rec_N)
-
     # default dimord for SpectralData is ['time', 'taper', 'freq', 'channel']
     nTime = specs.shape[0]
     nFreq = specs.shape[2]
@@ -98,8 +95,6 @@ def spectral_dyadic_product_cF(specs,
         # dyadic product along sender/receiver channel axes
         # result has shape (nTime, nTapers x nFreq x nChannels x nChannels)
         CS_ij = specs[..., send_idx, np.newaxis] * specs[..., np.newaxis, rec_idx].conj()
-        print(CS_ij.shape, rec_idx, specs.shape)
-        print(specs[..., send_idx, np.newaxis].shape, specs[..., np.newaxis, rec_idx].shape)
 
     # all channel comb, full dyadic channel product
     else:
