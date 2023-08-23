@@ -645,7 +645,7 @@ def connectivityanalysis(
     else:
         out = CrossSpectralData(dimord=st_dimord)
 
-        # full quadratic CSD
+        # full quadratic CSD for coherence in any case
         if method == 'coh' or channelcmb is None:
             # now take the trial average from the single trial CR as input
             av_compRoutine.initialize(st_out, out._stackingDim, chan_per_worker=None)
@@ -653,7 +653,7 @@ def connectivityanalysis(
             av_compRoutine.compute(st_out, out, parallel=kwargs.get("parallel"), log_dict=log_dict)
 
         # loop over the pairs and write in CR external hdf5 to
-        # collect results of individual computes
+        # collect results of individual pair results
         elif channelcmb is not None and method == 'granger':
             senders, receivers = channelcmb
 
@@ -669,6 +669,7 @@ def connectivityanalysis(
             # compute granger in pairs
             for idx1, ch1 in enumerate(senders):
                 for idx2, ch2 in enumerate(receivers):
+                    # 2-channel quadratic csd
                     st_out.selectdata(channel_i=[ch1, ch2], channel_j=[ch1, ch2], inplace=True)
 
                     # single pair result
@@ -681,18 +682,31 @@ def connectivityanalysis(
                     with h5py.File(fname, "r+") as h5file:
                         dset = h5file['data']
 
-                        print(idx1, idx2)                        
-                        print(pair_out.data.shape)
-                        # direction ch1 -> ch2
+                        print(idx1, idx2, ch1, ch2)
+                        print(pair_out.data.shape, dset.shape)
+                        # only direction sender(ch1) -> receiver(ch2)
                         dset[0, :, idx1, idx2] = pair_out.data[0, :, 0, 1]
-                        # direction ch2 -> ch1
-                        dset[0, :, idx2, idx1] = pair_out.data[0, :, 1, 0]
 
             # finally attach result matrix to result object
             with h5py.File(fname, "r") as h5file:
                 dset = h5file['data']
                 out.data = dset
             out._reopen()
+
+            # ..and attach metadata
+            out._log = pair_out._log
+            out.samplerate = st_out.samplerate
+
+            # either str or int
+            if isinstance(senders[0], str):
+                out.channel_i = senders
+                out.channel_j = receivers
+            else:
+                out.channel_i = data.channel[senders]
+                out.channel_j = data.channel[receivers]
+
+            # trivial trialdefinition
+            out.trialdefinition = np.array([[0, 1., 0]])
 
         # `out` is the direct estimate
         if jackknife:
@@ -715,12 +729,11 @@ def connectivityanalysis(
             out._register_dataset("jack_var", inData=variance.data)
             out._register_dataset("jack_bias", inData=bias.data)
 
-            # for now, as we don't have dynamic properties
             out.jack_var = out._jack_var
             out.jack_bias = out._jack_bias
 
-        # now post-select specific channel combinations
-        if channelcmb is not None:
+        # just post-select specific channel combinations for coherence
+        if channelcmb is not None and method == 'coh':
             senders, receivers = channelcmb
             out = out.selectdata(channel_i=senders)
             out = out.selectdata(channel_j=receivers)
