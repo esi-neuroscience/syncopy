@@ -184,7 +184,7 @@ class TestGranger:
     def test_gr_channelcmb(self):
 
         # use str and index
-        ch_cmbs = ([['channel4', 'channel1'], ['channel2', 'channel3']],
+        ch_cmbs = ([['channel4', 'channel1'], ['channel2']],
                    [[3, 0], [1, 2]])
 
         for senders, receivers in ch_cmbs:
@@ -194,8 +194,10 @@ class TestGranger:
             # full dyadic/tensor product
             assert res_all.data.shape[-2:] == (self.nChannels, self.nChannels)
 
-            # test here also channel_i/channel_j selections
+            # post-select all sender, receiver combinations
             res_all_sel = res_all.selectdata(channel_i=senders, channel_j=receivers)
+
+            # test here also channel_i/channel_j selections
             if isinstance(senders[0], int):
                 assert np.allclose(res_all.data[..., senders[0], receivers[0]], res_all_sel.data[..., 0, 0])
                 assert np.allclose(res_all.data[..., senders[0], receivers[1]], res_all_sel.data[..., 0, 1])
@@ -205,15 +207,11 @@ class TestGranger:
             # now use channelcmb
             res_cmb = cafunc(self.spec, method="granger", channelcmb=[senders, receivers])
 
-            # 1st check shape
+            # 1st check shape, can be rectangular
             assert res_cmb.data.shape[-2:] == (len(senders), len(receivers))
 
             assert np.all(res_cmb.channel_i == res_all_sel.channel_i)
             assert np.all(res_cmb.channel_j == res_all_sel.channel_j)
-
-            # now compare with post-selections of full output
-            # there is no strict numerical equality down to machine epsilon,
-            # as pairwise computation has different factorization path (dimensions and condition number..)
 
             fig, ax = ppl.subplots()
 
@@ -224,7 +222,10 @@ class TestGranger:
             ax.set_xlabel('frequency (Hz)')
             ax.legend()
 
-            # equality up to 1%
+            # now compare with post-selections of full output
+            # there is no strict numerical equality down to machine epsilon for GC,
+            # as pairwise computation has different factorization path (dimensions and condition number..)
+            # but equality up to at least 1% for this scenario here
             assert np.allclose(res_all_sel.data[:], res_cmb.data[:], atol=1e-2)
 
     def test_gr_selections(self):
@@ -471,6 +472,45 @@ class TestCoherence:
             if len(kwargs) == 0:
                 res.singlepanelplot(channel_i=0, channel_j=1)
 
+    def test_coh_channelcmb(self):
+
+        # use str and index
+        ch_cmbs = ([['channel1', 'channel4'], ['channel2']],
+                   [[3, 0], [1, 2]])
+
+        for senders, receivers in ch_cmbs:
+
+            # first get the standard solution for all channel pairs
+            res_all = cafunc(self.spec, method="coh")
+            # full dyadic/tensor product
+            assert res_all.data.shape[-2:] == (self.nChannels, self.nChannels)
+
+            # post-select all sender, receiver combinations
+            res_all_sel = res_all.selectdata(channel_i=senders, channel_j=receivers)
+
+            # now use channelcmb
+            res_cmb = cafunc(self.spec, method="coh", channelcmb=[senders, receivers])
+
+            # 1st check shape, can be rectangular
+            assert res_cmb.data.shape[-2:] == (len(senders), len(receivers))
+
+            assert np.all(res_cmb.channel_i == res_all_sel.channel_i)
+            assert np.all(res_cmb.channel_j == res_all_sel.channel_j)
+
+            fig, ax = ppl.subplots()
+
+            ax.plot(res_all.freq, res_all_sel.show(channel_i=0, channel_j=0), label='post-select')
+            ax.plot(res_all.freq, res_cmb.show(channel_i=0, channel_j=0), label='channelcmb')
+
+            ax.set_title("Coherence - post-selection vs. pairwise computation")
+            ax.set_xlabel('frequency (Hz)')
+            ax.legend()
+
+            # now compare with post-selections of full output
+            # here there is strict numerical equality:
+            # shape of csd has no influence on specific channel pair coherence!
+            assert np.allclose(res_all_sel.data[:], res_cmb.data[:], atol=1e-15)
+
     def test_coh_selections(self):
 
         selections = helpers.mk_selection_dicts(self.nTrials, self.nChannels, *self.time_span)
@@ -607,6 +647,36 @@ class TestCSD:
     @skip_low_mem
     def test_csd_parallel(self, testcluster):
         check_parallel(self, testcluster)
+
+    def test_csd_channelcmb(self):
+
+        # use str and index
+        ch_cmbs = ([['channel2', 'channel4'], ['channel4', 'channel1']],
+                   [[1, 2], [0, 3]])
+
+        for senders, receivers in ch_cmbs:
+
+            # first get the standard solution for all channel pairs
+            res_all = cafunc(self.spec, method="csd")
+            # full dyadic/tensor product
+            assert res_all.data.shape[-2:] == (self.nChannels, self.nChannels)
+
+            # post-select all sender, receiver combinations
+            res_all_sel = res_all.selectdata(channel_i=senders, channel_j=receivers)
+
+            # now use channelcmb
+            res_cmb = cafunc(self.spec, method="csd", channelcmb=[senders, receivers])
+
+            # 1st check shape, can be rectangular
+            assert res_cmb.data.shape[-2:] == (len(senders), len(receivers))
+
+            assert np.all(res_cmb.channel_i == res_all_sel.channel_i)
+            assert np.all(res_cmb.channel_j == res_all_sel.channel_j)
+
+            # now compare with post-selections of full output
+            # here there is strict numerical equality:
+            # shape of csd has no influence on specific channel pair csd's!
+            assert np.allclose(res_all_sel.data[:], res_cmb.data[:], atol=1e-15)
 
     def test_csd_input(self):
         assert isinstance(self.spec, SpectralData)
@@ -789,7 +859,7 @@ class TestCorrelation:
 class TestPPC:
 
     nSamples = 1000
-    nChannels = 3
+    nChannels = 4
     nTrials = 20
     fs = 1000
 
@@ -931,6 +1001,45 @@ class TestPPC:
 
             if len(kwargs) == 0:
                 res.singlepanelplot(channel_i=0, channel_j=1)
+
+    def test_ppc_channelcmb(self):
+
+        # use str and index
+        ch_cmbs = ([['channel2', 'channel4'], ['channel4', 'channel1']],
+                   [[1, 2], [0, 3]])
+
+        for senders, receivers in ch_cmbs:
+
+            # first get the standard solution for all channel pairs
+            res_all = cafunc(self.spec, method="ppc")
+            # full dyadic/tensor product
+            assert res_all.data.shape[-2:] == (self.nChannels, self.nChannels)
+
+            # post-select all sender, receiver combinations
+            res_all_sel = res_all.selectdata(channel_i=senders, channel_j=receivers)
+
+            # now use channelcmb
+            res_cmb = cafunc(self.spec, method="ppc", channelcmb=[senders, receivers])
+
+            # 1st check shape, can be rectangular
+            assert res_cmb.data.shape[-2:] == (len(senders), len(receivers))
+
+            assert np.all(res_cmb.channel_i == res_all_sel.channel_i)
+            assert np.all(res_cmb.channel_j == res_all_sel.channel_j)
+
+            # now compare with post-selections of full output
+            # here there is strict numerical equality:
+            # shape of csd has no influence on specific channel pair coherence!
+            fig, ax = ppl.subplots()
+
+            ax.plot(res_all.freq, res_all_sel.show(channel_i=0, channel_j=0), label='post-select')
+            ax.plot(res_all.freq, res_cmb.show(channel_i=0, channel_j=0), label='channelcmb')
+
+            ax.set_title("PPC - post-selection vs. pairwise computation")
+            ax.set_xlabel('frequency (Hz)')
+            ax.legend()
+
+            assert np.allclose(res_all_sel.data[:], res_cmb.data[:], atol=1e-15)
 
     def test_ppc_selections(self):
 
