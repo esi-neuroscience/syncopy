@@ -52,8 +52,8 @@ class TestSpectralInput:
 
     def test_spectral_multitaper(self):
 
-        # default with needed output='fourier' does not work already in freqanalysis
-        # -> taper averaging with keeptapers=False not meaningful with fourier output
+        # taper averaging with the default `keeptapers=False` already not
+        # allowed in freqanalysis with fourier output
         with pytest.raises(SPYValueError) as err:
             spec = spy.freqanalysis(self.ad, tapsmofrq=0.1, output="fourier")
         assert "expected 'pow'|False" in str(err.value)
@@ -166,8 +166,6 @@ class TestGranger:
                 # only plot with defaults
                 if len(kwargs) == 0:
                     Gcaus.singlepanelplot(channel_i=i, channel_j=j)
-                    # plot_Granger(Gcaus, i, j)
-                    # ppl.legend()
 
             # check .info for default test
             if len(kwargs) == 0:
@@ -182,6 +180,52 @@ class TestGranger:
                 assert k in Gcaus.info
             # ... and no unmentioned extra keys should be in there.
             assert len(Gcaus.info) == len(spy.connectivity.AV_compRoutines.GrangerCausality.metadata_keys)
+
+    def test_gr_channelcmb(self):
+
+        # use str and index
+        ch_cmbs = ([['channel4', 'channel1'], ['channel2', 'channel3']],
+                   [[3, 0], [1, 2]])
+
+        for senders, receivers in ch_cmbs:
+
+            # first get the standard solution for all channel pairs
+            res_all = cafunc(self.spec, method="granger")
+            # full dyadic/tensor product
+            assert res_all.data.shape[-2:] == (self.nChannels, self.nChannels)
+
+            # test here also channel_i/channel_j selections
+            res_all_sel = res_all.selectdata(channel_i=senders, channel_j=receivers)
+            if isinstance(senders[0], int):
+                assert np.allclose(res_all.data[..., senders[0], receivers[0]], res_all_sel.data[..., 0, 0])
+                assert np.allclose(res_all.data[..., senders[0], receivers[1]], res_all_sel.data[..., 0, 1])
+                assert np.allclose(res_all.data[..., senders[1], receivers[0]], res_all_sel.data[..., 1, 0])
+                assert np.allclose(res_all.data[..., senders[1], receivers[1]], res_all_sel.data[..., 1, 1])
+
+            # now use channelcmb
+            res_cmb = cafunc(self.spec, method="granger", channelcmb=[senders, receivers])
+
+            # 1st check shape
+            assert res_cmb.data.shape[-2:] == (len(senders), len(receivers))
+
+            assert np.all(res_cmb.channel_i == res_all_sel.channel_i)
+            assert np.all(res_cmb.channel_j == res_all_sel.channel_j)
+
+            # now compare with post-selections of full output
+            # there is no strict numerical equality down to machine epsilon,
+            # as pairwise computation has different factorization path (dimensions and condition number..)
+
+            fig, ax = ppl.subplots()
+
+            ax.plot(res_all.freq, res_all_sel.show(channel_i=0, channel_j=0), label='post-select')
+            ax.plot(res_all.freq, res_cmb.show(channel_i=0, channel_j=0), label='channelcmb/pairs')
+
+            ax.set_title("GC - post-selection vs. pairwise computation")
+            ax.set_xlabel('frequency (Hz)')
+            ax.legend()
+
+            # equality up to 1%
+            assert np.allclose(res_all_sel.data[:], res_cmb.data[:], atol=1e-2)
 
     def test_gr_selections(self):
 
@@ -975,24 +1019,6 @@ def run_cfg_test(method_call, method, cfg, positivity=True):
     assert np.all(np.isfinite(result.data))
     if positivity:
         assert np.all(result.data[0, ...] >= -1e-10)
-
-
-def plot_Granger(G, i, j):
-
-    ax = ppl.gca()
-    ax.set_xlabel("frequency (Hz)")
-    ax.set_ylabel(r"Granger causality(f)")
-    ax.plot(G.freq, G.data[0, :, i, j], label=f"Granger {i}-{j}", alpha=0.7, lw=1.3)
-    ax.set_ylim((-0.1, 1.3))
-
-
-def plot_coh(res, i, j, label=""):
-
-    ax = ppl.gca()
-    ax.set_xlabel("frequency (Hz)")
-    ax.set_ylabel("coherence $|CSD|^2$")
-    ax.plot(res.freq, res.data[0, :, i, j], label=label)
-    ax.legend()
 
 
 def plot_corr(res, i, j, label=""):

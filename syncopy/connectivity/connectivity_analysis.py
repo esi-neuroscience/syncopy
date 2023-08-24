@@ -333,7 +333,7 @@ def connectivityanalysis(
 
         # fix type, either channel name (str) or index (int)
         cmb_type = type(senders[0])
-        chan_avail = data.channel if cmb_type == 'str' else range(len(data.channel))
+        chan_avail = data.channel if cmb_type == str else range(len(data.channel))
 
         # repeat now with type check
         sequence_parser(senders, varname="channelcmb[senders,", content_type=cmb_type)
@@ -682,8 +682,6 @@ def connectivityanalysis(
                     with h5py.File(fname, "r+") as h5file:
                         dset = h5file['data']
 
-                        print(idx1, idx2, ch1, ch2)
-                        print(pair_out.data.shape, dset.shape)
                         # only direction sender(ch1) -> receiver(ch2)
                         dset[0, :, idx1, idx2] = pair_out.data[0, :, 0, 1]
 
