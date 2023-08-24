@@ -86,9 +86,10 @@ def connectivityanalysis(
 
     "coh" : (Multi-) tapered coherency estimate
         Compute the normalized cross spectral densities
-        between all channel combinations
+        between channel combinations
 
         * **output** : one of ('abs', 'pow', 'complex', 'angle', 'imag' or 'real')
+        * **channelcmb**: [senders, receivers], two sequences encoding channel names/indices
         * **jackknife**: set to `True` to compute the variance via jackknife resampling
 
         **Spectral analysis** (input is :class:`~syncopy.AnalogData`):
@@ -98,10 +99,13 @@ def connectivityanalysis(
         * **nTaper** : (optional) number of orthogonal tapers for slepian tapers
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
 
-    "csd" : ('Multi-) tapered cross spectral density estimate
-        Computes the cross spectral estimates between all channel combinations
+    "csd" : ('Multi-) tapered cross spectra
+        Computes the cross spectral estimates between channel combinations
 
-        output : complex cross spectra
+        output is fixed: complex cross spectra
+
+        * **channelcmb**: [senders, receivers], two sequences encoding channel names/indices
+        * **keeptrials**: set to False to get single-trial cross-spectra
 
         **Spectral analysis** (input is :class:`~syncopy.AnalogData`):
 
@@ -111,9 +115,15 @@ def connectivityanalysis(
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
 
     "ppc" : Pairwise phase consistency, see [Vinck2010]_
-        Computes the PPC phase locking index for all channel combinations
+        Computes the PPC phase locking index for channel combinations.
 
-        output : real ppc spectrum
+        NOTE: Computations for all channel pairs can be slow,
+        it is recommended to use the `channelcmb` parameter to compute only
+        desired channel pairs, as this can lead to a significant speed up.
+
+        output is fixed : real ppc spectrum
+
+        * **channelcmb**: [senders, receivers], two sequences encoding channel names/indices
 
         **Spectral analysis** (input is :class:`~syncopy.AnalogData`):
 
@@ -123,14 +133,17 @@ def connectivityanalysis(
         * **pad**: either pad to an absolute length in seconds or set to `'nextpow2'`
 
     "granger" : Spectral Granger-Geweke causality following [Dhamala2008]_
-        Computes linear causality estimates between
-        all channel combinations.
+        Computes linear causality estimates between channel combinations.
 
         WARNING: When inputting :class:`~syncopy.SpectralData` directly,
         it is very important that the previous `spy.freqanalysis` was
         done without foi/foilim specification as Granger causality needs all
         attainable frequencies (0, f_Nyquist)!
+        It is possible to compute many channel pairs at once (default behavior),
+        but this can be numerically unstable. The recommended way is to use
+        the `channelcmb` parameter, which triggers pair-wise computation.     
 
+        * **channelcmb**: [senders, receivers], two sequences encoding channel names/indices
         * **jackknife**: set to `True` to compute the variance via jackknife resampling
 
         **Spectral analysis** (input is :class:`~syncopy.AnalogData`):
@@ -189,10 +202,11 @@ def connectivityanalysis(
     channelcmb : [senders, receivers], list of array like, optional
         Two sequences ``senders`` and ``receivers`` encoding channel names or indices.
         such that connectivity measure gets computed only for those (senders x receivers)
-        channel combinations. Only supported for spectral measures `'coh', 'ppc', 'granger'`
+        channel combinations. Only supported for spectral measures ``'coh', 'csd', 'ppc', 'granger'``
         and requires :class:`~syncopy.SpectralData` as input data type.
     tapsmofrq : float or None
-        Only valid if ``method`` is ``'coh'`` or ``'granger'``.
+        Only valid if ``method`` is ``'coh'``, ``'csd'`` or ``'granger'`` and
+        input data is a :class:`~syncopy.AnalogData`.
         Enables multi-tapering and sets the amount of spectral
         smoothing with slepian tapers in Hz.
     nTaper : int or None
@@ -200,10 +214,13 @@ def connectivityanalysis(
         Number of orthogonal tapers to use for multi-tapering. It is not recommended to set the number
         of tapers manually! Leave at ``None`` for the optimal number to be set automatically.
     taper : str or None, optional
-        Only valid if ``method`` is ``'coh'`` or ``'granger'``. Windowing function,
+        Only valid if ``method`` is ``'coh'``, ``'csd'`` or ``'granger'`` and
+        input data is a :class:`~syncopy.AnalogData`. Windowing function,
         one of :data:`~syncopy.specest.const_def.availableTapers`
         For multi-tapering with slepian tapers use `tapsmofrq` directly.
     taper_opt : dict or None
+        Only valid if ``method`` is ``'coh'``, ``'csd'`` or ``'granger'`` and
+        input data is a :class:`~syncopy.AnalogData`.
         Dictionary with keys for additional taper parameters.
         For example :func:`~scipy.signal.windows.kaiser` has
         the additional parameter 'beta'. For multi-tapering set ``tapsmofrq`` directly.
@@ -241,14 +258,23 @@ def connectivityanalysis(
     >>> corr = spy.connectivityanalysis(adata, cfg)
     >>> corr.singlepanelplot(channel_i='channel8', channel_j='channel12', latency=[0, 0.2])
 
-    Estimate Granger causality between the same channels (re-using the cfg from above):
+    Estimate Granger causality only between channel pairs (0->3), (0->4), (2->3) and (2->4)
 
+    First compute a :class:`~syncopy.SpectralData` with complex dtype and
+    no frequency limitations (so no foi/foilim setting):
+
+    >>> spec = spy.freqanalysis(adata, output='complex')
+
+    Then the connectivity analysis:
+
+    >>> cfg = spy.StructDict()
     >>> cfg.method = 'granger'
-    >>> granger = spy.connectivityanalysis(adata, cfg)
+    >>> cfg.channelcmb = [[0, 2], [3, 4]]  # [senders, receivers]
+    >>> granger = spy.connectivityanalysis(spec, cfg)
 
-    Plot the results between 15Hz and 30Hz:
+    Plot the (2->4) results between 15Hz and 60Hz:
 
-    >>> granger.singlepanelplot(channel_i='channel8', channel_j='channel12', frequency=[15, 25])
+    >>> granger.singlepanelplot(channel_i='channel3', channel_j='channel5', frequency=[15, 60])
 
     Notes
     -----
