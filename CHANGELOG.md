@@ -2,6 +2,17 @@
 All notable changes to this project will be documented in this file.
 
 
+## Current WIP
+
+### NEW
+- Add channelcmb parameter to connectivityanalysis frontend to allow computing connectivity measures for a subset of the channels only, #563
+
+### Changed
+
+### Fixed
+
+
+
 ## [2023.07]
 
 ### NEW
