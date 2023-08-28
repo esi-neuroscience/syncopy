@@ -785,4 +785,4 @@ def sequence_parser(sequence, content_type=None, varname=""):
         for element in sequence:
             if not isinstance(element, content_type):
                 expected = content_type.__name__
-                raise SPYTypeError(element, varname=f"element of {varname}", expected=expected)
+                raise SPYTypeError(element, varname=f"item of {varname}", expected=expected)
