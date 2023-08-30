@@ -47,9 +47,14 @@ powerlinux:
         GIT_FETCH_EXTRA_FLAGS: --tags
     script:
     - rm -rf ~/.spy
-    - source /opt/conda/etc/profile.d/conda.sh
-    - conda clean --all -y
-    - conda install -n base conda-forge::mamba
+    #- wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+    #- bash Miniforge3.sh -b -p "${HOME}/conda"
+    - wget -O Mambaforge.sh  "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
+    - bash Mambaforge.sh -b -p "${HOME}/conda"
+    - source "${HOME}/conda/etc/profile.d/conda.sh"
+    - source "${HOME}/conda/etc/profile.d/mamba.sh"
+    - mamba activate base
+    - mamba clean --all -y
     - mamba env update -f syncopy.yml --prune
     - mamba activate syncopy
     - pip install pynwb==2.3.2
