@@ -49,8 +49,9 @@ powerlinux:
     - rm -rf ~/.spy
     - source /opt/conda/etc/profile.d/conda.sh
     - conda clean --all -y
-    - conda env update -f syncopy.yml --prune
-    - conda activate syncopy
+    - conda install -n base conda-forge::mamba
+    - mamba env update -f syncopy.yml --prune
+    - mamba activate syncopy
     - pip install pynwb==2.3.2
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
