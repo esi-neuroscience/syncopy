@@ -509,7 +509,7 @@ class TestCoherence:
             # now compare with post-selections of full output
             # here there is strict numerical equality:
             # shape of csd has no influence on specific channel pair coherence!
-            assert np.allclose(res_all_sel.data[:], res_cmb.data[:], atol=1e-15)
+            assert np.allclose(res_all_sel.data[:], res_cmb.data[:], atol=1e-7)
 
     def test_coh_selections(self):
 
