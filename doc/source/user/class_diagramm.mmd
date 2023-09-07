@@ -1,0 +1,48 @@
+%%{init: {'theme':'forest'}}%%
+classDiagram
+ 
+    BaseData <|-- ContinuousData
+    BaseData <|-- DiscreteData
+    
+    ContinuousData <|-- AnalogData
+    ContinuousData <|-- SpectralData
+    ContinuousData <|-- CrossSpectralData
+
+    DiscreteData <|-- SpikeData
+    DiscreteData <|-- EventData
+    
+    BaseData : float samplerate
+    BaseData : np.ndarray trialdefinition   
+    BaseData : iterable trials
+    BaseData : np.ndarray~str~ channel
+    BaseData : h5py.Dataset data
+
+    BaseData : show()
+    BaseData : selectdata()
+    BaseData : save()
+    BaseData : save_nwb()
+    BaseData : singlepanelplot()*
+
+    ContinuousData : np.ndarray~float~ time
+    DiscreteData : np.ndarray~int~ sample
+
+    class SpectralData{
+        np.ndarray~float~ freq
+        np.ndarray~str~ taper
+    }
+
+    class CrossSpectralData{
+        np.ndarray~float~ freq
+        np.ndarray~str~ taper
+        np.ndarray~str~ channel_i
+        np.ndarray~str~ channel_j
+    }
+
+    class SpikeData{
+        np.ndarray~str~ unit
+        np.ndarray~float~ waveform
+    }
+
+     class EventData{
+        np.ndarray~int~ eventid
+       }
