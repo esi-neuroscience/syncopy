@@ -51,7 +51,6 @@ powerlinux:
     - conda clean --all -y
     - conda env update -f syncopy.yml --prune
     - conda activate syncopy
-    - pip install pynwb==2.3.2
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
@@ -98,8 +97,6 @@ m1macos:
     - conda env update --name syncopy --file syncopy.yml --prune
     - conda activate syncopy
     #- conda install -c conda-forge importlib_resources iniconfig tblib sortedcontainers dask-jobqueue
-    #- conda install pynwb=2.4.0 -c conda-forge
-    - pip install pynwb==2.4.0
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
