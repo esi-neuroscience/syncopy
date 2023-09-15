@@ -255,6 +255,6 @@ def test_serializable_dict():
 
     with pytest.raises(SPYError, match="Wrong type of key"):
         dct[np.int64(12)] = 'some_string'
-    
+
 if __name__ == "__main__":
     T1 = TestTools()
