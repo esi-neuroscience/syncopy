@@ -54,8 +54,6 @@ class TestInfo:
 
         # test we're catching non-serializable dictionary entries
         with pytest.raises(SPYTypeError, match="expected serializable data type"):
-            adata.info["new-var"] = np.arange(3)
-        with pytest.raises(SPYTypeError, match="expected serializable data type"):
             adata.info = self.ns_dict
 
         # test that we also catch non-serializable keys

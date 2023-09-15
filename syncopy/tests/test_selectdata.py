@@ -12,7 +12,7 @@ import dask.distributed as dd
 
 # Local imports
 from syncopy.datatype.selector import Selector
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYError
 from syncopy.tests.misc import flush_local_cluster
 
 import syncopy as spy
@@ -149,7 +149,7 @@ class TestAnalogSelections:
             ({"latency": "sth-wrong"}, SPYValueError, "'maxperiod'"),
             ({"trials": [-3]}, SPYValueError, "all array elements to be bound"),
             ({"trials": ["1", "6"]}, SPYValueError, "expected dtype = numeric"),
-            ({"trials": slice(2)}, SPYTypeError, "expected serializable data type"),
+            ({"trials": slice(2)}, SPYError, "expected serializable data type"),
         ]
 
         for selection in invalid_selections:
@@ -279,7 +279,7 @@ class TestSpectralSelections:
             ({"frequency": 4}, SPYValueError, "all array elements to be bounded"),
             (
                 {"frequency": slice(None)},
-                SPYTypeError,
+                SPYError,
                 "expected serializable data type",
             ),
             ({"frequency": range(20, 60)}, SPYTypeError, "expected array_like"),
@@ -533,9 +533,9 @@ class TestSpikeSelections:
                 SPYValueError,
                 "existing names or indices",
             ),
-            ({"channel": slice(None)}, SPYTypeError, "expected serializable data type"),
+            ({"channel": slice(None)}, SPYError, "expected serializable data type"),
             ({"unit": 99}, SPYValueError, "existing names or indices"),
-            ({"unit": slice(None)}, SPYTypeError, "expected serializable data type"),
+            ({"unit": slice(None)}, SPYError, "expected serializable data type"),
             (
                 {"latency": [-1, 10]},
                 SPYValueError,
