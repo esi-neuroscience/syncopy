@@ -11,7 +11,7 @@ import inspect
 import json
 
 # Local imports
-from syncopy.shared.errors import SPYValueError, SPYWarning, SPYTypeError
+from syncopy.shared.errors import SPYValueError, SPYWarning, SPYTypeError, SPYError
 from syncopy.shared.parsers import sequence_parser
 
 __all__ = ["StructDict", "get_defaults"]
@@ -104,20 +104,22 @@ class SerializableDict(dict):
             self.is_json(key, value)
 
     def __setitem__(self, key, value):
+        # try simple serialization 1st
+        value = _serialize_value(value)
         self.is_json(key, value)
         dict.__setitem__(self, key, value)
 
     def is_json(self, key, value):
         try:
             json.dumps(value)
-        except TypeError:
-            lgl = "serializable data type, e.g. floats, lists, tuples, ... "
-            raise SPYTypeError(value, f"value {value} for key '{key}'", lgl)
+        except TypeError as err:
+            lgl = "expected serializable data type, e.g. floats, lists, tuples, ... "
+            raise SPYError(f"Wrong type of value of {key}: {err}, {lgl}")
         try:
             json.dumps(key)
-        except TypeError:
-            lgl = "serializable data type, e.g. floats, lists, tuples, ... "
-            raise SPYTypeError(value, f"key '{key}'", lgl)
+        except TypeError as err:
+            lgl = "expected serializable data type, e.g. floats, lists, tuples, ... "
+            raise SPYError(f"Wrong type of key of {key}: {err}, {lgl}")
 
 
 def _serialize_value(value):
@@ -127,10 +129,14 @@ def _serialize_value(value):
 
     Main task is to get rid of numpy data types which are not
     serializable (e.i. np.int64).
+
+    For trivial types like str just passes ``value`` through
     """
 
     if isinstance(value, np.ndarray):
+        # converts to Python scalars
         value = value.tolist()
+        return value
 
     if isinstance(value, range):
         value = list(value)
@@ -138,7 +144,10 @@ def _serialize_value(value):
     # unpack the list, if ppl mix types this will go wrong
     if isinstance(value, list) and len(value) != 0:
         if hasattr(value[0], "is_integer"):
-            value = [float(v) for v in value]
+            if value[0].is_integer():
+                value = [int(v) for v in value]
+            else:
+                value = [float(v) for v in value]
         # should only be the integers
         elif isinstance(value[0], Number) and not isinstance(value[0], bool):
             value = [int(v) for v in value]
