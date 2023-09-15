@@ -57,19 +57,11 @@ class TestInfo:
             adata.info = self.ns_dict
 
         # test that we also catch non-serializable keys
-        with pytest.raises(SPYTypeError, match="expected serializable data type"):
+        with pytest.raises(SPYError, match="expected serializable data type"):
             adata.info = self.ns_dict2
 
-        # this interestingly still does NOT work (numbers are np.float64):
-        with pytest.raises(SPYTypeError, match="expected serializable data type"):
-            adata.info["new-var"] = list(np.arange(3))
-
-        # even this.. numbers are still np.int64
-        with pytest.raises(SPYTypeError, match="expected serializable data type"):
-            adata.info["new-var"] = list(np.arange(3, dtype=int))
-
-        # this then works, hope is that users don't abuse it
-        adata.info["new-var"] = list(np.arange(3, dtype=float))
+        # this works, data types get converted from NumPy to Python scalars
+        adata.info["new-var"] = list(np.arange(3))
         assert np.allclose(adata.info["new-var"], np.arange(3))
 
     # test aux. info dict saving and loading
