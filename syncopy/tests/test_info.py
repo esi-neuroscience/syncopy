@@ -11,7 +11,7 @@ import os
 # Local imports
 import syncopy as spy
 from syncopy.shared.tools import SerializableDict
-from syncopy.shared.errors import SPYTypeError
+from syncopy.shared.errors import SPYTypeError, SPYError
 
 
 class TestInfo:
@@ -53,7 +53,7 @@ class TestInfo:
         assert len(self.ok_dict) != 0
 
         # test we're catching non-serializable dictionary entries
-        with pytest.raises(SPYTypeError, match="expected serializable data type"):
+        with pytest.raises(SPYError, match="expected serializable data type"):
             adata.info = self.ns_dict
 
         # test that we also catch non-serializable keys
