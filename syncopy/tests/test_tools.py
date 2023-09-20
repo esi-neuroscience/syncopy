@@ -3,8 +3,15 @@
 # Test shared tools.
 #
 
-import syncopy as spy
+import pytest
+import numpy as np
+import json
 import copy
+
+import syncopy as spy
+from syncopy.shared.tools import SerializableDict
+from syncopy.shared.errors import SPYError
+
 
 
 class TestTools:
@@ -172,6 +179,82 @@ class TestTools:
         assert cfg2.c == [1, 2, 3]
         assert cfg.c == [1, 2, 3, 4]
 
+
+def test_serializable_dict():
+
+    dct = SerializableDict()
+
+    # check standard types
+    dct['list'] = [str(i) + 'a' for i in range(10)]
+    assert len(dct['list']) == 10
+    assert dct['list'][9] == '9a'
+
+    dct['tuple'] = tuple(dct['list'])
+    assert len(dct['tuple']) == 10
+    assert dct['tuple'][9] == '9a'
+
+    dct['str'] = 'some_string'
+    assert dct['str'] == 'some_string'
+
+    dct['list2'] = [i / 239 for i in range(10)]
+    assert len(dct['list2']) == 10
+
+    dct['dict'] = {'d1': [1, 2, 3], 'd2': 'g'}
+    assert dct['dict']['d1'] == [1, 2, 3]
+    assert dct['dict']['d2'] == 'g'
+
+    # not serializable scalars
+
+    num1 = np.int64(12)
+    num2 = np.float128(12.12)
+
+    with pytest.raises(TypeError, match="not JSON"):
+        json.dumps(num1)
+
+    # gets converted to Python scalars
+    dct['int64'] = num1
+    assert isinstance(dct['int64'], int)
+
+    with pytest.raises(TypeError, match="not JSON"):
+        json.dumps(num2)
+
+    dct['float128'] = num2
+    assert isinstance(dct['float128'], float)
+
+    # now 1-level deep sequences which are NOT
+    # directly serializable
+
+    arr = np.arange(10)
+
+    with pytest.raises(TypeError, match="not JSON"):
+        json.dumps(arr)
+
+    # converted to list of python scalars
+    dct['arr'] = arr
+    assert isinstance(dct['arr'], list)
+
+    lst = [np.int64(12), np.int64(20)]
+
+    with pytest.raises(TypeError, match="not JSON"):
+        json.dumps(lst)
+
+    dct['list64'] = lst
+    assert isinstance(dct['list64'][1], int)
+
+    # 2 level deep nesting not supported
+
+    lst2 = [[np.int64(12)]]
+
+    with pytest.raises(TypeError, match="not JSON"):
+        json.dumps(lst2)
+
+    with pytest.raises(SPYError, match="expected serializable data type"):
+        dct['nested2'] = lst2
+
+    # keys also need to be serializable
+
+    with pytest.raises(SPYError, match="Wrong type of key"):
+        dct[np.int64(12)] = 'some_string'
 
 if __name__ == "__main__":
     T1 = TestTools()
