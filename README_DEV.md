@@ -28,10 +28,10 @@ This concludes the release to PyPI.
 
 Note: You need to release to PyPI first to start the conda release. Note that this requires that you have proper permissions on your Github account, i.e., you are a maintainer of the esi-syncopy package on conda-forge.
 
-* Go to https://github.com/esi-neuroscience/esi-syncopy-feedstock. Note that it is a fork. Do **not** work on this one! Go to the original conda source repo (follow link on repo website) and clone that one to your private Github account.
-* In your clone of the `esi-syncopy-feedstock` repo, in the file `recipe/meta.yaml`, do the following steps:
+* Go to https://github.com/esi-neuroscience/esi-syncopy-feedstock and clone the repo to your private Github account. If you already have a clone from the last release, navigate to it and click *sync fork* to update it.
+* In your up-to-date clone of the `esi-syncopy-feedstock` repo, create a new branch off main, e.g., ``release-2023.09`. In the new branch, in the file `recipe/meta.yaml`, do the following steps:
    - Update the version of the Syncopy package and use the file hash of the release on PyPI you did earlier (you can see the hash [here on PyPI](https://pypi.org/project/esi-syncopy/#files))
        * Beware: we typically have versions like `2023.07` on Github, and conda is fine with a version like that, too. However, PyPI removes the zero from `2023.07` in the package URL, so you cannot use  `{{ version }}` in the `source`..`url` field of the `meta.yml` file.
    - Check versions of packages in `meta.yml` here versus versions in `pyproject.toml`/`syncopy.yml` in the root of the Syncopy GitHub repo (they need not be 100% identical, but having to old versions in there may lead to security risks or unexpected behaviour with older/buggy package versions).
-   - Fill out the `PR` check list
-   - If the conditions listed in section [When to Rerender](https://conda-forge.org/docs/maintainer/updating_pkgs.html#when-to-rerender) in the conda documentation apply to the current change/release: request `@conda-forge-admin please rerender` via comment on GitHub. Important: this may require you to fork the feedstock repo to your private github account first and do it from there, because of github permission errors with organizations.
+   - Commit your changes and push to Github. Then to the Github website and create a PR against github.com/esi-neuroscience/esi-syncopy-feedstock (main branch).
+   - Fill out the PR checklist in the PR. If the conditions listed in section [When to Rerender](https://conda-forge.org/docs/maintainer/updating_pkgs.html#when-to-rerender) in the conda documentation apply to the current change/release: request `@conda-forge-admin please rerender` via comment on GitHub in the PR.
