@@ -12,7 +12,7 @@ import dask.distributed as dd
 
 # Local imports
 from syncopy.datatype.selector import Selector
-from syncopy.shared.errors import SPYValueError, SPYTypeError
+from syncopy.shared.errors import SPYValueError, SPYTypeError, SPYError
 from syncopy.tests.misc import flush_local_cluster
 
 import syncopy as spy
@@ -149,7 +149,7 @@ class TestAnalogSelections:
             ({"latency": "sth-wrong"}, SPYValueError, "'maxperiod'"),
             ({"trials": [-3]}, SPYValueError, "all array elements to be bound"),
             ({"trials": ["1", "6"]}, SPYValueError, "expected dtype = numeric"),
-            ({"trials": slice(2)}, SPYTypeError, "expected serializable data type"),
+            ({"trials": slice(2)}, SPYError, "expected serializable data type"),
         ]
 
         for selection in invalid_selections:
@@ -279,7 +279,7 @@ class TestSpectralSelections:
             ({"frequency": 4}, SPYValueError, "all array elements to be bounded"),
             (
                 {"frequency": slice(None)},
-                SPYTypeError,
+                SPYError,
                 "expected serializable data type",
             ),
             ({"frequency": range(20, 60)}, SPYTypeError, "expected array_like"),
@@ -367,11 +367,11 @@ class TestCrossSpectralSelections:
         # each selection test is a 2-tuple: (selection kwargs, dict with same kws and the idx "solutions")
         valid_selections = [
             (
-                {"channel_i": [0, 1], "channel_j": [1, 2], "latency": [1, 2]},
+                {"channel_i": [0, 1], "channel_j": [0, 2], "latency": [1, 2]},
                 # the 'solutions'
                 {
                     "channel_i": slice(0, 2, 1),
-                    "channel_j": slice(1, 3, 1),
+                    "channel_j": [0, 2],
                     "latency": 3 * [slice(0, 3, 1)],
                 },
             ),
@@ -400,19 +400,9 @@ class TestCrossSpectralSelections:
         # each selection test is a 3-tuple: (selection kwargs, Error, error message sub-string)
         invalid_selections = [
             (
-                {"channel_i": [0, 2]},
-                NotImplementedError,
-                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported",
-            ),
-            (
-                {"channel_i": [1, 0]},
-                NotImplementedError,
-                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported",
-            ),
-            (
-                {"channel_j": ["channel3", "channel1"]},
-                NotImplementedError,
-                r"Unordered \(low to high\) or non-contiguous multi-channel-pair selections not supported",
+                {"channel_i": [0, 4]},
+                SPYValueError,
+                r"existing names or indices"
             ),
         ]
 
@@ -543,9 +533,9 @@ class TestSpikeSelections:
                 SPYValueError,
                 "existing names or indices",
             ),
-            ({"channel": slice(None)}, SPYTypeError, "expected serializable data type"),
+            ({"channel": slice(None)}, SPYError, "expected serializable data type"),
             ({"unit": 99}, SPYValueError, "existing names or indices"),
-            ({"unit": slice(None)}, SPYTypeError, "expected serializable data type"),
+            ({"unit": slice(None)}, SPYError, "expected serializable data type"),
             (
                 {"latency": [-1, 10]},
                 SPYValueError,

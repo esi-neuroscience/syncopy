@@ -223,7 +223,7 @@ class TestPSTH:
                 alpha=0.7,
                 bottom=last_data,
                 width=0.9 / counts.samplerate,
-                label=chan,
+                label=str(chan),
                 yerr=yerr,
                 capsize=2,
             )

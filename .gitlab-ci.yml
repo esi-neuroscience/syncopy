@@ -48,17 +48,10 @@ powerlinux:
         TMPDIR: /tmp
     script:
     - rm -rf ~/.spy
-    #- wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-    #- bash Miniforge3.sh -b -p "${HOME}/conda"
-    - wget -O Mambaforge.sh  "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
-    - bash Mambaforge.sh -b -p "${HOME}/condamamba"
-    - source "${HOME}/condamamba/etc/profile.d/conda.sh"
-    - source "${HOME}/condamamba/etc/profile.d/mamba.sh"
-    - mamba activate base
-    - mamba clean --all -y
-    - mamba env update -f syncopy.yml --prune
-    - mamba activate syncopy
-    - pip install pynwb==2.3.2
+    - source /opt/conda/etc/profile.d/conda.sh
+    - conda clean --all -y
+    - conda env update -f syncopy.yml --prune
+    - conda activate syncopy
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'
@@ -105,8 +98,6 @@ m1macos:
     - conda env update --name syncopy --file syncopy.yml --prune
     - conda activate syncopy
     #- conda install -c conda-forge importlib_resources iniconfig tblib sortedcontainers dask-jobqueue
-    #- conda install pynwb=2.4.0 -c conda-forge
-    - pip install pynwb==2.4.0
     - export PYTHONPATH=$CI_PROJECT_DIR
     - pytest -ra -k 'not parallel'
     - pytest -ra -k 'parallel'

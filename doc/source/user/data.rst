@@ -23,6 +23,6 @@ More information about Syncopy's data class structure and file format.
 
 .. toctree::
 
-   ../developer/datatype
+   datatype
    ../developer/io
 
