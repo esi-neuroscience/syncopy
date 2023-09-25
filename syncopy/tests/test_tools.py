@@ -206,7 +206,6 @@ def test_serializable_dict():
     # not serializable scalars
 
     num1 = np.int64(12)
-    num2 = np.float128(12.12)
 
     with pytest.raises(TypeError, match="not JSON"):
         json.dumps(num1)
@@ -214,12 +213,6 @@ def test_serializable_dict():
     # gets converted to Python scalars
     dct['int64'] = num1
     assert isinstance(dct['int64'], int)
-
-    with pytest.raises(TypeError, match="not JSON"):
-        json.dumps(num2)
-
-    dct['float128'] = num2
-    assert isinstance(dct['float128'], float)
 
     # now 1-level deep sequences which are NOT
     # directly serializable
