@@ -5,11 +5,23 @@ All notable changes to this project will be documented in this file.
 ## Current WIP
 
 ### NEW
-- Add channelcmb parameter to connectivityanalysis frontend to allow computing connectivity measures for a subset of the channels only, #563
 
 ### Changed
 
 ### Fixed
+
+
+## [2023.09]
+
+### NEW
+- Add channelcmb parameter to connectivityanalysis frontend to allow computing connectivity measures for a subset of the channels only, #563
+- Add 'channelcmb' parameter to connectivityanalysis frontend. This allows users to compute connectivity measures only between a subset of the channels instead of all channels, which can reduce the required computational cost dramatically. See #565 for details.
+
+### Changed
+- Improvements to serializable dict: better error messages, add _serialize_value helper to try to turn some non-serializable data structures into compatible, serializable ones. #569
+
+### Fixed
+- Security fix: increase minimal required tornado version to 6.3.3 to address an issue in tornado.
 
 
 
