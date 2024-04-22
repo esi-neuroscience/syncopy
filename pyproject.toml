@@ -35,7 +35,7 @@ fooof = ">=1.0"
 bokeh = "^3.1.1"
 
 [tool.poetry.group.dev.dependencies]
-black = "^22.6.0"
+black = ">=22.6,<25.0"
 pytest = "^7.0"
 ipython = ">=8.10"
 pytest-cov = "^3.0.0"
