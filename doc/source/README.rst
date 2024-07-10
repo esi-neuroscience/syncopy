@@ -32,6 +32,11 @@ We strive to achieve the following goals:
 Want to contribute or just curious how the sausage
 is made? Take a look at our :doc:`Developer Guide <developer/developers>`.
 
+Citing Syncopy
+-----------------
+
+A pre-print paper on Syncopy is available `here on arxiv, with DOI 10.1101/2024.04.15.589590 <https://doi.org/10.1101/2024.04.15.589590>`_. Please cite this pre-print if you use Syncopy. In APA style, the citation is: Mönke, G., Schäfer, T., Parto-Dezfouli, M., Kajal, D. S., Fürtinger, S., Schmiedt, J. T., & Fries, P. (2024). *Systems Neuroscience Computing in Python (SyNCoPy): A Python Package for Large-scale Analysis of Electrophysiological Data.* bioRxiv, 2024-04.
+
 
 Tutorials and in depth Guides
 -----------------------------
@@ -41,14 +46,14 @@ Tutorials and in depth Guides
    :caption: Tutorials
 
    Preprocessing <tutorials/preprocessing>
-   Resampling <tutorials/resampling>   
+   Resampling <tutorials/resampling>
    Spectral Analysis <tutorials/freqanalysis>
    Connectivity Analysis <tutorials/connectivity>
 
 .. toctree::
    :maxdepth: 1
-   :caption: Guides	      
-   
+   :caption: Guides
+
    Basic Concepts <user/concepts>
    Syncopy for FieldTrip Users <user/fieldtrip>
    Handling Data <user/data>
