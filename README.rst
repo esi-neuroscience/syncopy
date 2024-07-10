@@ -38,6 +38,10 @@ Syncopy is developed at the
 and released free of charge under the
 `BSD 3-Clause "New" or "Revised" License <https://en.wikipedia.org/wiki/BSD_licenses#3-clause_license_(%22BSD_License_2.0%22,_%22Revised_BSD_License%22,_%22New_BSD_License%22,_or_%22Modified_BSD_License%22)>`_.
 
+News
+-----
+* 2024-04, **Pre-print on Syncopy available.** A pre-print paper on Syncopy is now available [here on arxiv, with DOI 10.1101/2024.04.15.589590](https://doi.org/10.1101/2024.04.15.589590). Please cite this pre-print if you use Syncopy. In APA style, the citation is: Mönke, G., Schäfer, T., Parto-Dezfouli, M., Kajal, D. S., Fürtinger, S., Schmiedt, J. T., & Fries, P. (2024). Systems Neuroscience Computing in Python (SyNCoPy): A Python Package for Large-scale Analysis of Electrophysiological Data. bioRxiv, 2024-04.
+
 Contact
 -------
 To report bugs or ask questions please use our `GitHub issue tracker <https://github.com/esi-neuroscience/syncopy/issues>`_.
